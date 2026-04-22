@@ -1,2 +1,2 @@
 [build]
-  root = "kagohc-backend"
+  root = "apps/kagohc-backend"
