@@ -1,1 +1,1 @@
-web: cd ./apps/kagohc-backend && npm start
+web: ls -la && echo "---" && ls -la apps/ && cd apps/kagohc-backend && npm start
