@@ -108,7 +108,7 @@ const PayrollPageContent: React.FC = () => {
       return;
     }
 
-    fetch('http://localhost:4000/api/v1/employees', {
+fetch('https://employee-evaluation-kago-e63baae4d822.herokuapp.com/api/v1/employees', {
       headers: {
         'Authorization': `Bearer ${token}`
       }
@@ -166,7 +166,7 @@ const PayrollPageContent: React.FC = () => {
   const addToPayroll = async (employee: PayrollEmployee) => {
     try {
       const token = localStorage.getItem('token');
-      const response = await fetch(`http://localhost:4000/api/v1/employees/${employee.id}`, {
+      const response = await fetch('https://employee-evaluation-kago-e63baae4d822.herokuapp.com/api/v1/employees', {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
@@ -267,7 +267,7 @@ Net Pay: ${formatCurrency(employee.netSalary || employee.basicSalary * 0.81)}
   const fetchEmployees = () => {
     const token = localStorage.getItem('token');
     if (!token) return;
-    fetch('http://localhost:4000/api/v1/employees', {
+    fetch('https://employee-evaluation-kago-e63baae4d822.herokuapp.com/api/v1/employees', {
       headers: { 'Authorization': `Bearer ${token}` }
     })
       .then(res => res.json())
@@ -298,7 +298,7 @@ Net Pay: ${formatCurrency(employee.netSalary || employee.basicSalary * 0.81)}
   const handleSavePayroll = async (updatedEmployee: PayrollEmployee) => {
     const token = localStorage.getItem('token');
     if (!token) throw new Error('Not authenticated');
-    const response = await fetch(`http://localhost:4000/api/v1/employees/${updatedEmployee.id}`, {
+    const response = await fetch('https://employee-evaluation-kago-e63baae4d822.herokuapp.com/api/v1/employees', {
       method: 'PUT',
       headers: {
         'Content-Type': 'application/json',
