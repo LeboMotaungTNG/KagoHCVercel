@@ -668,7 +668,7 @@ function ManageEmployeesContent() {
     }
 
     try {
-      const API_URL = 'https://employee-evaluation-kago-e63baae4d822.herokuapp.com/api/v1/onboarding/process-bulk';
+      const API_URL = 'http://localhost:4000/api/v1/onboarding/process-bulk';
       const res = await fetch(API_URL, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -702,7 +702,7 @@ function ManageEmployeesContent() {
     const draftData = { name: draftName, queue, timestamp: new Date().toISOString() };
 
     try {
-      const API_URL = 'https://employee-evaluation-kago-e63baae4d822.herokuapp.com/api/v1/onboarding/save-draft';
+      const DRAFT_API = 'http://localhost:4000/api/v1/onboarding/save-draft';
       const res = await fetch(DRAFT_API, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -817,7 +817,7 @@ function ManageEmployeesContent() {
 
     setUploading(true);
     try {
-     const API_URL = 'https://employee-evaluation-kago-e63baae4d822.herokuapp.com/api/v1/onboarding/extract-document';
+      const EXTRACT_API = 'http://localhost:4000/api/v1/onboarding/extract-document';
       const formPayload = new FormData();
       formPayload.append('document', file);
       const res = await fetch(EXTRACT_API, { method: 'POST', body: formPayload });
