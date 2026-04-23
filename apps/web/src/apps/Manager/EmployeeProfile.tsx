@@ -500,7 +500,7 @@ function EmployeeProfileContent() {
     const token = localStorage.getItem('token');
     if (!token) { setEmployeesLoadError('Not authenticated.'); return; }
     try {
-      const response = await fetch('https://employee-evaluation-kago-e63baae4d822.herokuapp.com/api/v1/employees', {
+      const response = await fetch('http://localhost:4000/api/v1/employees', {
         headers: { 'Authorization': `Bearer ${token}` }
       });
       const data = await response.json();
@@ -527,7 +527,7 @@ function EmployeeProfileContent() {
     const token = localStorage.getItem('token');
     if (!token) { setIsLoading(false); return; }
     try {
-      const response = await fetch(`https://employee-evaluation-kago-e63baae4d822.herokuapp.com/api/v1/employees/${employeeId}`, {
+      const response = await fetch(`http://localhost:4000/api/v1/employees/${employeeId}`, {
         headers: { 'Authorization': `Bearer ${token}` }
       });
       const data = await response.json();
@@ -665,7 +665,7 @@ function EmployeeProfileContent() {
     const token = localStorage.getItem('token');
     if (!token) { setIsSaving(false); return; }
     try {
-      const response = await fetch(`https://employee-evaluation-kago-e63baae4d822.herokuapp.com/api/v1/employees/${employeeId}`, {
+      const response = await fetch(`http://localhost:4000/api/v1/employees/${employee.id}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
         body: JSON.stringify({
@@ -731,7 +731,7 @@ function EmployeeProfileContent() {
     const token = localStorage.getItem('token');
     if (!token) return;
     try {
-      const response = await fetch(`https://employee-evaluation-kago-e63baae4d822.herokuapp.com/api/v1/employees/${employeeId}/status`, {
+      const response = await fetch(`http://localhost:4000/api/v1/employees/${employee.id}/status`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
         body: JSON.stringify({ status: newStatus })
