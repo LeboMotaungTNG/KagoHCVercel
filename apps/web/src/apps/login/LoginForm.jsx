@@ -8,7 +8,7 @@ import logoKago from "../../assets/images/kago-logo.png";
 import ButtonSubmit from "./ButtonSubmit";
 
 // API URL - connects to your backend
-const API_URL = import.meta.env.VITE_API_URL || "http://localhost:4000/api/v1";
+const API_URL = import.meta.env.VITE_API_URL || "https://employee-evaluation-kago-e63baae4d822.herokuapp.com/api/v1";
 
 const loginSchema = Yup.object({
   email: Yup.string()

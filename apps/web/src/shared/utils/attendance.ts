@@ -1,4 +1,4 @@
-ÔªøÔªøimport { useState, useEffect, useCallback, useMemo } from "react";
+?import { useState, useEffect, useCallback, useMemo } from "react";
 
 // =============================================================================
 // API Configuration
@@ -13,7 +13,7 @@ declare global {
   }
 }
 
-const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:4000/api/v1';
+const API_URL = import.meta.env.VITE_API_URL || 'https://employee-evaluation-kago-e63baae4d822.herokuapp.com/api/v1';
 
 // =============================================================================
 // TYPES (same as before)
@@ -125,7 +125,7 @@ export function addDays(base: Date, delta: number): Date {
 }
 
 export function fmtTime(raw: string | null | undefined): string {
-  if (!raw) return "‚Äî";
+  if (!raw) return "ó";
 
   // If already includes AM/PM (e.g., from legacy input), preserve with normalization.
   const ampmMatch = raw.match(/^(\d{1,2}:\d{2})\s*(AM|PM)$/i);
@@ -271,8 +271,8 @@ export function printAttendance(records: ManagerAttendanceRecord[]): boolean {
     <tr>
       <td>${r.full_name}</td><td>${r.employee_code}</td><td>${r.department}</td>
        <td><span class="badge badge-${r.status}">${r.status.replace("_"," ").toUpperCase()}</span></td>
-       <td>${r.clock_in ?? "‚Äî"}</td><td>${r.clock_out ?? "‚Äî"}</td>
-       <td>${r.work_hours != null ? r.work_hours + "h" : "‚Äî"}</td>
+       <td>${r.clock_in ?? "ó"}</td><td>${r.clock_out ?? "ó"}</td>
+       <td>${r.work_hours != null ? r.work_hours + "h" : "ó"}</td>
      </tr>`).join("");
 
   win.document.write(`<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8">
@@ -291,7 +291,7 @@ export function printAttendance(records: ManagerAttendanceRecord[]): boolean {
     <h1>Attendance Report</h1>
     <p>Generated: ${new Date().toLocaleString()} &nbsp;|&nbsp; Records: ${records.length}</p>
     <button class="no-print" onclick="window.print()">Print</button>
-    <table><thead>ÊçïËé∑<th>Employee</th><th>Code</th><th>Department</th>
+    <table><thead>??<th>Employee</th><th>Code</th><th>Department</th>
       <th>Status</th><th>Clock In</th><th>Clock Out</th><th>Hours</th>
      </tr></thead><tbody>${tableRows}</tbody></table>
     </body></html>`);
@@ -439,7 +439,7 @@ export function useEmployeeAttendance() {
           clockOutTime: time,
           sessionHours: hours
         });
-        showAlert(`Clocked out at ${fmtTime(time)} ‚Äî ${hours.toFixed(2)}h logged`, "success");
+        showAlert(`Clocked out at ${fmtTime(time)} ó ${hours.toFixed(2)}h logged`, "success");
         fetchHistory();
         fetchTodayStatus();
       } else {

@@ -1,4 +1,4 @@
-﻿
+
 import React, { useState, useEffect, useMemo } from "react";
 import SharedLayout from "./SharedLayout";
 import {
@@ -15,7 +15,7 @@ import {
   useManagerAttendance,
 } from "../../shared/utils/attendance";
 
-// â”€â”€â”€ Style Tokens â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// ─── Style Tokens ────────────────────────────────────────────────────────────
 
 const CARD: React.CSSProperties = {
   background: "#fff", borderRadius: 16, border: "1px solid #e4e7ec", padding: 24,
@@ -33,7 +33,7 @@ const AVATAR_COLORS = [
   "#0D9488", "#CA8A04", "#DB2777", "#EA580C", "#65A30D",
 ];
 
-// â”€â”€â”€ Icons â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// ─── Icons ───────────────────────────────────────────────────────────────────
 
 const Icon = {
   Calendar: () => (
@@ -110,7 +110,7 @@ const Icon = {
   ),
 };
 
-// â”€â”€â”€ Toast â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// ─── Toast ───────────────────────────────────────────────────────────────────
 
 const Toast: React.FC<{ message: string; type: "success" | "error" | "info"; onClose: () => void }> = ({ message, type, onClose }) => {
   const cfg = {
@@ -136,7 +136,7 @@ const Toast: React.FC<{ message: string; type: "success" | "error" | "info"; onC
   );
 };
 
-// â”€â”€â”€ Live Clock Banner â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// ─── Live Clock Banner ───────────────────────────────────────────────────────
 
 const LiveClock: React.FC = () => {
   const [now, setNow] = useState(new Date());
@@ -159,7 +159,7 @@ const LiveClock: React.FC = () => {
   );
 };
 
-// â”€â”€â”€ KPI Stat Card â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// ─── KPI Stat Card ───────────────────────────────────────────────────────────
 
 const StatCard: React.FC<{ label: string; value: string | number; sub?: string; icon: React.ReactNode; accentBg: string; accentColor: string }> = ({ label, value, sub, icon, accentBg, accentColor }) => (
   <div style={{ ...CARD, display: "flex", alignItems: "center", gap: 16, transition: "box-shadow 0.15s" }}
@@ -174,7 +174,7 @@ const StatCard: React.FC<{ label: string; value: string | number; sub?: string; 
   </div>
 );
 
-// â”€â”€â”€ Punctuality Leaderboard â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// ─── Punctuality Leaderboard ─────────────────────────────────────────────────
 
 function PunctualityBoard({ attendance }: { attendance: ManagerAttendanceRecord[] }) {
   const top5 = useMemo(() =>
@@ -240,7 +240,7 @@ function PunctualityBoard({ attendance }: { attendance: ManagerAttendanceRecord[
   );
 }
 
-// â”€â”€â”€ Status Donut Chart â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// ─── Status Donut Chart ──────────────────────────────────────────────────────
 
 function StatusDonut({ attendance }: { attendance: ManagerAttendanceRecord[] }) {
   const counts = useMemo(() => {
@@ -304,7 +304,7 @@ function StatusDonut({ attendance }: { attendance: ManagerAttendanceRecord[] }) 
   );
 }
 
-// â”€â”€â”€ 7-Day Attendance Trend â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// ─── 7-Day Attendance Trend ──────────────────────────────────────────────────
 
 function WeeklyTrend({ history }: { history: ManagerAttendanceRecord[] }) {
   const data = useMemo(() => {
@@ -368,7 +368,7 @@ function WeeklyTrend({ history }: { history: ManagerAttendanceRecord[] }) {
   );
 }
 
-// â”€â”€â”€ Weekly Heatmap â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// ─── Weekly Heatmap ──────────────────────────────────────────────────────────
 
 function WeeklyHeatmap({ history, employees }: { history: ManagerAttendanceRecord[]; employees: Employee[] }) {
   const { weekDays, grid } = useMemo(() => {
@@ -445,7 +445,7 @@ function WeeklyHeatmap({ history, employees }: { history: ManagerAttendanceRecor
   );
 }
 
-// â”€â”€â”€ Mini Calendar â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// ─── Mini Calendar ───────────────────────────────────────────────────────────
 
 function MiniCalendar({ attendance }: { attendance: ManagerAttendanceRecord[] }) {
   const today = new Date();
@@ -465,7 +465,7 @@ function MiniCalendar({ attendance }: { attendance: ManagerAttendanceRecord[] })
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 18 }}>
         <h3 style={{ margin: 0, fontSize: 15, fontWeight: 700, color: "#1d2939" }}>{curr.toLocaleString("default", { month: "long", year: "numeric" })}</h3>
         <div style={{ display: "flex", gap: 6 }}>
-          {(["â€¹", "â€º"] as const).map((arrow, i) => (
+          {(["‹", "›"] as const).map((arrow, i) => (
             <button key={arrow} onClick={() => setCurr(new Date(year, month + (i === 0 ? -1 : 1), 1))}
               style={{ width: 30, height: 30, borderRadius: 8, border: "1px solid #e4e7ec", background: "#fff", cursor: "pointer", fontSize: 16, color: "#667085", display: "flex", alignItems: "center", justifyContent: "center" }}>{arrow}</button>
           ))}
@@ -496,7 +496,7 @@ function MiniCalendar({ attendance }: { attendance: ManagerAttendanceRecord[] })
   );
 }
 
-// â”€â”€â”€ Department Breakdown â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// ─── Department Breakdown ────────────────────────────────────────────────────
 
 function DeptBreakdown({ attendance }: { attendance: ManagerAttendanceRecord[] }) {
   const data = useMemo(() => {
@@ -537,7 +537,7 @@ function DeptBreakdown({ attendance }: { attendance: ManagerAttendanceRecord[] }
   );
 }
 
-// â”€â”€â”€ Details Modal â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// ─── Details Modal ───────────────────────────────────────────────────────────
 
 function DetailsModal({ row, onClose, onExport }: { row: ManagerAttendanceRecord; onClose: () => void; onExport: (row: ManagerAttendanceRecord) => void }) {
   return (
@@ -561,7 +561,7 @@ function DetailsModal({ row, onClose, onExport }: { row: ManagerAttendanceRecord
             { label: "Employee", value: row.full_name }, { label: "Code", value: row.employee_code },
             { label: "Department", value: row.department }, { label: "Position", value: row.position },
             { label: "Clock In", value: fmtTime(row.clock_in) }, { label: "Clock Out", value: fmtTime(row.clock_out) },
-            { label: "Work Hours", value: row.work_hours != null ? `${row.work_hours.toFixed(2)}h` : "â€”" }, { label: "Date", value: row.date },
+            { label: "Work Hours", value: row.work_hours != null ? `${row.work_hours.toFixed(2)}h` : "—" }, { label: "Date", value: row.date },
           ].map(({ label, value }) => (
             <div key={label} style={{ background: "#f9fafb", borderRadius: 10, padding: "12px 16px" }}>
               <p style={{ margin: "0 0 4px", fontSize: 10, color: "#9ca3af", textTransform: "uppercase", letterSpacing: 0.9, fontWeight: 700 }}>{label}</p>
@@ -578,7 +578,7 @@ function DetailsModal({ row, onClose, onExport }: { row: ManagerAttendanceRecord
   );
 }
 
-// â”€â”€â”€ Main Content â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// ─── Main Content ────────────────────────────────────────────────────────────
 
 function AttendanceContent() {
   const {
@@ -663,7 +663,7 @@ function AttendanceContent() {
                           <td style={{ padding: "13px 16px", fontSize: 14, color: "#667085", fontVariantNumeric: "tabular-nums" }}>{fmtTime(row.clock_in)}</td>
                           <td style={{ padding: "13px 16px", fontSize: 14, color: "#667085", fontVariantNumeric: "tabular-nums" }}>{fmtTime(row.clock_out)}</td>
                           <td style={{ padding: "13px 16px", fontSize: 14 }}>
-                            {row.work_hours != null ? <strong style={{ color: "#1d2939" }}>{row.work_hours.toFixed(1)}h</strong> : <span style={{ color: "#9ca3af" }}>â€”</span>}
+                            {row.work_hours != null ? <strong style={{ color: "#1d2939" }}>{row.work_hours.toFixed(1)}h</strong> : <span style={{ color: "#9ca3af" }}>—</span>}
                           </td>
                         </tr>
                       ))}
@@ -771,7 +771,7 @@ function AttendanceContent() {
                           </td>
                           <td style={{ padding: "13px 16px", fontSize: 14, color: "#667085", fontVariantNumeric: "tabular-nums" }}>{fmtTime(row.clock_in)}</td>
                           <td style={{ padding: "13px 16px", fontSize: 14 }}>
-                            {row.work_hours != null ? <strong style={{ color: "#1d2939" }}>{row.work_hours.toFixed(1)}h</strong> : <span style={{ color: "#9ca3af" }}>â€”</span>}
+                            {row.work_hours != null ? <strong style={{ color: "#1d2939" }}>{row.work_hours.toFixed(1)}h</strong> : <span style={{ color: "#9ca3af" }}>—</span>}
                           </td>
                         </tr>
                       ))}
@@ -817,7 +817,7 @@ function AttendanceContent() {
   );
 }
 
-// â”€â”€â”€ Export â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// ─── Export ───────────────────────────────────────────────────────────────────
 
 const AttendancePage: React.FC = () => (
   <SharedLayout title="Attendance Tracker">

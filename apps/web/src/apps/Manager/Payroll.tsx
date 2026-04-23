@@ -1,13 +1,13 @@
-Ôªø/**
- * Payroll ‚Äì manager-facing payroll hub.
+/**
+ * Payroll ñ manager-facing payroll hub.
  *
  * Mirrors the legacy employer `payroll.html` screen at a high level:
  * - Summary cards for payroll metrics
  * - Tabs for Employees, Payroll Run, and Reports
  * - Inline table of employees with basic/net salary
- * - Guided 4‚Äëstep payroll run flow (setup, select, review, approve)
+ * - Guided 4-step payroll run flow (setup, select, review, approve)
  *
- * The implementation here is React‚Äëonly and uses mock data, but the
+ * The implementation here is React-only and uses mock data, but the
  * layout and content structure follow the HTML page closely so that
  * it can be wired to real APIs later.
  */
@@ -108,7 +108,7 @@ const PayrollPageContent: React.FC = () => {
       return;
     }
 
-    fetch('http://localhost:4000/api/v1/employees', {
+    fetch('https://employee-evaluation-kago-e63baae4d822.herokuapp.com/api/v1/employees', {
       headers: {
         'Authorization': `Bearer ${token}`
       }
@@ -166,7 +166,7 @@ const PayrollPageContent: React.FC = () => {
   const addToPayroll = async (employee: PayrollEmployee) => {
     try {
       const token = localStorage.getItem('token');
-      const response = await fetch(`http://localhost:4000/api/v1/employees/${employee.id}`, {
+      const response = await fetch(`https://employee-evaluation-kago-e63baae4d822.herokuapp.com/api/v1/employees/${employee.id}`, {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
@@ -267,7 +267,7 @@ Net Pay: ${formatCurrency(employee.netSalary || employee.basicSalary * 0.81)}
   const fetchEmployees = () => {
     const token = localStorage.getItem('token');
     if (!token) return;
-    fetch('http://localhost:4000/api/v1/employees', {
+    fetch('https://employee-evaluation-kago-e63baae4d822.herokuapp.com/api/v1/employees', {
       headers: { 'Authorization': `Bearer ${token}` }
     })
       .then(res => res.json())
@@ -298,7 +298,7 @@ Net Pay: ${formatCurrency(employee.netSalary || employee.basicSalary * 0.81)}
   const handleSavePayroll = async (updatedEmployee: PayrollEmployee) => {
     const token = localStorage.getItem('token');
     if (!token) throw new Error('Not authenticated');
-    const response = await fetch(`http://localhost:4000/api/v1/employees/${updatedEmployee.id}`, {
+    const response = await fetch(`https://employee-evaluation-kago-e63baae4d822.herokuapp.com/api/v1/employees/${updatedEmployee.id}`, {
       method: 'PUT',
       headers: {
         'Content-Type': 'application/json',
@@ -314,7 +314,7 @@ Net Pay: ${formatCurrency(employee.netSalary || employee.basicSalary * 0.81)}
       }),
     });
     if (!response.ok) throw new Error('Failed to update payroll information');
-    // Update local state immediately ‚Äî no need to re-fetch
+    // Update local state immediately ó no need to re-fetch
     setEmployees(prev => prev.map(e =>
       e.id === updatedEmployee.id ? updatedEmployee : e
     ));
@@ -718,15 +718,15 @@ Net Pay: ${formatCurrency(employee.netSalary || employee.basicSalary * 0.81)}
                       <td style={{ padding: "12px 16px", fontSize: 14, color: "#344054" }}>
                         <div>
                           <div>
-                            Basic: {emp.onPayroll ? formatCurrency(emp.basicSalary) : "‚Äî"}
+                            Basic: {emp.onPayroll ? formatCurrency(emp.basicSalary) : "ó"}
                           </div>
                           <div>
-                            Net: {emp.onPayroll ? formatCurrency(emp.netSalary) : "‚Äî"}
+                            Net: {emp.onPayroll ? formatCurrency(emp.netSalary) : "ó"}
                           </div>
                           <div style={{ fontSize: 12, color: "#98a2b3" }}>
                             {emp.onPayroll ? (
                               <>
-                                {emp.paymentFrequency} ‚Ä¢ {emp.employmentType}
+                                {emp.paymentFrequency} ï {emp.employmentType}
                               </>
                             ) : (
                               <span style={{ color: "#b45309" }}>Not on payroll</span>
@@ -906,7 +906,7 @@ Net Pay: ${formatCurrency(employee.netSalary || employee.basicSalary * 0.81)}
                           transition: "all 0.2s ease",
                         }}
                       >
-                        {isCompleted ? "‚úì" : stepIndex}
+                        {isCompleted ? "?" : stepIndex}
                       </div>
                       <span
                         style={{
@@ -1215,7 +1215,7 @@ Net Pay: ${formatCurrency(employee.netSalary || employee.basicSalary * 0.81)}
                     {selectedEmployees.length} of {employees.filter((e) => e.onPayroll).length} employees selected
                   </span>
                   <div style={{ color: "#1d4ed8", marginTop: 2 }}>
-                    Est. Gross: {formatCurrency(totalGrossSelected)} ‚Ä¢ Est. Net:{" "}
+                    Est. Gross: {formatCurrency(totalGrossSelected)} ï Est. Net:{" "}
                     {formatCurrency(totalNetSelected)}
                   </div>
                 </div>
@@ -1302,7 +1302,7 @@ Net Pay: ${formatCurrency(employee.netSalary || employee.basicSalary * 0.81)}
                                   color: "#98a2b3",
                                 }}
                               >
-                                {emp.department} ‚Ä¢ {emp.position}
+                                {emp.department} ï {emp.position}
                               </div>
                             </div>
                           </div>
@@ -1743,7 +1743,7 @@ Net Pay: ${formatCurrency(employee.netSalary || employee.basicSalary * 0.81)}
               }}
             >
               <h5 style={{ margin: "0 0 4px", fontSize: 14, fontWeight: 700, color: "#312e81" }}>
-                EMP201 ‚Äì Monthly SARS
+                EMP201 ñ Monthly SARS
               </h5>
               <p style={{ margin: "0 0 12px", fontSize: 12, color: "#4f46e5" }}>
                 Employer declaration for PAYE, UIF and SDL.
@@ -1793,7 +1793,7 @@ Net Pay: ${formatCurrency(employee.netSalary || employee.basicSalary * 0.81)}
               }}
             >
               <h5 style={{ margin: "0 0 4px", fontSize: 14, fontWeight: 700, color: "#7f1d1d" }}>
-                EMP501 ‚Äì Annual Reconciliation
+                EMP501 ñ Annual Reconciliation
               </h5>
               <p style={{ margin: "0 0 12px", fontSize: 12, color: "#b91c1c" }}>
                 Annual employer reconciliation declaration for SARS.
@@ -2006,7 +2006,7 @@ Net Pay: ${formatCurrency(employee.netSalary || employee.basicSalary * 0.81)}
                       justifyContent: "center",
                     }}
                   >
-                    <span style={{ fontSize: 16 }}>‚Çø</span>
+                    <span style={{ fontSize: 16 }}>?</span>
                   </div>
                   <div>
                     <div
@@ -2046,7 +2046,7 @@ Net Pay: ${formatCurrency(employee.netSalary || employee.basicSalary * 0.81)}
                       justifyContent: "center",
                     }}
                   >
-                    <span style={{ fontSize: 16 }}>üè¢</span>
+                    <span style={{ fontSize: 16 }}>??</span>
                   </div>
                   <div>
                     <div
@@ -2086,7 +2086,7 @@ Net Pay: ${formatCurrency(employee.netSalary || employee.basicSalary * 0.81)}
                       justifyContent: "center",
                     }}
                   >
-                    <span style={{ fontSize: 16 }}>‚¨áÔ∏è</span>
+                    <span style={{ fontSize: 16 }}>??</span>
                   </div>
                   <div>
                     <div

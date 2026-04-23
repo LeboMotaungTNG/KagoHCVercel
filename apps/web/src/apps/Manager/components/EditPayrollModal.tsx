@@ -1,4 +1,4 @@
-﻿import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect } from 'react';
 
 interface PayrollEmployee {
   id: string;
@@ -90,7 +90,7 @@ const EditPayrollModal: React.FC<EditPayrollModalProps> = ({ isOpen, employee, o
               color: '#667085'
             }}
           >
-            ×
+            �
           </button>
         </div>
 

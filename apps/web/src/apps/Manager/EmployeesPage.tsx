@@ -1,8 +1,8 @@
-ï»¿import React, { useState, useEffect, useCallback } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import SharedLayout from "./SharedLayout";
 
-const API_URL  = import.meta.env.VITE_API_URL || "http://localhost:4000/api/v1";
+const API_URL  = import.meta.env.VITE_API_URL || "https://employee-evaluation-kago-e63baae4d822.herokuapp.com/api/v1";
 const getToken = () => localStorage.getItem("token") || "";
 
 const AVATAR_COLORS = ["#E6A79E","#12b76a","#f79009","#ee46bc","#7a5af8","#f04438","#0891b2","#059669"];
@@ -64,7 +64,7 @@ function EmployeesContent() {
     <div style={{ maxWidth: 1200, margin: "0 auto" }}>
       <div style={{ marginBottom: 24 }}>
         <h2 style={{ fontSize: 22, fontWeight: 700, color: "#1d2939", margin: 0 }}>All Employees</h2>
-        <p style={{ margin: "4px 0 0", fontSize: 14, color: "#667085" }}>Home â€º All Employees</p>
+        <p style={{ margin: "4px 0 0", fontSize: 14, color: "#667085" }}>Home › All Employees</p>
       </div>
 
       <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(200px,1fr))", gap: 16, marginBottom: 24 }}>
@@ -88,7 +88,7 @@ function EmployeesContent() {
             <p style={{ margin: "4px 0 0", fontSize: 13, color: "#667085" }}>Showing {filtered.length} of {employees.length}</p>
           </div>
           <div style={{ display: "flex", gap: 10 }}>
-            <input type="text" placeholder="Search employeesâ€¦" value={search} onChange={e => setSearch(e.target.value)}
+            <input type="text" placeholder="Search employees…" value={search} onChange={e => setSearch(e.target.value)}
               style={{ height: 40, width: 260, borderRadius: 8, border: "1px solid #d1d5db", padding: "0 12px", fontSize: 14, outline: "none" }} />
             <button onClick={fetchEmployees} style={{ padding: "8px 16px", borderRadius: 8, border: "none", background: "#E6A79E", color: "#fff", fontSize: 14, fontWeight: 500, cursor: "pointer" }}>Refresh</button>
             <button onClick={() => navigate("/manager/manage-employees")} style={{ padding: "8px 16px", borderRadius: 8, border: "none", background: "#1d2939", color: "#fff", fontSize: 14, fontWeight: 500, cursor: "pointer" }}>+ Add</button>
@@ -101,7 +101,7 @@ function EmployeesContent() {
           <div style={{ padding: "48px 0", textAlign: "center" }}>
             <div style={{ display: "inline-block", width: 36, height: 36, border: "3px solid #f3f4f6", borderTopColor: "#E6A79E", borderRadius: "50%", animation: "spin 0.8s linear infinite" }} />
             <style>{`@keyframes spin{to{transform:rotate(360deg)}}`}</style>
-            <p style={{ marginTop: 12, color: "#9ca3af" }}>Loading employeesâ€¦</p>
+            <p style={{ marginTop: 12, color: "#9ca3af" }}>Loading employees…</p>
           </div>
         ) : (
           <div style={{ overflowX: "auto", borderRadius: 12, border: "1px solid #e4e7ec" }}>
@@ -133,7 +133,7 @@ function EmployeesContent() {
                       </div>
                     </td>
                     <td style={{ padding: "12px 16px", fontSize: 14, color: "#667085" }}>{getDept(emp)}</td>
-                    <td style={{ padding: "12px 16px", fontSize: 14, color: "#667085" }}>{emp.position || "â€”"}</td>
+                    <td style={{ padding: "12px 16px", fontSize: 14, color: "#667085" }}>{emp.position || "—"}</td>
                     <td style={{ padding: "12px 16px" }}>
                       <span style={{ display: "inline-block", padding: "2px 10px", borderRadius: 20, fontSize: 12, fontWeight: 600,
                         background: emp.status === "active" ? "#ecfdf3" : "#fef3c7",
