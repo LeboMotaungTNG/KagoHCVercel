@@ -6,7 +6,7 @@ import React from "react";
 
 export const PAGE_SIZE = 10;
 
-export const API_BASE = "https://employee-evaluation-kago-e63baae4d822.herokuapp.com/api/v1/leave";
+export const API_BASE = "http://localhost:4000/api/v1/leave";
 
 // â”€â”€â”€ Domain Types â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
