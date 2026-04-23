@@ -1,4 +1,4 @@
-?import { useState, useEffect, useCallback, useMemo } from "react";
+import { useState, useEffect, useCallback, useMemo } from "react";
 
 // =============================================================================
 // API Configuration
@@ -125,7 +125,7 @@ export function addDays(base: Date, delta: number): Date {
 }
 
 export function fmtTime(raw: string | null | undefined): string {
-  if (!raw) return "—";
+  if (!raw) return "â€”";
 
   // If already includes AM/PM (e.g., from legacy input), preserve with normalization.
   const ampmMatch = raw.match(/^(\d{1,2}:\d{2})\s*(AM|PM)$/i);
@@ -271,8 +271,8 @@ export function printAttendance(records: ManagerAttendanceRecord[]): boolean {
     <tr>
       <td>${r.full_name}</td><td>${r.employee_code}</td><td>${r.department}</td>
        <td><span class="badge badge-${r.status}">${r.status.replace("_"," ").toUpperCase()}</span></td>
-       <td>${r.clock_in ?? "—"}</td><td>${r.clock_out ?? "—"}</td>
-       <td>${r.work_hours != null ? r.work_hours + "h" : "—"}</td>
+       <td>${r.clock_in ?? "â€”"}</td><td>${r.clock_out ?? "â€”"}</td>
+       <td>${r.work_hours != null ? r.work_hours + "h" : "â€”"}</td>
      </tr>`).join("");
 
   win.document.write(`<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8">
@@ -439,7 +439,7 @@ export function useEmployeeAttendance() {
           clockOutTime: time,
           sessionHours: hours
         });
-        showAlert(`Clocked out at ${fmtTime(time)} — ${hours.toFixed(2)}h logged`, "success");
+        showAlert(`Clocked out at ${fmtTime(time)} â€” ${hours.toFixed(2)}h logged`, "success");
         fetchHistory();
         fetchTodayStatus();
       } else {
