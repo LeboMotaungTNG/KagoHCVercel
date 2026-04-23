@@ -2,7 +2,7 @@
 import { useNavigate } from "react-router-dom";
 import SharedLayout from "./SharedLayout";
 
-const API_URL = import.meta.env.VITE_API_URL || "https://employee-evaluation-kago-e63baae4d822.herokuapp.com/api/v1";
+const API_URL  = import.meta.env.VITE_API_URL || "http://localhost:4000/api/v1";
 const getToken = () => localStorage.getItem("token") || "";
 
 const AVATAR_COLORS = ["#E6A79E","#12b76a","#f79009","#ee46bc","#7a5af8","#f04438","#0891b2","#059669"];
