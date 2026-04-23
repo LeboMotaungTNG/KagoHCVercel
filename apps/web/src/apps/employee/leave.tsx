@@ -4,7 +4,7 @@ import { Calendar, Plus, FileText, Clock, CheckCircle, XCircle } from "lucide-re
 import SharedLayout from "./SharedLayout";
 
 // API URL
-const API_URL = 'https://employee-evaluation-kago-e63baae4d822.herokuapp.com/api/v1';
+const API_URL = 'http://localhost:4000/api/v1';
 
 interface LeaveRequest {
   _id: string;
