@@ -3,6 +3,7 @@ import { Link, useNavigate, Routes, Route, useLocation } from "react-router-dom"
 import {
   Users, Building2, Home, PenTool, Menu, Bell, LogOut, Award, ChevronDown, ChevronRight
 } from "lucide-react";
+import { performLogout } from "../../shared/utils/session-manager";
 // @ts-ignore
 import logoKago from "../../assets/images/logo-black-white.png";
 
@@ -154,7 +155,7 @@ const OwnerHeader = () => {
               type="button"
               className="btn header-item waves-effect"
               style={{ display: "flex", alignItems: "center", gap: "10px" }}
-              onClick={() => navigate("/login")}
+              onClick={() => performLogout(navigate)}
             >
               <div 
                 className="rounded-circle header-profile-user" 
