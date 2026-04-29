@@ -1,0 +1,42 @@
+/* Wrapper around PhoneInput for consistent appearance */
+.phone-input-container {
+  position: relative;
+  display: inline-block;
+  width: 100%; /* or 100% if you want it to be responsive */
+  border: 1px solid #e9eef3; /* Match your form inputs' border */
+  border-radius: 7px;
+  overflow: hidden;
+  padding-left: 7px; /* Ensures nothing spills out of the border-radius */
+}
+
+/* Style adjustments for the PhoneInput */
+.custom-phone-input .PhoneInputInput {
+  border: none; /* Remove the default border */
+  outline: none; /* Remove the outline on focus */
+  box-shadow: none; /* Remove any default shadow */
+  height: 38px; /* Match the height of your other inputs */
+  padding-left: 3px; /* Make space for the flag inside the input */
+  /* Adjust font properties as needed to match other inputs */
+}
+
+/* Adjust the flag and dropdown button positioning */
+.custom-phone-input .PhoneInputCountrySelect,
+.custom-phone-input .PhoneInputCountrySelectArrow {
+  position: absolute;
+  top: 50%;
+  transform: translateY(-50%);
+  left: 1px; /* Adjust as needed to align the flag */
+  height: 36px; /* Adjust the flag height to fit within the input */
+  display: flex;
+  align-items: center;
+}
+
+.custom-phone-input .PhoneInputCountrySelectArrow {
+  display: none; /* Optionally hide the dropdown arrow for a cleaner look */
+}
+
+/* Ensure the flag icon fits nicely */
+.custom-phone-input .PhoneInputFlag {
+  width: auto;
+  height: 100%;
+}
