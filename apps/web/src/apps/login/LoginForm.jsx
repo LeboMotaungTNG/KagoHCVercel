@@ -6,6 +6,7 @@ import * as Yup from "yup";
 
 import logoKago from "../../assets/images/kago-logo.png";
 import ButtonSubmit from "./ButtonSubmit";
+import { sessionManager } from "../../shared/utils/session-manager";
 
 // API URL - connects to your backend
 const API_URL = import.meta.env.VITE_API_URL || "https://employee-evaluation-kago-e63baae4d822.herokuapp.com/api/v1";
@@ -55,6 +56,9 @@ const LoginForm = () => {
           // Store token and user data
           localStorage.setItem('token', data.data.token);
           localStorage.setItem('user', JSON.stringify(data.data.user));
+          
+          // Initialize session tracking (30 min timeout)
+          sessionManager.initialize();
           
           // Navigate based on role
           if (data.data.user.role === 'admin') {

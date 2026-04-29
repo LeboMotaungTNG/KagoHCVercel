@@ -30,7 +30,7 @@ export class AuthService {
         lastName: user.lastName
       },
       process.env.JWT_SECRET || 'your-secret-key',
-      { expiresIn: '24h' }
+      { expiresIn: '30m' }
     );
 
     const refreshToken = jwt.sign(
@@ -77,7 +77,7 @@ export class AuthService {
         lastName: user.lastName
       },
       process.env.JWT_SECRET || 'your-secret-key',
-      { expiresIn: '24h' }
+      { expiresIn: '30m' }
     );
 
     const refreshToken = jwt.sign(
@@ -122,7 +122,7 @@ export class AuthService {
           lastName: user.lastName
         },
         process.env.JWT_SECRET || 'your-secret-key',
-        { expiresIn: '24h' }
+        { expiresIn: '30m' }
       );
 
       return { token };
