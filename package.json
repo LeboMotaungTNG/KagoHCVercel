@@ -1,0 +1,17 @@
+{
+  "name": "kagohc",
+  "version": "1.0.0",
+  "private": true,
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
+  "scripts": {
+    "start": "npm run dev --workspace web",
+    "dev": "npm run dev --workspace web",
+    "build": "npm run build --workspace web"
+  },
+  "dependencies": {
+    "mongoose": "^9.4.1"
+  }
+}
