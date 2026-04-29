@@ -14,7 +14,7 @@ import leaveRoutes from './modules/leave/routes/leave.routes';
 import payrollRoutes from './modules/payroll/routes/payroll.routes';
 import disciplinaryRoutes from './modules/disciplinary/routes/disciplinary.routes';
 import kpiRoutes from './modules/kpi/routes/kpi.routes';
-import auditLogRoutes from './modules/logs/log.routes';
+import auditLogRoutes from './modules/audit/routes/adminRoutes';
 import onboardingRoutes from './modules/onboarding/routes/onboarding.routes';
 
 dotenv.config();
