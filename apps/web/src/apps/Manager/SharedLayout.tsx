@@ -17,7 +17,6 @@ import {
   Bell,
   LogOut,
 } from "lucide-react";
-import { performLogout } from "../../shared/utils/session-manager";
 // @ts-ignore
 import logoKago from "../../assets/images/logo-black-white.png";
 
@@ -235,7 +234,11 @@ const ManagerHeader: React.FC = () => {
               type="button"
               className="btn header-item waves-effect"
               style={{ display: "flex", alignItems: "center", gap: "10px" }}
-              onClick={() => performLogout(navigate)}
+              onClick={() => {
+                localStorage.removeItem('token');
+                localStorage.removeItem('user');
+                navigate("/login");
+              }}
             >
               <div
                 className="rounded-circle header-profile-user"
