@@ -61,13 +61,11 @@ const LoginForm = () => {
           sessionManager.initialize();
           
           // Navigate based on role
-        if (data.data.user.role === 'owner') {
-    navigate("/owner");
-} else if (data.data.user.role === 'admin') {
-    navigate("/manager");
-} else {
-    navigate("/employee");
-}
+          if (data.data.user.role === 'admin') {
+            navigate("/manager");
+          } else {
+            navigate("/employee");
+          }
         } else {
           setLoginError(data.error?.message || "Invalid email or password.");
         }
