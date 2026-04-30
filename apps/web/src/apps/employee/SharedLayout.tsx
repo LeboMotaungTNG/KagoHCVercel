@@ -12,7 +12,6 @@ import {
   Bell,
   LogOut,
 } from "lucide-react";
-import { performLogout } from "../../shared/utils/session-manager";
 // @ts-ignore
 import logoKago from "../../assets/images/logo-black-white.png";
 
@@ -251,7 +250,7 @@ const EmployeeHeader: React.FC = () => {
               type="button"
               className="btn header-item waves-effect"
               style={{ display: "flex", alignItems: "center", gap: "10px" }}
-              onClick={() => performLogout(navigate)}
+              onClick={() => navigate("/login")}
             >
               <div
                 className="rounded-circle header-profile-user"
