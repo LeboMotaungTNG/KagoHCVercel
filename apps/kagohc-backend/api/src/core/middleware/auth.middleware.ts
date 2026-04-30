@@ -26,11 +26,16 @@ export const authMiddleware = async (
       throw new UnauthorizedError('No token provided');
     }
 
-    const decoded = jwt.verify(token, process.env.JWT_SECRET || 'your-secret-key');
+const decoded = jwt.verify(token, process.env.JWT_SECRET || 'your-secret-key');
+    
+    const userId = (decoded as any).userId || (decoded as any)._id;
+    console.log('Auth middleware - decoded token:', JSON.stringify(decoded));
+    console.log('Auth middleware - extracted userId:', userId);
     
     // Make sure we're attaching the user with all fields
     req.user = {
-      _id: (decoded as any).userId || (decoded as any)._id,
+      _id: userId,
+      userId: userId,
       email: (decoded as any).email,
       role: (decoded as any).role,
       firstName: (decoded as any).firstName,

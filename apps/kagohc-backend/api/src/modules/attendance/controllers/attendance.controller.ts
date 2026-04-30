@@ -72,24 +72,46 @@ export const attendanceController = {
     }
   },
 
-  // Clock in
+// Clock in
   clockIn: async (req: Request, res: Response) => {
     try {
       const userId = req.user?._id;
+      console.log('clockIn - Full req.user:', JSON.stringify(req.user));
       if (!userId) {
         return res.status(401).json({ 
           success: false, 
-          error: 'User ID is missing' 
+          message: 'Authentication required. Please log in again.',
+          error: 'User ID is missing from token' 
         });
       }
-      const { notes } = req.body;
-      console.log('clockIn controller called for userId:', userId);
-      const record = await AttendanceService.clockIn(userId, notes);
+      
+      const { notes, date } = req.body;
+      console.log('clockIn controller called for userId:', userId, 'with date:', date);
+      
+      const record = await AttendanceService.clockIn(userId, notes, date);
       console.log('Clock in successful, returning record:', record._id);
       successResponse(res, 200, 'Clocked in successfully', normalizeAttendanceRecord(record));
     } catch (error) {
       console.error('Error in clockIn controller:', error);
       const message = error instanceof Error ? error.message : 'Unknown error';
+      
+      // Return specific error messages for known issues
+      if (message.includes('not found for user') || message.includes('Employee not found')) {
+        return res.status(400).json({ 
+          success: false, 
+          message: 'Employee profile not found. Please contact HR to set up your employee account.',
+          error: message
+        });
+      }
+      
+      if (message.includes('Already clocked in')) {
+        return res.status(400).json({ 
+          success: false, 
+          message: message,
+          error: message
+        });
+      }
+      
       res.status(500).json({ 
         success: false, 
         message: message,

@@ -1,27 +1,28 @@
 ﻿import { Request, Response, NextFunction } from 'express';
 import { PayrollService } from '../services/payroll.service';
+import { PayrollSettingsService } from '../services/payroll-settings.service';
 import { successResponse } from '../../../core/utils/response';
 import { AppError } from '../../../core/errors/AppError';
 import { AuditHelper } from '../../../core/utils/audit.helper';
 
 const payrollService = new PayrollService();
-
-const DEFAULT_SETTINGS = {
-  uif_employee_rate: 1, uif_employer_rate: 1, sdl_rate: 1, sdl_minimum_threshold: 0,
-  overtime_normal_rate: 1.5, overtime_weekend_rate: 2.0, overtime_holiday_rate: 2.5,
-  medical_aid_percentage: 10, pension_percentage: 15, annual_bonus_percentage: 8.33, annual_leave_days: 21
-};
+const payrollSettingsService = new PayrollSettingsService();
 
 export class PayrollController {
   
   async getSettings(req: Request, res: Response, next: NextFunction) {
-    try { successResponse(res, 200, 'Payroll settings retrieved', DEFAULT_SETTINGS); }
+    try { 
+      const settings = await payrollSettingsService.getFormattedSettings();
+      successResponse(res, 200, 'Payroll settings retrieved', settings); 
+    }
     catch (error) { next(error); }
   }
   
   async updateSettings(req: Request, res: Response, next: NextFunction) {
     try {
+      const userId = (req.user as any)._id;
       const settings = req.body;
+      await payrollSettingsService.updateSettings(settings, userId);
       await AuditHelper.log(req, 'UPDATE', 'SYSTEM', undefined, 'SUCCESS', { after: settings }, 'Payroll settings updated');
       successResponse(res, 200, 'Payroll settings updated', settings);
     } catch (error) {
@@ -33,10 +34,12 @@ export class PayrollController {
   async generatePayrollRun(req: Request, res: Response, next: NextFunction) {
     try {
       const userId = (req.user as any)._id;
-      const { period_name, period_type, start_date, end_date, payment_date, employee_ids, settings = DEFAULT_SETTINGS } = req.body;
+      const { period_name, period_type, start_date, end_date, payment_date, employee_ids } = req.body;
+      // Get saved settings from database
+      const savedSettings = await payrollSettingsService.getSettings();
       const payroll = await payrollService.generatePayrollRun(
         period_name, period_type, new Date(start_date), new Date(end_date), new Date(payment_date),
-        employee_ids, { ...DEFAULT_SETTINGS, ...settings }, userId
+        employee_ids, savedSettings.toObject(), userId
       );
       await AuditHelper.log(req, 'CREATE', 'SYSTEM', payroll._id.toString(), 'SUCCESS', { after: { payroll_id: payroll.payroll_id, period_name, employees: payroll.employees.length } });
       successResponse(res, 201, 'Payroll run generated', payroll);

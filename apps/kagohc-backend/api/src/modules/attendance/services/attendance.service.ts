@@ -18,20 +18,46 @@ async function findEmployeeByUserId(userId: string): Promise<IEmployee | null> {
   try {
     console.log('Finding employee for userId:', userId);
     
-    // Convert string userId to ObjectId if needed
-    let query: any = { userId };
-    
-    // Try both as string and ObjectId
-    try {
-      if (mongoose.Types.ObjectId.isValid(userId)) {
-        query = { $or: [{ userId }, { userId: new mongoose.Types.ObjectId(userId) }] };
-      }
-    } catch (e) {
-      // userId might not be a valid ObjectId, use string only
+    if (!userId) {
+      console.error('findEmployeeByUserId: userId is null or empty');
+      return null;
     }
     
-    const employee = await Employee.findOne(query).exec();
-    console.log('Employee lookup result:', employee ? { id: employee._id, name: employee.firstName } : 'not found');
+    let employee: IEmployee | null = null;
+    
+    // Convert string userId to ObjectId for proper query
+    try {
+      const objectIdUserId = new mongoose.Types.ObjectId(userId);
+      
+      // Try to find by userId as ObjectId first
+      employee = await Employee.findOne({ userId: objectIdUserId }).exec();
+      
+      if (!employee) {
+        // Try to find by userId as string (in case it was stored differently)
+        employee = await Employee.findOne({ userId: userId }).exec();
+      }
+      
+      if (!employee) {
+        // Try with _id (in case of any other mapping issue)
+        employee = await Employee.findOne({ _id: objectIdUserId }).exec();
+      }
+    } catch (e) {
+      // If ObjectId conversion fails, just try direct string query
+      console.log('ObjectId conversion failed, trying string query');
+      employee = await Employee.findOne({ userId: userId }).exec();
+    }
+    
+    if (employee) {
+      console.log('Employee lookup result:', { 
+        id: employee._id, 
+        userId: employee.userId,
+        name: employee.firstName + ' ' + employee.lastName,
+        employeeId: employee.employeeId 
+      });
+    } else {
+      console.log('Employee lookup result: not found for userId:', userId);
+    }
+    
     return employee;
   } catch (error) {
     console.error('Error finding employee by userId:', error);
@@ -40,9 +66,9 @@ async function findEmployeeByUserId(userId: string): Promise<IEmployee | null> {
 }
 
 export class AttendanceService {
-  async clockIn(userId: string, notes?: string): Promise<IAttendance> {
+  async clockIn(userId: string, notes?: string, dateStr?: string): Promise<IAttendance> {
     try {
-      console.log('clockIn called with userId:', userId);
+      console.log('clockIn called with userId:', userId, 'dateStr:', dateStr);
       
       const employee = await findEmployeeByUserId(userId);
       if (!employee) {
@@ -50,14 +76,39 @@ export class AttendanceService {
         throw new Error(`Employee not found for user: ${userId}`);
       }
       
-      console.log('Found employee:', employee._id);
+console.log('Found employee:', { 
+        _id: employee._id, 
+        employeeId: employee.employeeId,
+        userId: employee.userId,
+        name: employee.firstName + ' ' + employee.lastName
+      });
       
-      const today = new Date();
-      today.setHours(0, 0, 0, 0);
+      // Validate employee._id is a valid ObjectId
+      if (!employee._id) {
+        throw new Error('Invalid employee record: _id is undefined');
+      }
+      
+      const employeeObjectId = new mongoose.Types.ObjectId(employee._id);
+      console.log('Employee ObjectId:', employeeObjectId.toString());
+      
+      // Parse the date from request or use today
+      let today: Date;
+      if (dateStr) {
+        // Handle YYYY-MM-DD format from frontend
+        const parsed = new Date(dateStr);
+        if (isNaN(parsed.getTime())) {
+          throw new Error('Invalid date format. Please use YYYY-MM-DD format.');
+        }
+        today = new Date(parsed);
+        today.setHours(0, 0, 0, 0);
+      } else {
+        today = new Date();
+        today.setHours(0, 0, 0, 0);
+      }
       
       // Check if already clocked in today
       const existingAttendance = await Attendance.findOne({
-        employee_id: employee._id,
+        employee_id: employeeObjectId,
         date: today
       }).exec();
       
@@ -65,10 +116,10 @@ export class AttendanceService {
         throw new Error('Already clocked in today');
       }
       
-      console.log('Creating attendance record for employee:', employee._id);
+      console.log('Creating attendance record for employee:', employee._id, 'on date:', today);
       
       const attendance = new Attendance({
-        employee_id: employee._id,
+        employee_id: employeeObjectId,
         employee_name: `${employee.firstName} ${employee.lastName}`,
         employee_code: employee.employeeId,
         department: employee.position || 'General',
