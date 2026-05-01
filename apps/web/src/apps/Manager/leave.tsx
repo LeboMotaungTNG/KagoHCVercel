@@ -43,18 +43,7 @@ const API_URL = 'https://employee-evaluation-kago-e63baae4d822.herokuapp.com/api
 
 type AlertType = "success" | "error" | "info";
 
-// ─── Mock data (remove once wired to real API) ────────────────────────────────
 
-const MOCK_LEAVES: LeaveRequest[] = [
-  { leave_id: 1,  full_name: "John Smith",    employee_code: "EMP001", department: "Engineering", position: "Senior Developer", leave_type: "annual",    start_date: "2025-03-10", end_date: "2025-03-14", total_days: 5,  reason: "Family vacation",          status: "pending",   submitted_at: "2025-02-20T09:00:00Z" },
-  { leave_id: 2,  full_name: "Sarah Johnson", employee_code: "EMP002", department: "Design",      position: "UI Designer",       leave_type: "sick",      start_date: "2025-03-05", end_date: "2025-03-06", total_days: 2,  reason: "Doctor appointment",        status: "approved",  submitted_at: "2025-03-04T08:30:00Z", reviewer_name: "Admin", reviewed_at: "2025-03-04T10:00:00Z" },
-  { leave_id: 3,  full_name: "Mike Wilson",   employee_code: "EMP003", department: "Marketing",   position: "Manager",           leave_type: "study",     start_date: "2025-03-20", end_date: "2025-03-22", total_days: 3,  reason: "Professional certification",status: "pending",   submitted_at: "2025-03-01T11:00:00Z" },
-  { leave_id: 4,  full_name: "Emily Davis",   employee_code: "EMP004", department: "HR",          position: "Coordinator",       leave_type: "maternity", start_date: "2025-04-01", end_date: "2025-06-30", total_days: 91, reason: "Maternity leave",           status: "approved",  submitted_at: "2025-02-15T09:00:00Z", reviewer_name: "Admin", reviewed_at: "2025-02-16T10:00:00Z" },
-  { leave_id: 5,  full_name: "Tom Brown",     employee_code: "EMP005", department: "Finance",     position: "Analyst",           leave_type: "unpaid",    start_date: "2025-03-15", end_date: "2025-03-16", total_days: 2,  reason: "Personal matters",          status: "rejected",  submitted_at: "2025-03-08T14:00:00Z", reviewer_name: "Admin", reviewed_at: "2025-03-09T09:00:00Z", rejection_reason: "Insufficient cover during deadline week." },
-  { leave_id: 6,  full_name: "Lisa Chen",     employee_code: "EMP006", department: "Engineering", position: "Developer",         leave_type: "annual",    start_date: "2025-03-25", end_date: "2025-03-28", total_days: 4,  reason: "Spring break trip",         status: "pending",   submitted_at: "2025-03-10T10:00:00Z" },
-  { leave_id: 7,  full_name: "David Park",    employee_code: "EMP007", department: "Finance",     position: "Accountant",        leave_type: "sick",      start_date: "2025-03-03", end_date: "2025-03-03", total_days: 1,  reason: "Flu",                       status: "approved",  submitted_at: "2025-03-03T07:00:00Z", reviewer_name: "Admin", reviewed_at: "2025-03-03T08:00:00Z" },
-  { leave_id: 8,  full_name: "Anna White",    employee_code: "EMP008", department: "Marketing",   position: "Content Writer",    leave_type: "other",     start_date: "2025-03-18", end_date: "2025-03-18", total_days: 1,  reason: "Personal emergency",        status: "cancelled", submitted_at: "2025-03-12T15:00:00Z" },
-];
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -135,10 +124,10 @@ function LeaveDetailsModal({ leave, onClose, onApprove, onReject }: { leave: Lea
         <div style={{ flex: 1, overflowY: "auto", padding: "14px 16px", display: "flex", flexDirection: "column", gap: 10 }}>
           <Section title="Employee">
             <InfoGrid>
-              <InfoCell label="Name"       value={leave.full_name}/>
-              <InfoCell label="Code"       value={leave.employee_code}/>
-              <InfoCell label="Department" value={leave.department}/>
-              <InfoCell label="Position"   value={leave.position}/>
+              <InfoCell label="Name"       value={leave.full_name || "—"}/>
+              <InfoCell label="Code"       value={leave.employee_code || "—"}/>
+              <InfoCell label="Department" value={leave.department || "—"}/>
+              <InfoCell label="Position"   value={leave.position || "—"}/>
             </InfoGrid>
           </Section>
 
@@ -351,8 +340,8 @@ function LeaveContent() {
   );
 
   const { data: paginated, totalPages } = useMemo(
-    () => paginateLeaves(leaves, currentPage, PAGE_SIZE),
-    [leaves, currentPage],
+    () => paginateLeaves(filtered, currentPage, PAGE_SIZE),
+    [filtered, currentPage],
   );
 
   const hasFilters = hasActiveFilters(filters);
@@ -364,6 +353,12 @@ function LeaveContent() {
 
   // Reset to page 1 when filters change
   useEffect(() => setCurrentPage(1), [filters]);
+
+  // Alert helper (must be defined before fetchLeaves)
+  const showAlert = (message: string, type: AlertType) => {
+    setAlert({ message, type });
+    setTimeout(() => setAlert(null), 4000);
+  };
 
   // Fetch leave requests from backend
   const fetchLeaves = async (silent?: boolean) => {
@@ -377,10 +372,14 @@ function LeaveContent() {
         }
       });
       const data = await response.json();
-      if (data.success && data.data?.data) {
-        setLeaves(data.data.data);
-        if (silent) showAlert('Leave requests refreshed', 'success');
-      }
+      // Support multiple response shapes: array, { data: [] }, { data: { data: [] } }, { success, data: [] }
+      const rows: LeaveRequest[] =
+        Array.isArray(data)             ? data :
+        Array.isArray(data.data)        ? data.data :
+        Array.isArray(data.data?.data)  ? data.data.data :
+        [];
+      setLeaves(rows);
+      if (silent && rows.length > 0) showAlert('Leave requests refreshed', 'success');
     } catch (error) {
       console.error('Error fetching leave requests:', error);
       showAlert('Failed to load leave requests', 'error');
@@ -413,12 +412,6 @@ function LeaveContent() {
       clearTimeout(searchTimer.current);
     }
     searchTimer.current = setTimeout(() => setFilter("search", value), 400);
-  };
-
-  // Actions
-  const showAlert = (message: string, type: AlertType) => {
-    setAlert({ message, type });
-    setTimeout(() => setAlert(null), 4000);
   };
 
   const approveLeave = async (id: number) => {
@@ -536,7 +529,7 @@ function LeaveContent() {
             {/* Status */}
             <select defaultValue="" onChange={e => setFilter("status", e.target.value as LeaveStatus | "")} style={inputStyle}>
               <option value="">All Status</option>
-              {(["pending","approved","denied","cancelled"] as LeaveStatus[]).map(s => <option key={s} value={s}>{s.charAt(0).toUpperCase() + s.slice(1)}</option>)}
+              {(["pending","approved","rejected","cancelled"] as LeaveStatus[]).map(s => <option key={s} value={s}>{s.charAt(0).toUpperCase() + s.slice(1)}</option>)}
             </select>
 
             {/* Leave type */}
@@ -597,12 +590,12 @@ function LeaveContent() {
                   <td style={{ padding: "12px 16px" }}>
                     <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
                       <div style={{ width: 40, height: 40, borderRadius: "50%", flexShrink: 0, background: AVATAR_COLORS[idx % AVATAR_COLORS.length], color: "#fff", display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 700, fontSize: 13 }}>
-                        {getInitials(leave.full_name)}
+                        {getInitials(leave.full_name || "Unknown")}
                       </div>
                       <div>
-                        <div style={{ fontSize: 14, fontWeight: 600, color: "#1d2939" }}>{leave.full_name}</div>
-                        <div style={{ fontSize: 12, color: "#98a2b3" }}>{leave.employee_code}</div>
-                        <div style={{ fontSize: 12, color: "#98a2b3" }}>{leave.department}</div>
+                        <div style={{ fontSize: 14, fontWeight: 600, color: "#1d2939" }}>{leave.full_name || "—"}</div>
+                        <div style={{ fontSize: 12, color: "#98a2b3" }}>{leave.employee_code || "—"}</div>
+                        <div style={{ fontSize: 12, color: "#98a2b3" }}>{leave.department || "—"}</div>
                       </div>
                     </div>
                   </td>
