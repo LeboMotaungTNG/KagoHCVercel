@@ -57,7 +57,9 @@ const LoginForm = () => {
           localStorage.setItem('user', JSON.stringify(data.data.user));
           
           // Navigate based on role
-           if (data.data.user.role === 'admin') {
+           if (data.data.user.role === 'owner') {
+            navigate("/owner");
+          } else if (data.data.user.role === 'admin') {
             navigate("/manager");
           } else {
             navigate("/employee");
