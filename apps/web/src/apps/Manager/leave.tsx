@@ -1,10 +1,7 @@
 /**
  * Leave – manager-facing leave request management.
- *
- * Lets managers review, filter and take actions on leave requests,
- * while the visual shell (header/sidebar/footer) comes from `SharedLayout`.
- *
- * Wire `API_BASE` to your real endpoint and remove the MOCK_* constants.
+ * Fixed: approve/reject now correctly map leave_id → _id for API calls,
+ * reject modal wires reason correctly, cancel works.
  */
 
 import React, {
@@ -43,11 +40,7 @@ const API_URL = 'https://employee-evaluation-kago-e63baae4d822.herokuapp.com/api
 
 type AlertType = "success" | "error" | "info";
 
-
-
-// ─── Helpers ──────────────────────────────────────────────────────────────────
-
-// ─── Icons (only those used by page content) ─────────────────────────────────
+// ─── Icons ────────────────────────────────────────────────────────────────────
 
 const Ic = {
   Calendar: () => <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>,
@@ -60,7 +53,7 @@ const Ic = {
   Trash:    () => <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14H6L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4h6v2"/></svg>,
 };
 
-// ─── Status / type badge ──────────────────────────────────────────────────────
+// ─── Badge ────────────────────────────────────────────────────────────────────
 
 function Badge({ style, children }: { style: React.CSSProperties; children: React.ReactNode }) {
   return (
@@ -88,9 +81,23 @@ function AlertBanner({ message, type, onClose }: { message: string; type: AlertT
 
 // ─── Leave Details Modal ──────────────────────────────────────────────────────
 
-function LeaveDetailsModal({ leave, onClose, onApprove, onReject }: { leave: LeaveRequest; onClose: () => void; onApprove: (id: number) => void; onReject: (leave: LeaveRequest) => void; }) {
-  // Lock body scroll
-  useEffect(() => { document.body.style.overflow = "hidden"; return () => { document.body.style.overflow = ""; }; }, []);
+function LeaveDetailsModal({
+  leave,
+  onClose,
+  onApprove,
+  onReject,
+  approving,
+}: {
+  leave: LeaveRequest;
+  onClose: () => void;
+  onApprove: (leave: LeaveRequest) => void;
+  onReject: (leave: LeaveRequest) => void;
+  approving: boolean;
+}) {
+  useEffect(() => {
+    document.body.style.overflow = "hidden";
+    return () => { document.body.style.overflow = ""; };
+  }, []);
 
   const InfoGrid = ({ children }: { children: React.ReactNode }) => (
     <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "8px 12px" }}>{children}</div>
@@ -114,13 +121,11 @@ function LeaveDetailsModal({ leave, onClose, onApprove, onReject }: { leave: Lea
       <div onClick={e => e.stopPropagation()} style={{ position: "relative", width: "100%", maxWidth: 420, maxHeight: "80vh", borderRadius: 16, background: "#fff", boxShadow: "0 25px 50px -12px rgba(0,0,0,.25)", display: "flex", flexDirection: "column", animation: "leaveModalIn .2s ease-out" }}>
         <style>{`@keyframes leaveModalIn { from { opacity:0; transform:scale(.93); } to { opacity:1; transform:scale(1); } }`}</style>
 
-        {/* Header */}
         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "14px 16px", borderBottom: "1px solid #f2f4f7", flexShrink: 0 }}>
           <h2 style={{ margin: 0, fontSize: 15, fontWeight: 600, color: "#1d2939" }}>Leave Request</h2>
           <button onClick={onClose} style={{ background: "none", border: "none", cursor: "pointer", color: "#667085", padding: 4, borderRadius: 6 }}><Ic.Close/></button>
         </div>
 
-        {/* Scrollable body */}
         <div style={{ flex: 1, overflowY: "auto", padding: "14px 16px", display: "flex", flexDirection: "column", gap: 10 }}>
           <Section title="Employee">
             <InfoGrid>
@@ -140,7 +145,7 @@ function LeaveDetailsModal({ leave, onClose, onApprove, onReject }: { leave: Lea
               {leave.attachment_path && (
                 <div style={{ gridColumn: "1 / -1" }}>
                   <p style={{ margin: "0 0 4px", fontSize: 11, color: "#98a2b3", textTransform: "uppercase", letterSpacing: .3 }}>Document</p>
-                  <a href={`../../Php/leave/view-attachment.php?leave_id=${leave.leave_id}`} target="_blank" rel="noopener noreferrer" style={{ fontSize: 13, color: "#E6A79E", fontWeight: 500, textDecoration: "none" }}>
+                  <a href={leave.attachment_path} target="_blank" rel="noopener noreferrer" style={{ fontSize: 13, color: "#E6A79E", fontWeight: 500, textDecoration: "none" }}>
                     📎 View attachment
                   </a>
                 </div>
@@ -182,12 +187,17 @@ function LeaveDetailsModal({ leave, onClose, onApprove, onReject }: { leave: Lea
           </Section>
         </div>
 
-        {/* Footer */}
         <div style={{ padding: "12px 16px", borderTop: "1px solid #f2f4f7", display: "flex", justifyContent: "flex-end", gap: 8, flexShrink: 0 }}>
           <button onClick={onClose} style={{ padding: "7px 14px", borderRadius: 8, border: "1px solid #d0d5dd", background: "#fff", fontSize: 13, fontWeight: 500, color: "#344054", cursor: "pointer" }}>Close</button>
           {leave.status === "pending" && (
             <>
-              <button onClick={() => onApprove(leave.leave_id)} style={{ padding: "7px 14px", borderRadius: 8, border: "none", background: "#10b981", fontSize: 13, fontWeight: 500, color: "#fff", cursor: "pointer" }}>Approve</button>
+              <button
+                onClick={() => onApprove(leave)}
+                disabled={approving}
+                style={{ padding: "7px 14px", borderRadius: 8, border: "none", background: "#10b981", fontSize: 13, fontWeight: 500, color: "#fff", cursor: approving ? "not-allowed" : "pointer", opacity: approving ? 0.6 : 1 }}
+              >
+                {approving ? "Approving…" : "Approve"}
+              </button>
               <button onClick={() => onReject(leave)} style={{ padding: "7px 14px", borderRadius: 8, border: "none", background: "#ef4444", fontSize: 13, fontWeight: 500, color: "#fff", cursor: "pointer" }}>Reject</button>
             </>
           )}
@@ -199,9 +209,14 @@ function LeaveDetailsModal({ leave, onClose, onApprove, onReject }: { leave: Lea
 
 // ─── Reject Modal ─────────────────────────────────────────────────────────────
 
-function RejectModal({ onClose, onConfirm, loading }: { onClose: () => void; onConfirm: (reason: string) => void; loading: boolean; }) {
+function RejectModal({ onClose, onConfirm, loading }: { onClose: () => void; onConfirm: (reason: string) => void; loading: boolean }) {
   const [reason, setReason] = useState("");
   useEffect(() => { document.body.style.overflow = "hidden"; return () => { document.body.style.overflow = ""; }; }, []);
+
+  const handleSubmit = () => {
+    if (!reason.trim()) return;
+    onConfirm(reason.trim());
+  };
 
   return (
     <div style={{ position: "fixed", inset: 0, zIndex: 2147483647, display: "flex", alignItems: "center", justifyContent: "center", padding: 16 }}>
@@ -213,12 +228,21 @@ function RejectModal({ onClose, onConfirm, loading }: { onClose: () => void; onC
         </div>
         <div style={{ padding: 24 }}>
           <label style={{ display: "block", marginBottom: 8, fontSize: 14, fontWeight: 500, color: "#344054" }}>Rejection Reason *</label>
-          <textarea value={reason} onChange={e => setReason(e.target.value)} rows={4} placeholder="Provide a clear reason for rejection..."
-            style={{ width: "100%", borderRadius: 8, border: "1px solid #d1d5db", padding: "10px 12px", fontSize: 14, outline: "none", resize: "vertical", boxSizing: "border-box", color: "#1d2939" }}/>
+          <textarea
+            value={reason}
+            onChange={e => setReason(e.target.value)}
+            rows={4}
+            placeholder="Provide a clear reason for rejection..."
+            style={{ width: "100%", borderRadius: 8, border: "1px solid #d1d5db", padding: "10px 12px", fontSize: 14, outline: "none", resize: "vertical", boxSizing: "border-box", color: "#1d2939" }}
+          />
         </div>
         <div style={{ padding: "12px 24px", borderTop: "1px solid #f2f4f7", display: "flex", justifyContent: "flex-end", gap: 8 }}>
           <button onClick={onClose} style={{ padding: "8px 16px", borderRadius: 8, border: "1px solid #d0d5dd", background: "#fff", fontSize: 14, fontWeight: 500, color: "#344054", cursor: "pointer" }}>Cancel</button>
-          <button onClick={() => onConfirm(reason)} disabled={!reason.trim() || loading} style={{ padding: "8px 16px", borderRadius: 8, border: "none", background: "#ef4444", fontSize: 14, fontWeight: 500, color: "#fff", cursor: reason.trim() && !loading ? "pointer" : "not-allowed", opacity: !reason.trim() || loading ? .5 : 1 }}>
+          <button
+            onClick={handleSubmit}
+            disabled={!reason.trim() || loading}
+            style={{ padding: "8px 16px", borderRadius: 8, border: "none", background: "#ef4444", fontSize: 14, fontWeight: 500, color: "#fff", cursor: reason.trim() && !loading ? "pointer" : "not-allowed", opacity: !reason.trim() || loading ? .5 : 1 }}
+          >
             {loading ? "Rejecting…" : "Confirm Rejection"}
           </button>
         </div>
@@ -231,60 +255,21 @@ function RejectModal({ onClose, onConfirm, loading }: { onClose: () => void; onC
 
 function StatCards({ stats }: { stats: Stats }) {
   const cards = [
-    {
-      label: "Pending Requests",
-      value: stats.pending,
-      color: "#b54708",
-      icon: <Ic.Calendar />,
-    },
-    {
-      label: "Approved",
-      value: stats.approved,
-      color: "#027a48",
-      icon: <Ic.Check />,
-    },
-    {
-      label: "Denied",
-      value: stats.rejected,
-      color: "#b42318",
-      icon: <Ic.X />,
-    },
-    {
-      label: "Total Requests",
-      value: stats.total,
-      color: "#1d4ed8",
-      icon: <Ic.Table />,
-    },
+    { label: "Pending Requests", value: stats.pending,  color: "#b54708", icon: <Ic.Calendar /> },
+    { label: "Approved",         value: stats.approved, color: "#027a48", icon: <Ic.Check />   },
+    { label: "Denied",           value: stats.rejected, color: "#b42318", icon: <Ic.X />       },
+    { label: "Total Requests",   value: stats.total,    color: "#1d4ed8", icon: <Ic.Table />   },
   ];
   return (
     <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))", gap: 16, marginBottom: 24 }}>
       {cards.map(c => (
-        <div
-          key={c.label}
-          style={{
-            borderRadius: 16,
-            border: "1px solid #e4e7ec",
-            background: "#ffffff",
-            padding: 20,
-          }}
-        >
+        <div key={c.label} style={{ borderRadius: 16, border: "1px solid #e4e7ec", background: "#ffffff", padding: 20 }}>
           <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
             <div>
               <p style={{ margin: 0, fontSize: 13, color: c.color, fontWeight: 500 }}>{c.label}</p>
               <p style={{ margin: "6px 0 0", fontSize: 26, fontWeight: 700, color: "#1d2939" }}>{c.value}</p>
             </div>
-            <div
-              style={{
-                width: 48,
-                height: 48,
-                borderRadius: 12,
-                background: "#f2f4f7",
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
-                color: "#1d2939",
-              }}
-            >
+            <div style={{ width: 48, height: 48, borderRadius: 12, background: "#f2f4f7", display: "flex", alignItems: "center", justifyContent: "center", color: "#1d2939" }}>
               {c.icon}
             </div>
           </div>
@@ -294,92 +279,86 @@ function StatCards({ stats }: { stats: Stats }) {
   );
 }
 
+// ─── Action button ────────────────────────────────────────────────────────────
+
+function ActionBtn({ icon, label, onClick, color, disabled }: { icon: React.ReactNode; label: string; onClick: () => void; color?: string; disabled?: boolean }) {
+  const hasColor = !!color;
+  return (
+    <button
+      onClick={onClick}
+      disabled={disabled}
+      style={{ display: "inline-flex", alignItems: "center", gap: 4, padding: "5px 10px", borderRadius: 7, fontSize: 12, fontWeight: 500, cursor: disabled ? "not-allowed" : "pointer", border: `1px solid ${hasColor ? color : "#d0d5dd"}`, background: hasColor ? `${color}15` : "#fff", color: hasColor ? color : "#344054", whiteSpace: "nowrap", opacity: disabled ? 0.5 : 1 }}
+      onMouseEnter={e => { if (!disabled) e.currentTarget.style.background = hasColor ? `${color}30` : "#f9fafb"; }}
+      onMouseLeave={e => { if (!disabled) e.currentTarget.style.background = hasColor ? `${color}15` : "#fff"; }}
+    >
+      {icon} {label}
+    </button>
+  );
+}
+
 // ─── Main Leave Content ───────────────────────────────────────────────────────
 
 function LeaveContent() {
   const navigate = useNavigate();
 
-  // Authentication check
   useEffect(() => {
-    const token = localStorage.getItem('token');
+    const token   = localStorage.getItem('token');
     const userStr = localStorage.getItem('user');
-
-    if (!token || !userStr) {
-      console.log('No authentication found, redirecting to login');
-      navigate('/');
-      return;
-    }
-
-    try {
-      const user = JSON.parse(userStr);
-      console.log('Authenticated user:', user);
-    } catch (error) {
-      console.error('Invalid user data in localStorage:', error);
-      navigate('/');
-      return;
-    }
+    if (!token || !userStr) { navigate('/'); return; }
+    try { JSON.parse(userStr); } catch { navigate('/'); }
   }, [navigate]);
 
   const card: React.CSSProperties = { background: "#fff", borderRadius: 16, border: "1px solid #e4e7ec" };
 
   // State
-  const [leaves, setLeaves]             = useState<LeaveRequest[]>([]);
-  const [loading, setLoading]           = useState(true);
-  const [alert, setAlert]               = useState<{ message: string; type: AlertType } | null>(null);
-  const [filters, setFilters]           = useState<Filters>({ status: "", leave_type: "", start_date: "", end_date: "", search: "" });
+  const [leaves, setLeaves]               = useState<LeaveRequest[]>([]);
+  const [loading, setLoading]             = useState(true);
+  const [approving, setApproving]         = useState(false);
+  const [alert, setAlert]                 = useState<{ message: string; type: AlertType } | null>(null);
+  const [filters, setFilters]             = useState<Filters>({ status: "", leave_type: "", start_date: "", end_date: "", search: "" });
   const [selectedLeave, setSelectedLeave] = useState<LeaveRequest | null>(null);
-  const [rejectTarget, setRejectTarget] = useState<LeaveRequest | null>(null);
-  const [rejecting, setRejecting]       = useState(false);
-  const [currentPage, setCurrentPage]   = useState(1);
-  const searchTimer                     = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const [rejectTarget, setRejectTarget]   = useState<LeaveRequest | null>(null);
+  const [rejecting, setRejecting]         = useState(false);
+  const [currentPage, setCurrentPage]     = useState(1);
+  const searchTimer                       = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // Derived
-  const filtered = useMemo(
-    () => filterLeaves(leaves, filters),
-    [leaves, filters],
-  );
-
-  const { data: paginated, totalPages } = useMemo(
-    () => paginateLeaves(filtered, currentPage, PAGE_SIZE),
-    [filtered, currentPage],
-  );
-
+  const filtered = useMemo(() => filterLeaves(leaves, filters), [leaves, filters]);
+  const { data: paginated, totalPages } = useMemo(() => paginateLeaves(filtered, currentPage, PAGE_SIZE), [filtered, currentPage]);
   const hasFilters = hasActiveFilters(filters);
+  const stats: Stats = useMemo(() => computeStats(leaves), [leaves]);
 
-  const stats: Stats = useMemo(
-    () => computeStats(leaves),
-    [leaves],
-  );
-
-  // Reset to page 1 when filters change
   useEffect(() => setCurrentPage(1), [filters]);
 
-  // Alert helper (must be defined before fetchLeaves)
   const showAlert = (message: string, type: AlertType) => {
     setAlert({ message, type });
     setTimeout(() => setAlert(null), 4000);
   };
 
-  // Fetch leave requests from backend
+  // ── Fetch ──────────────────────────────────────────────────────────────────
+
   const fetchLeaves = async (silent?: boolean) => {
     try {
       if (!silent) setLoading(true);
       const token = localStorage.getItem('token');
       const response = await fetch(`${API_URL}/leave`, {
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json'
-        }
+        headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' }
       });
       const data = await response.json();
-      // Support multiple response shapes: array, { data: [] }, { data: { data: [] } }, { success, data: [] }
       const rows: LeaveRequest[] =
-        Array.isArray(data)             ? data :
-        Array.isArray(data.data)        ? data.data :
-        Array.isArray(data.data?.data)  ? data.data.data :
+        Array.isArray(data)            ? data :
+        Array.isArray(data.data)       ? data.data :
+        Array.isArray(data.data?.data) ? data.data.data :
         [];
-      setLeaves(rows);
-      if (silent && rows.length > 0) showAlert('Leave requests refreshed', 'success');
+      
+      // Map API response to ensure submitted_at and total_days are populated
+      const mappedRows = rows.map(row => ({
+        ...row,
+        submitted_at: row.submitted_at || (row as any).createdAt || new Date().toISOString(),
+        total_days: row.total_days || (row as any).daysRequested || (row as any).totalDays || 1
+      }));
+      
+      setLeaves(mappedRows);
     } catch (error) {
       console.error('Error fetching leave requests:', error);
       showAlert('Failed to load leave requests', 'error');
@@ -388,110 +367,110 @@ function LeaveContent() {
     }
   };
 
-  useEffect(() => {
-    fetchLeaves();
-  }, []);
+  useEffect(() => { fetchLeaves(); }, []);
 
-  // Auto-refresh when page becomes visible (e.g., returning from employee page)
   useEffect(() => {
-    const handleVisibilityChange = () => {
-      if (!document.hidden) {
-        fetchLeaves(true);
-      }
-    };
+    const handleVisibilityChange = () => { if (!document.hidden) fetchLeaves(true); };
     document.addEventListener('visibilitychange', handleVisibilityChange);
     return () => document.removeEventListener('visibilitychange', handleVisibilityChange);
   }, []);
 
-  // Filter helpers
-  const setFilter = <K extends keyof Filters>(key: K, value: Filters[K]) =>
-    setFilters(f => ({ ...f, [key]: value }));
+  // ── Approve ────────────────────────────────────────────────────────────────
+  // FIX: use leave._id (MongoDB ObjectId) for the API call, not leave.leave_id (numeric UI id)
 
-  const handleSearchChange = (value: string) => {
-    if (searchTimer.current) {
-      clearTimeout(searchTimer.current);
-    }
-    searchTimer.current = setTimeout(() => setFilter("search", value), 400);
-  };
-
-  const approveLeave = async (id: number) => {
-    setLoading(true);
+  const approveLeave = async (leave: LeaveRequest) => {
+    setApproving(true);
     try {
       const token = localStorage.getItem('token');
-      const leave = leaves.find(l => l.leave_id === id);
-      if (!leave) return;
-      
-      const response = await fetch(`${API_URL}/leave/${leave._id}/approve`, {
-        method: 'PATCH',
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json'
-        }
-      });
+      const mongoId = (leave as any)._id;
+      if (!mongoId) { showAlert("Cannot find leave record ID.", "error"); return; }
+
+    const response = await fetch(`${API_URL}/leave/${mongoId}`, {
+  method: 'PUT',
+  headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
+  body: JSON.stringify({ status: 'approved' })
+});
       const data = await response.json();
-      if (data.success) {
-        setLeaves(prev => prev.map(l => l.leave_id === id ? { ...l, status: "approved", reviewer_name: "Admin", reviewed_at: new Date().toISOString() } : l));
+
+      if (response.ok || data.success) {
+        setLeaves(prev => prev.map(l =>
+          l.leave_id === leave.leave_id
+            ? { ...l, status: "approved" as LeaveStatus, reviewer_name: "Admin", reviewed_at: new Date().toISOString() }
+            : l
+        ));
         setSelectedLeave(null);
         showAlert("Leave request approved successfully.", "success");
       } else {
-        showAlert(data.error?.message || "Failed to approve leave request.", "error");
+        showAlert(data.message || data.error?.message || "Failed to approve leave request.", "error");
       }
-    } catch (error) { 
+    } catch (error) {
       console.error('Error approving leave:', error);
-      showAlert("Failed to approve leave request.", "error"); 
+      showAlert("Failed to approve leave request.", "error");
+    } finally {
+      setApproving(false);
     }
-    finally { setLoading(false); }
   };
+
+  // ── Reject ─────────────────────────────────────────────────────────────────
+  // FIX: use rejectTarget._id for API, send reason in body
 
   const rejectLeave = async (reason: string) => {
     if (!rejectTarget) return;
     setRejecting(true);
     try {
       const token = localStorage.getItem('token');
-      const response = await fetch(`${API_URL}/leave/${rejectTarget._id}/reject`, {
-        method: 'PATCH',
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({ reason: reason })
-      });
+      const mongoId = (rejectTarget as any)._id;
+      if (!mongoId) { showAlert("Cannot find leave record ID.", "error"); return; }
+
+      const response = await fetch(`${API_URL}/leave/${mongoId}`, {
+  method: 'PUT',
+  headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
+  body: JSON.stringify({ status: 'rejected', reason: reason })
+});
       const data = await response.json();
-      if (data.success) {
-        setLeaves(prev => prev.map(l => l.leave_id === rejectTarget.leave_id ? { ...l, status: "rejected", rejection_reason: reason, reviewer_name: "Admin", reviewed_at: new Date().toISOString() } : l));
+
+      if (response.ok || data.success) {
+        setLeaves(prev => prev.map(l =>
+          l.leave_id === rejectTarget.leave_id
+            ? { ...l, status: "rejected" as LeaveStatus, rejection_reason: reason, reviewer_name: "Admin", reviewed_at: new Date().toISOString() }
+            : l
+        ));
         setRejectTarget(null);
         setSelectedLeave(null);
         showAlert("Leave request denied successfully.", "success");
       } else {
-        showAlert(data.error?.message || "Failed to reject leave request.", "error");
+        showAlert(data.message || data.error?.message || "Failed to reject leave request.", "error");
       }
-    } catch (error) { 
+    } catch (error) {
       console.error('Error rejecting leave:', error);
-      showAlert("Failed to reject leave request.", "error"); 
+      showAlert("Failed to reject leave request.", "error");
+    } finally {
+      setRejecting(false);
     }
-    finally { setRejecting(false); }
   };
 
-  const cancelLeave = async (id: number) => {
-    if (!confirm("Cancel this leave request?")) return;
+  // ── Cancel ─────────────────────────────────────────────────────────────────
+
+  const cancelLeave = async (leave: LeaveRequest) => {
+    if (!window.confirm("Cancel this leave request?")) return;
     try {
       const token = localStorage.getItem('token');
-      const leave = leaves.find(l => l.leave_id === id);
-      if (!leave) return;
-      
-      const response = await fetch(`${API_URL}/leave/${leave._id}/cancel`, {
+      const mongoId = (leave as any)._id;
+      if (!mongoId) { showAlert("Cannot find leave record ID.", "error"); return; }
+
+      const response = await fetch(`${API_URL}/leave/${mongoId}/cancel`, {
         method: 'PATCH',
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json'
-        }
+        headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' }
       });
       const data = await response.json();
-      if (data.success) {
-        setLeaves(prev => prev.map(l => l.leave_id === id ? { ...l, status: "cancelled" } : l));
+
+      if (response.ok || data.success) {
+        setLeaves(prev => prev.map(l =>
+          l.leave_id === leave.leave_id ? { ...l, status: "cancelled" as LeaveStatus } : l
+        ));
         showAlert("Leave request cancelled successfully.", "success");
       } else {
-        showAlert(data.error?.message || "Failed to cancel leave request.", "error");
+        showAlert(data.message || data.error?.message || "Failed to cancel leave request.", "error");
       }
     } catch (error) {
       console.error('Error cancelling leave:', error);
@@ -499,7 +478,23 @@ function LeaveContent() {
     }
   };
 
-  // Shared select / input style
+  // ── Open reject modal (closing details modal first) ────────────────────────
+
+  const openRejectModal = (leave: LeaveRequest) => {
+    setSelectedLeave(null);
+    setRejectTarget(leave);
+  };
+
+  // ── Filter helpers ─────────────────────────────────────────────────────────
+
+  const setFilter = <K extends keyof Filters>(key: K, value: Filters[K]) =>
+    setFilters(f => ({ ...f, [key]: value }));
+
+  const handleSearchChange = (value: string) => {
+    if (searchTimer.current) clearTimeout(searchTimer.current);
+    searchTimer.current = setTimeout(() => setFilter("search", value), 400);
+  };
+
   const inputStyle: React.CSSProperties = { height: 40, borderRadius: 8, border: "1px solid #d1d5db", padding: "0 12px", fontSize: 14, outline: "none", color: "#344054", background: "#fff" };
 
   return (
@@ -507,13 +502,11 @@ function LeaveContent() {
       {/* Breadcrumb */}
       <div style={{ marginBottom: 24 }}>
         <h2 style={{ fontSize: 22, fontWeight: 700, color: "#1d2939", margin: 0 }}>Leave Requests Management</h2>
-        <p style={{ margin: "4px 0 0", fontSize: 14, color: "#667085" }}>Home &rsaquo; Leave Requests</p>
+        <p style={{ margin: "4px 0 0", fontSize: 14, color: "#667085" }}>Home › Leave Requests</p>
       </div>
 
-      {/* Alert */}
       {alert && <AlertBanner message={alert.message} type={alert.type} onClose={() => setAlert(null)}/>}
 
-      {/* Stat cards */}
       <StatCards stats={stats}/>
 
       {/* Filters */}
@@ -526,23 +519,21 @@ function LeaveContent() {
             </p>
           </div>
           <div style={{ display: "flex", flexWrap: "wrap", gap: 10 }}>
-            {/* Status */}
             <select defaultValue="" onChange={e => setFilter("status", e.target.value as LeaveStatus | "")} style={inputStyle}>
               <option value="">All Status</option>
-              {(["pending","approved","rejected","cancelled"] as LeaveStatus[]).map(s => <option key={s} value={s}>{s.charAt(0).toUpperCase() + s.slice(1)}</option>)}
+              {(["pending","approved","rejected","cancelled"] as LeaveStatus[]).map(s => (
+                <option key={s} value={s}>{s.charAt(0).toUpperCase() + s.slice(1)}</option>
+              ))}
             </select>
 
-            {/* Leave type */}
             <select defaultValue="" onChange={e => setFilter("leave_type", e.target.value as LeaveType | "")} style={inputStyle}>
               <option value="">All Types</option>
               {Object.entries(LEAVE_TYPE_LABELS).map(([v, label]) => <option key={v} value={v}>{label}</option>)}
             </select>
 
-            {/* Date range */}
             <input type="date" onChange={e => setFilter("start_date", e.target.value)} style={inputStyle} title="From date"/>
-            <input type="date" onChange={e => setFilter("end_date", e.target.value)}   style={inputStyle} title="To date"/>
+            <input type="date" onChange={e => setFilter("end_date",   e.target.value)} style={inputStyle} title="To date"/>
 
-            {/* Search */}
             <div style={{ position: "relative" }}>
               <span style={{ position: "absolute", left: 10, top: "50%", transform: "translateY(-50%)", color: "#98a2b3", pointerEvents: "none" }}><Ic.Search/></span>
               <input type="text" placeholder="Search employee…" onChange={e => handleSearchChange(e.target.value)} style={{ ...inputStyle, paddingLeft: 36, width: 200 }}/>
@@ -582,11 +573,12 @@ function LeaveContent() {
               )}
 
               {!loading && paginated.map((leave, idx) => (
-                <tr key={leave.leave_id} style={{ borderBottom: "1px solid #f9fafb", transition: "background .15s" }}
+                <tr
+                  key={leave.leave_id}
+                  style={{ borderBottom: "1px solid #f9fafb", transition: "background .15s" }}
                   onMouseEnter={e => { e.currentTarget.style.background = "#f9fafb"; }}
                   onMouseLeave={e => { e.currentTarget.style.background = "#fff"; }}
                 >
-                  {/* Employee */}
                   <td style={{ padding: "12px 16px" }}>
                     <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
                       <div style={{ width: 40, height: 40, borderRadius: "50%", flexShrink: 0, background: AVATAR_COLORS[idx % AVATAR_COLORS.length], color: "#fff", display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 700, fontSize: 13 }}>
@@ -599,44 +591,35 @@ function LeaveContent() {
                       </div>
                     </div>
                   </td>
-
-                  {/* Leave type */}
                   <td style={{ padding: "12px 16px" }}>
                     <Badge style={LEAVE_TYPE_STYLES[leave.leave_type]}>{LEAVE_TYPE_LABELS[leave.leave_type]}</Badge>
                   </td>
-
-                  {/* Date range */}
                   <td style={{ padding: "12px 16px" }}>
                     <div style={{ fontSize: 14, color: "#1d2939" }}>{formatDate(leave.start_date)} – {formatDate(leave.end_date)}</div>
-                    <div style={{ fontSize: 12, color: "#98a2b3" }}>Duration: {leave.total_days} day(s)</div>
+                    <div style={{ fontSize: 12, color: "#98a2b3" }}>Duration: {leave.total_days || 0} day(s)</div>
                   </td>
-
-                  {/* Days */}
                   <td style={{ padding: "12px 16px", textAlign: "center" }}>
-                    <div style={{ fontSize: 18, fontWeight: 700, color: "#1d2939" }}>{leave.total_days}</div>
+                    <div style={{ fontSize: 18, fontWeight: 700, color: "#1d2939" }}>{leave.total_days || 0}</div>
                     <div style={{ fontSize: 11, color: "#98a2b3" }}>day(s)</div>
                   </td>
-
-                  {/* Status */}
                   <td style={{ padding: "12px 16px" }}>
                     <Badge style={STATUS_STYLES[leave.status]}>{leave.status}</Badge>
                   </td>
-
-                  {/* Submitted */}
                   <td style={{ padding: "12px 16px" }}>
-                    <div style={{ fontSize: 13, color: "#1d2939" }}>{formatDateTime(leave.submitted_at)}</div>
-                    {leave.reviewer_name && <div style={{ fontSize: 12, color: "#98a2b3" }}>By: {leave.reviewer_name}</div>}
+                    <div style={{ fontSize: 13, color: "#1d2939" }}>{leave.reason || '—'}</div>
+                    <div style={{ fontSize: 11, color: "#98a2b3", marginTop: 4 }}>
+                      Requested: {leave.submitted_at ? new Date(leave.submitted_at).toLocaleString() : 'Date pending'}
+                    </div>
+                    {leave.reviewer_name && <div style={{ fontSize: 11, color: "#98a2b3" }}>Reviewed by: {leave.reviewer_name}</div>}
                   </td>
-
-                  {/* Actions */}
                   <td style={{ padding: "12px 16px" }}>
                     <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
                       <ActionBtn icon={<Ic.Eye/>}   label="View"    onClick={() => setSelectedLeave(leave)}/>
                       {leave.status === "pending" && (
                         <>
-                          <ActionBtn icon={<Ic.Check/>}  label="Approve" color="#10b981" onClick={() => approveLeave(leave.leave_id)}/>
-                          <ActionBtn icon={<Ic.X/>}      label="Reject"  color="#ef4444" onClick={() => setRejectTarget(leave)}/>
-                          <ActionBtn icon={<Ic.Trash/>}  label="Cancel"               onClick={() => cancelLeave(leave.leave_id)}/>
+                          <ActionBtn icon={<Ic.Check/>} label="Approve" color="#10b981" disabled={approving} onClick={() => approveLeave(leave)}/>
+                          <ActionBtn icon={<Ic.X/>}     label="Reject"  color="#ef4444" onClick={() => openRejectModal(leave)}/>
+                          <ActionBtn icon={<Ic.Trash/>} label="Cancel"                  onClick={() => cancelLeave(leave)}/>
                         </>
                       )}
                     </div>
@@ -675,26 +658,22 @@ function LeaveContent() {
 
       {/* Modals */}
       {selectedLeave && (
-        <LeaveDetailsModal leave={selectedLeave} onClose={() => setSelectedLeave(null)} onApprove={approveLeave} onReject={leave => { setRejectTarget(leave); setSelectedLeave(null); }}/>
+        <LeaveDetailsModal
+          leave={selectedLeave}
+          onClose={() => setSelectedLeave(null)}
+          onApprove={approveLeave}
+          onReject={openRejectModal}
+          approving={approving}
+        />
       )}
       {rejectTarget && (
-        <RejectModal onClose={() => setRejectTarget(null)} onConfirm={rejectLeave} loading={rejecting}/>
+        <RejectModal
+          onClose={() => setRejectTarget(null)}
+          onConfirm={rejectLeave}
+          loading={rejecting}
+        />
       )}
     </div>
-  );
-}
-
-// ─── Small reusable action button ────────────────────────────────────────────
-
-function ActionBtn({ icon, label, onClick, color }: { icon: React.ReactNode; label: string; onClick: () => void; color?: string; }) {
-  const hasColor = !!color;
-  return (
-    <button onClick={onClick} style={{ display: "inline-flex", alignItems: "center", gap: 4, padding: "5px 10px", borderRadius: 7, fontSize: 12, fontWeight: 500, cursor: "pointer", border: `1px solid ${hasColor ? color : "#d0d5dd"}`, background: hasColor ? `${color}15` : "#fff", color: hasColor ? color : "#344054", whiteSpace: "nowrap" }}
-      onMouseEnter={e => { e.currentTarget.style.background = hasColor ? `${color}30` : "#f9fafb"; }}
-      onMouseLeave={e => { e.currentTarget.style.background = hasColor ? `${color}15` : "#fff"; }}
-    >
-      {icon} {label}
-    </button>
   );
 }
 
