@@ -1,4 +1,4 @@
-﻿
+
 
 import React, { useState, useEffect, useMemo } from "react";
 import SharedLayout from "./SharedLayout";
@@ -16,8 +16,6 @@ import {
 } from "../../shared/utils/attendance";
 
 
-// â”€â”€â”€ Style Tokens â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
-
 const CARD: React.CSSProperties = {
   background: "#fff", borderRadius: 16, border: "1px solid #e4e7ec", padding: 24,
 };
@@ -28,7 +26,6 @@ const INPUT: React.CSSProperties = {
   width: "100%", boxSizing: "border-box" as const, cursor: "pointer",
 };
 
-// â”€â”€â”€ Icons â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 /* Declared as a namespace so they're typed components, not just JSX.
    This avoids re-creating them on every render while keeping the file self-contained. */
@@ -88,7 +85,6 @@ const Icon = {
   ),
 };
 
-// â”€â”€â”€ Toast â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 interface ToastProps {
   message: string;
@@ -123,7 +119,7 @@ const Toast: React.FC<ToastProps> = ({ message, type, onClose }) => {
   );
 };
 
-// â”€â”€â”€ Live Clock Banner â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// ” Live Clock Banner ” 
 
 const LiveClock: React.FC = () => {
   const [now, setNow] = useState(new Date());
@@ -162,7 +158,7 @@ const LiveClock: React.FC = () => {
   );
 };
 
-// â”€â”€â”€ Clock Panel â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// ” Clock Panel ”
 
 interface ClockPanelProps {
   state:      ClockState;
@@ -299,7 +295,7 @@ const ClockPanel: React.FC<ClockPanelProps> = ({ state, onClockIn, onClockOut, l
   );
 };
 
-// â”€â”€â”€ KPI Stat Card â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// ” KPI Stat Card ”
 
 interface StatCardProps {
   label: string; value: string | number; sub?: string;
@@ -323,7 +319,7 @@ const StatCard: React.FC<StatCardProps> = ({ label, value, sub, icon, accentBg, 
   </div>
 );
 
-// â”€â”€â”€ Mini Calendar â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// ” Mini Calendar ”
 
 const MiniCalendar: React.FC<{ records: AttendanceRecord[] }> = ({ records }) => {
   const today = new Date();
@@ -405,7 +401,7 @@ const MiniCalendar: React.FC<{ records: AttendanceRecord[] }> = ({ records }) =>
   );
 };
 
-// â”€â”€â”€ Monthly Breakdown â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// ” Monthly Breakdown ”
 
 const MonthlyBreakdown: React.FC<{ stats: MonthStats }> = ({ stats }) => {
   const s = stats;
@@ -457,7 +453,7 @@ const MonthlyBreakdown: React.FC<{ stats: MonthStats }> = ({ stats }) => {
   );
 };
 
-// â”€â”€â”€ Record Detail Modal â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// ” Record Detail Modal ”
 
 const RecordModal: React.FC<{ record: AttendanceRecord; onClose: () => void }> = ({ record, onClose }) => (
   <div style={{ position: "fixed", inset: 0, zIndex: 200, display: "flex", alignItems: "center", justifyContent: "center", padding: 16 }}>
@@ -508,7 +504,7 @@ const RecordModal: React.FC<{ record: AttendanceRecord; onClose: () => void }> =
   </div>
 );
 
-// â”€â”€â”€ History Table â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// ” History Table ”
 
 interface HistoryTableProps {
   records:  AttendanceRecord[];
@@ -627,7 +623,7 @@ const HistoryTable: React.FC<HistoryTableProps> = ({ records, onSelect }) => {
   );
 };
 
-// â”€â”€â”€ Page Content (state orchestration) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// ” Page Content (state orchestration) ”
 
 const EmployeeAttendanceContent: React.FC = () => {
   const {
@@ -706,7 +702,6 @@ const EmployeeAttendanceContent: React.FC = () => {
   );
 };
 
-// â”€â”€â”€ Page Export â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 const EmployeeAttendancePage: React.FC = () => (
   <SharedLayout title="My Attendance">

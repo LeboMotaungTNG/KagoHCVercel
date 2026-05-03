@@ -125,7 +125,7 @@ export function addDays(base: Date, delta: number): Date {
 }
 
 export function fmtTime(raw: string | null | undefined): string {
-  if (!raw) return "—";
+  if (!raw) return "Not clocked in";
 
   // If already includes AM/PM (e.g., from legacy input), preserve with normalization.
   const ampmMatch = raw.match(/^(\d{1,2}:\d{2})\s*(AM|PM)$/i);
@@ -271,8 +271,9 @@ export function printAttendance(records: ManagerAttendanceRecord[]): boolean {
     <tr>
       <td>${r.full_name}</td><td>${r.employee_code}</td><td>${r.department}</td>
        <td><span class="badge badge-${r.status}">${r.status.replace("_"," ").toUpperCase()}</span></td>
-       <td>${r.clock_in ?? "—"}</td><td>${r.clock_out ?? "—"}</td>
-       <td>${r.work_hours != null ? r.work_hours + "h" : "—"}</td>
+       <td>${r.clock_in || '—'}</td>
+<td>${r.clock_out || '—'}</td>
+       <td>${r.work_hours != null ? r.work_hours + "h" : "_"}</td>
      </tr>`).join("");
 
   win.document.write(`<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8">
@@ -329,18 +330,52 @@ export function useEmployeeAttendance() {
         headers: { 'Authorization': `Bearer ${token}` }
       });
       const data = await response.json();
-      if (data.success) {
-        // Transform backend data to frontend format
-        const transformed = data.data.data.map((item: any) => ({
-          id: item.attendance_id,
-          date: item.date.split('T')[0],
-          status: item.status,
-          clock_in: item.clock_in ? time24(new Date(item.clock_in)) : null,
-          clock_out: item.clock_out ? time24(new Date(item.clock_out)) : null,
-          work_hours: item.hours_worked,
-        }));
-        setRecords(transformed);
+      
+      // Handle multiple possible response structures
+      let attendanceData: any[] = [];
+      if (data.success === false) {
+        // Explicit failure
+        console.warn('Attendance fetch failed:', data);
+        return;
       }
+      
+      // Try parsing different response shapes
+      if (data.data?.data && Array.isArray(data.data.data)) {
+        attendanceData = data.data.data;
+      } else if (Array.isArray(data.data)) {
+        attendanceData = data.data;
+      } else if (Array.isArray(data)) {
+        attendanceData = data;
+      } else {
+        attendanceData = [];
+      }
+      
+      // Transform backend data to frontend format
+      const transformed = attendanceData.map((item: any) => {
+        let dateStr = '';
+        if (item.date) {
+          let dateObj: Date;
+          if (item.date instanceof Date) {
+            dateObj = item.date;
+          } else if (typeof item.date === 'string') {
+            dateObj = new Date(item.date);
+          } else {
+            dateObj = new Date();
+          }
+          dateStr = dateObj.getFullYear().toString() +
+            '-' + pad2(dateObj.getMonth() + 1) +
+            '-' + pad2(dateObj.getDate());
+        }
+        return {
+          id: item.attendance_id,
+          date: dateStr,
+          status: item.status,
+          clock_in: (item.clock_in || item.clockInTime) ? time24(new Date(item.clock_in || item.clockInTime)) : null,
+          clock_out: (item.clock_out || item.clockOutTime) ? time24(new Date(item.clock_out || item.clockOutTime)) : null,
+          work_hours: item.totalHours || item.hours_worked,
+        };
+      });
+      setRecords(transformed);
     } catch (error) {
       console.error('Error fetching attendance:', error);
     }
@@ -354,23 +389,40 @@ export function useEmployeeAttendance() {
         headers: { 'Authorization': `Bearer ${token}` }
       });
       const data = await response.json();
+      
+      // Handle multiple response shapes - the endpoint may not return a success wrapper
+      let status: any = null;
       if (data.success && data.data) {
-        const status = data.data;
-        if (status?.status === 'clocked-in') {
-          setClock({
-            clockedIn: true,
-            clockInTime: time24(new Date(status.clock_in)),
-            clockOutTime: null,
-            sessionHours: null
-          });
-        } else if (status?.status === 'completed') {
-          setClock({
-            clockedIn: false,
-            clockInTime: time24(new Date(status.clock_in)),
-            clockOutTime: time24(new Date(status.clock_out)),
-            sessionHours: status.hours_worked
-          });
-        }
+        status = data.data;
+      } else if (data.data) {
+        status = data.data;
+      } else if (data.success === false && data.message) {
+        // Explicit failure
+        return;
+      } else if (typeof data === 'object' && data !== null && !Array.isArray(data)) {
+        // Response is a direct status object
+        status = data;
+      }
+      
+      if (status && typeof status === 'object') {
+        // Get time values - check both camelCase and snake_case
+        const clockInTime = status.clockInTime || status.clock_in;
+        const clockOutTime = status.clockOutTime || status.clock_out;
+        const hasClockOut = !!clockOutTime;
+        
+        // Format times for display
+        const formattedClockIn = clockInTime ? time24(new Date(clockInTime)) : null;
+        const formattedClockOut = clockOutTime ? time24(new Date(clockOutTime)) : null;
+        
+        // Determine if clocked in (has clockIn but no clockOut)
+        const isClockedIn = !!clockInTime && !hasClockOut;
+        
+        setClock({
+          clockedIn: isClockedIn,
+          clockInTime: formattedClockIn,
+          clockOutTime: formattedClockOut,
+          sessionHours: status.totalHours || status.hours_worked || null
+        });
       }
     } catch (error) {
       console.error('Error fetching today status:', error);
@@ -425,9 +477,14 @@ export function useEmployeeAttendance() {
     setClockLoading(true);
     try {
       const token = localStorage.getItem('token');
+      const todayRecord = records.find(r => r.date === todayISO());
       const response = await fetch(`${API_URL}/attendance/clock-out`, {
         method: 'POST',
-        headers: { 'Authorization': `Bearer ${token}` }
+        headers: { 
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ attendance_id: todayRecord?.id })
       });
       const data = await response.json();
       if (data.success) {
@@ -439,7 +496,7 @@ export function useEmployeeAttendance() {
           clockOutTime: time,
           sessionHours: hours
         });
-        showAlert(`Clocked out at ${fmtTime(time)} — ${hours.toFixed(2)}h logged`, "success");
+        showAlert(`Clocked out at ${fmtTime(time)} â€” ${hours.toFixed(2)}h logged`, "success");
         fetchHistory();
         fetchTodayStatus();
       } else {
@@ -573,16 +630,34 @@ export function useManagerAttendance() {
             empId = String(empId).trim();
           }
           
+          // Extract employee_code - may be nested in employee object
+          let empCode = item.employee_code || item.employeeId || '';
+          if (item.employee && typeof item.employee === 'object') {
+            empCode = item.employee.employee_code || item.employee.employeeId || empCode;
+          }
+          
+          // Extract department - may be nested
+          let dept = item.department || '';
+          if (item.employee && typeof item.employee === 'object') {
+            dept = item.employee.department?.name || item.employee.department || dept;
+          }
+          
+          // Extract full_name - try employee_name, then fallback to employee object
+          let fullName = item.employee_name || item.full_name || '';
+          if (!fullName && item.employee && typeof item.employee === 'object') {
+            fullName = item.employee.full_name || `${item.employee.firstName || ''} ${item.employee.lastName || ''}`.trim();
+          }
+          
           return {
             attendance_id: item.attendance_id,
             employee_id: empId,
-            employee_code: item.employee_code,
-            full_name: item.employee_name,
-            department: item.department,
-            position: item.position || 'Employee',
+            employee_code: empCode,
+            full_name: fullName,
+            department: dept,
+            position: item.position || item.employee?.position || 'Employee',
             status: item.status,
-            clock_in: item.clock_in ? time24(new Date(item.clock_in)) : null,
-            clock_out: item.clock_out ? time24(new Date(item.clock_out)) : null,
+            clock_in: (item.clock_in || item.clockInTime) ? time24(new Date(item.clock_in || item.clockInTime)) : null,
+            clock_out: (item.clock_out || item.clockOutTime) ? time24(new Date(item.clock_out || item.clockOutTime)) : null,
             work_hours: item.hours_worked,
             date: dateStr,
           };
@@ -722,7 +797,15 @@ export function useManagerAttendance() {
 
   const noClockInList = useMemo(() => {
     const todayIds = new Set(todayAttendance.map(r => r.employee_id));
-    const notClocked = employees.filter(e => !todayIds.has(e.employee_id));
+    const notClocked = employees.filter(e => !todayIds.has(e.employee_id)).map(emp => ({
+      employee_id: emp.employee_id || "",
+      employee_code: emp.employee_code || "-",
+      full_name: emp.full_name || "Unknown",
+      department: emp.department || "-",
+      position: emp.position || "-",
+      email: emp.email || "",
+      status: emp.status || "active",
+    }));
     
     if (notClocked.length > 0) {
       console.log('Did Not Clock In Debug:', {
@@ -794,3 +877,7 @@ export function useManagerAttendance() {
     alert, clearAlert: () => setAlert(null),
   };
 }
+
+
+
+
