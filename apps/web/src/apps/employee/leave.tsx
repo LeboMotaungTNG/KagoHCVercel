@@ -6,6 +6,7 @@ import SharedLayout from "./SharedLayout";
 // API URL
 const API_URL = 'https://employee-evaluation-kago-e63baae4d822.herokuapp.com/api/v1';
 
+
 interface LeaveRequest {
   _id: string;
   leave_id: number;
@@ -48,6 +49,21 @@ const EmployeeLeave: React.FC = () => {
   const [submitting, setSubmitting] = useState(false);
   const [message, setMessage] = useState<{ text: string; type: 'success' | 'error' } | null>(null);
 
+  // Auto-calculate days when dates change
+  useEffect(() => {
+    if (formData.startDate && formData.endDate) {
+      const start = new Date(formData.startDate);
+      const end = new Date(formData.endDate);
+      
+      if (!isNaN(start.getTime()) && !isNaN(end.getTime())) {
+        const diffTime = Math.abs(end.getTime() - start.getTime());
+        const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24)) + 1;
+        
+        setFormData(prev => ({ ...prev, days: diffDays > 0 ? diffDays : 1 }));
+      }
+    }
+  }, [formData.startDate, formData.endDate]);
+
   // Helper function to calculate leave balance
   const calculateLeaveBalance = (requests: LeaveRequest[]) => {
     const balance = {
@@ -72,15 +88,38 @@ const EmployeeLeave: React.FC = () => {
 
   // Helper function to fetch leave requests
   const fetchLeaveRequests = async (employeeId: string, token: string) => {
-    const leaveResponse = await fetch(`${API_URL}/leave?employee_id=${employeeId}`, {
-      headers: { 'Authorization': `Bearer ${token}` }
-    });
-    const leaveData = await leaveResponse.json();
-    
-    if (leaveData.success && leaveData.data) {
-      const requests = leaveData.data.data || [];
-      setLeaveRequests(requests);
-      setLeaveBalance(calculateLeaveBalance(requests));
+    try {
+      const leaveResponse = await fetch(`${API_URL}/leave?employee_id=${employeeId}`, {
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      const leaveData = await leaveResponse.json();
+      
+      console.log('Leave API response:', leaveData); // Debug log
+      
+      let requests = [];
+      if (leaveData.success && Array.isArray(leaveData.data)) {
+        requests = leaveData.data;
+      } else if (leaveData.data && Array.isArray(leaveData.data)) {
+        requests = leaveData.data;
+      }
+      
+      // Map API response to expected format
+      const mappedRequests = requests.map((req: any) => ({
+        _id: req._id,
+        leave_id: req.leave_id || req._id,
+        leave_type: req.leaveType || req.leave_type,
+        start_date: req.startDate || req.start_date,
+        end_date: req.endDate || req.end_date,
+        total_days: req.daysRequested || req.totalDays || req.total_days || 1,
+        reason: req.reason || '',
+        status: req.status || 'pending',
+        submitted_at: req.createdAt || req.submitted_at
+      }));
+      
+      setLeaveRequests(mappedRequests);
+      setLeaveBalance(calculateLeaveBalance(mappedRequests));
+    } catch (error) {
+      console.error('Error fetching leave requests:', error);
     }
   };
 
@@ -181,17 +220,6 @@ const EmployeeLeave: React.FC = () => {
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
     const { name, value } = e.target;
     setFormData(prev => ({ ...prev, [name]: value }));
-    
-    // Calculate days if dates change
-    if (name === 'startDate' || name === 'endDate') {
-      if (formData.startDate && formData.endDate) {
-        const start = new Date(formData.startDate);
-        const end = new Date(formData.endDate);
-        const diffTime = Math.abs(end.getTime() - start.getTime());
-        const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24)) + 1;
-        setFormData(prev => ({ ...prev, days: diffDays }));
-      }
-    }
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -231,6 +259,7 @@ const EmployeeLeave: React.FC = () => {
           leave_type: formData.leaveType,
           start_date: formData.startDate,
           end_date: formData.endDate,
+          daysRequested: formData.days,
           reason: formData.reason,
           employee_id: employee._id,
           full_name: `${user?.firstName || ''} ${user?.lastName || ''}`.trim(),
@@ -286,11 +315,18 @@ const EmployeeLeave: React.FC = () => {
   };
 
   const formatDate = (dateString: string) => {
-    return new Date(dateString).toLocaleDateString('en-US', { 
-      month: 'short', 
-      day: 'numeric',
-      year: 'numeric'
-    });
+    if (!dateString) return '—';
+    try {
+      const date = new Date(dateString);
+      if (isNaN(date.getTime())) return '—';
+      return date.toLocaleDateString('en-US', { 
+        month: 'short', 
+        day: 'numeric',
+        year: 'numeric'
+      });
+    } catch {
+      return '—';
+    }
   };
 
   if (loading) {
@@ -558,16 +594,8 @@ const EmployeeLeave: React.FC = () => {
                     />
                   </div>
                   <div>
-                    <label
-                      style={{
-                        display: "block",
-                        marginBottom: 4,
-                        fontSize: 12,
-                        fontWeight: 500,
-                        color: "#344054",
-                      }}
-                    >
-                      Days
+                    <label style={{ display: "block", marginBottom: 4, fontSize: 12, fontWeight: 500, color: "#344054" }}>
+                      Days (auto-calculated)
                     </label>
                     <input
                       type="number"
@@ -581,9 +609,8 @@ const EmployeeLeave: React.FC = () => {
                         border: "1px solid #d0d5dd",
                         padding: "8px 10px",
                         fontSize: 13,
+                        backgroundColor: "#f5f5f5",
                       }}
-                      placeholder="e.g. 3"
-                      readOnly
                     />
                   </div>
                 </div>
