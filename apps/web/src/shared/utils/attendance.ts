@@ -106,12 +106,18 @@ export interface Toast {
 // UTILITIES (same as before)
 // =============================================================================
 
+
+// Helper: Convert API date to local date string (YYYY-MM-DD)
+export function toLocalDateStr(raw: string | Date): string {
+  const d = typeof raw === "string" ? new Date(raw) : raw;
+  return `${d.getFullYear()}-${pad2(d.getMonth() + 1)}-${pad2(d.getDate())}`;
+}
 export function pad2(n: number): string {
   return String(n).padStart(2, "0");
 }
 
 export function todayISO(): string {
-  return new Date().toISOString().slice(0, 10);
+  return toLocalDateStr(new Date());
 }
 
 export function isWeekend(d: Date): boolean {
@@ -349,9 +355,19 @@ export function useEmployeeAttendance() {
       } else {
         attendanceData = [];
       }
+
+      // Helper to format time strings (HH:MM or ISO datetime)
+      const formatApiTime = (raw: string | null | undefined): string | null => {
+        if (!raw) return null;
+        // If it's already HH:MM((:SS)), return first 5 chars
+        if (/^\d{2}:\d{2}(:\d{2})?$/.test(raw)) return raw.slice(0, 5);
+        // If it's a full ISO datetime, extract local time
+        const d = new Date(raw);
+        return isNaN(d.getTime()) ? null : time24(d);
+      };
       
       // Transform backend data to frontend format
-      const transformed = attendanceData.map((item: any) => {
+      const transformed = attendanceData.map((item: any, index: number) => {
         let dateStr = '';
         if (item.date) {
           let dateObj: Date;
@@ -362,16 +378,14 @@ export function useEmployeeAttendance() {
           } else {
             dateObj = new Date();
           }
-          dateStr = dateObj.getFullYear().toString() +
-            '-' + pad2(dateObj.getMonth() + 1) +
-            '-' + pad2(dateObj.getDate());
+          dateStr = `${dateObj.getFullYear()}-${pad2(dateObj.getMonth() + 1)}-${pad2(dateObj.getDate())}`;
         }
         return {
-          id: item.attendance_id,
+          id: item.attendance_id ?? item.id ?? index,
           date: dateStr,
           status: item.status,
-          clock_in: (item.clock_in || item.clockInTime) ? time24(new Date(item.clock_in || item.clockInTime)) : null,
-          clock_out: (item.clock_out || item.clockOutTime) ? time24(new Date(item.clock_out || item.clockOutTime)) : null,
+          clock_in: formatApiTime(item.clock_in || item.clockInTime),
+          clock_out: formatApiTime(item.clock_out || item.clockOutTime),
           work_hours: item.totalHours || item.hours_worked,
         };
       });
@@ -403,6 +417,16 @@ export function useEmployeeAttendance() {
         // Response is a direct status object
         status = data;
       }
+
+      // Helper to format time strings (HH:MM or ISO datetime)
+      const formatApiTime = (raw: string | null | undefined): string | null => {
+        if (!raw) return null;
+        // If it's already HH:MM((:SS)), return first 5 chars
+        if (/^\d{2}:\d{2}(:\d{2})?$/.test(raw)) return raw.slice(0, 5);
+        // If it's a full ISO datetime, extract local time
+        const d = new Date(raw);
+        return isNaN(d.getTime()) ? null : time24(d);
+      };
       
       if (status && typeof status === 'object') {
         // Get time values - check both camelCase and snake_case
@@ -411,8 +435,8 @@ export function useEmployeeAttendance() {
         const hasClockOut = !!clockOutTime;
         
         // Format times for display
-        const formattedClockIn = clockInTime ? time24(new Date(clockInTime)) : null;
-        const formattedClockOut = clockOutTime ? time24(new Date(clockOutTime)) : null;
+        const formattedClockIn = formatApiTime(clockInTime);
+        const formattedClockOut = formatApiTime(clockOutTime);
         
         // Determine if clocked in (has clockIn but no clockOut)
         const isClockedIn = !!clockInTime && !hasClockOut;
@@ -614,9 +638,7 @@ export function useManagerAttendance() {
             }
             
             // Extract local date in YYYY-MM-DD format (not UTC)
-            dateStr = dateObj.getFullYear().toString() +
-              '-' + pad2(dateObj.getMonth() + 1) +
-              '-' + pad2(dateObj.getDate());
+                        dateStr = `${dateObj.getFullYear()}-${pad2(dateObj.getMonth() + 1)}-${pad2(dateObj.getDate())}`;
           }
           
           // Extract employee_id correctly - handle both direct ID and object references
@@ -877,6 +899,7 @@ export function useManagerAttendance() {
     alert, clearAlert: () => setAlert(null),
   };
 }
+
 
 
 
