@@ -14,6 +14,25 @@ import {
   useManagerAttendance,
 } from "../../shared/utils/attendance";
 
+// ─── Utilities ────────────────────────────────────────────────────────────────
+
+// Safely convert a value that might be a string OR a populated Mongo object into a string
+const asText = (v: any, fallback = "—"): string => {
+  if (v == null) return fallback;
+  if (typeof v === "string" || typeof v === "number") return String(v);
+  if (typeof v === "object") {
+    return (
+      v.full_name ||
+      [v.firstName, v.lastName].filter(Boolean).join(" ") ||
+      v.name ||
+      v.title ||
+      v.code ||
+      fallback
+    );
+  }
+  return fallback;
+};
+
 // ─── Style Tokens ─────────────────────────────────────────────────────────────
 
 const CARD: React.CSSProperties = {
@@ -33,6 +52,7 @@ const AVATAR_COLORS = [
 ];
 
 const API_URL = 'https://employee-evaluation-kago-e63baae4d822.herokuapp.com/api/v1';
+
 // ─── Icons ────────────────────────────────────────────────────────────────────
 
 const Icon = {
@@ -182,7 +202,7 @@ function PunctualityBoard({ attendance }: { attendance: ManagerAttendanceRecord[
   );
 
   const medals = ["#FFD700", "#C0C0C0", "#CD7F32"];
-  const getInitials = (name: string) => name.split(" ").map(w => w[0]).join("").slice(0, 2).toUpperCase();
+  const getInitials = (name: any) => asText(name, "?").split(" ").map(w => w[0]).join("").slice(0, 2).toUpperCase();
 
   if (top5.length === 0) return null;
 
@@ -203,12 +223,12 @@ function PunctualityBoard({ attendance }: { attendance: ManagerAttendanceRecord[
             <div style={{ width: 28, height: 28, borderRadius: "50%", flexShrink: 0, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 12, fontWeight: 800, color: "#fff", background: i < 3 ? medals[i] : "#d1d5db" }}>
               {i + 1}
             </div>
-            <div style={{ width: 34, height: 34, borderRadius: "50%", flexShrink: 0, background: AVATAR_COLORS[r.employee_id.split('').reduce((a, b) => a + b.charCodeAt(0), 0) % AVATAR_COLORS.length], display: "flex", alignItems: "center", justifyContent: "center", fontSize: 11, fontWeight: 700, color: "#fff" }}>
+            <div style={{ width: 34, height: 34, borderRadius: "50%", flexShrink: 0, background: AVATAR_COLORS[String(r.employee_id ?? r.attendance_id ?? "0").split('').reduce((a: number, b: string) => a + b.charCodeAt(0), 0) % AVATAR_COLORS.length], display: "flex", alignItems: "center", justifyContent: "center", fontSize: 11, fontWeight: 700, color: "#fff" }}>
               {getInitials(r.full_name)}
             </div>
             <div style={{ flex: 1, minWidth: 0 }}>
-              <p style={{ margin: 0, fontSize: 13, fontWeight: 600, color: "#1d2939", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{r.full_name}</p>
-              <p style={{ margin: 0, fontSize: 11, color: "#9ca3af" }}>{r.department}</p>
+              <p style={{ margin: 0, fontSize: 13, fontWeight: 600, color: "#1d2939", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{asText(r.full_name, "?")}</p>
+              <p style={{ margin: 0, fontSize: 11, color: "#9ca3af" }}>{asText(r.department)}</p>
             </div>
             <span style={{ fontSize: 14, fontWeight: 800, color: "#1d2939", fontVariantNumeric: "tabular-nums" }}>{fmtTime(r.clock_in)}</span>
           </div>
@@ -280,7 +300,7 @@ function StatusDonut({ attendance }: { attendance: ManagerAttendanceRecord[] }) 
 function DetailsModal({ row, onClose, onExport }: { row: ManagerAttendanceRecord; onClose: () => void; onExport?: (row: ManagerAttendanceRecord) => void }) {
   useEffect(() => { document.body.style.overflow = "hidden"; return () => { document.body.style.overflow = ""; }; }, []);
 
-  const getInitials = (name: string) => name.split(" ").map(w => w[0]).join("").slice(0, 2).toUpperCase();
+  const getInitials = (name: any) => asText(name, "?").split(" ").map(w => w[0]).join("").slice(0, 2).toUpperCase();
 
   return (
     <div style={{ position: "fixed", inset: 0, zIndex: 9999, display: "flex", alignItems: "center", justifyContent: "center", padding: 24 }}>
@@ -291,12 +311,12 @@ function DetailsModal({ row, onClose, onExport }: { row: ManagerAttendanceRecord
           <div style={{ width: 60, height: 60, borderRadius: "50%", background: "#E6A79E", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 22, fontWeight: 800, color: "#fff", marginBottom: 12 }}>
             {getInitials(row.full_name)}
           </div>
-          <h2 style={{ margin: 0, fontSize: 20, fontWeight: 700, color: "#fff" }}>{row.full_name}</h2>
-          <p style={{ margin: "4px 0 0", fontSize: 13, color: "rgba(255,255,255,0.5)" }}>{row.employee_code} · {row.department}</p>
+          <h2 style={{ margin: 0, fontSize: 20, fontWeight: 700, color: "#fff" }}>{asText(row.full_name)}</h2>
+          <p style={{ margin: "4px 0 0", fontSize: 13, color: "rgba(255,255,255,0.5)" }}>{asText(row.employee_code)} · {asText(row.department)}</p>
         </div>
         <div style={{ padding: 24, display: "flex", flexDirection: "column", gap: 14 }}>
           {[
-            { label: "Position", value: row.position || "—" },
+            { label: "Position", value: asText(row.position) },
             { label: "Status", value: <span style={{ display: "inline-block", padding: "3px 12px", borderRadius: 20, fontSize: 12, fontWeight: 700, textTransform: "capitalize", ...badgeStyle(row.status) }}>{row.status.replace("_", " ")}</span> },
             { label: "Clock In",  value: fmtTime(row.clock_in)  || "—" },
             { label: "Clock Out", value: fmtTime(row.clock_out) || "—" },
@@ -316,6 +336,84 @@ function DetailsModal({ row, onClose, onExport }: { row: ManagerAttendanceRecord
             </button>
           </div>
         )}
+      </div>
+    </div>
+  );
+}
+
+// ─── Weekly Heatmap ─────────────────────────────────────────────────────────────
+
+function WeeklyHeatmap({ history, employees }: { history: ManagerAttendanceRecord[]; employees: Employee[] }) {
+  const { weekDays, grid } = useMemo(() => {
+    const today = new Date();
+    const wDays: { label: string; dateStr: string }[] = [];
+    for (let i = 4; i >= 0; i--) {
+      const d = addDays(today, -i);
+      if (isWeekend(d)) continue;
+      wDays.push({ label: d.toLocaleDateString("en-ZA", { weekday: "short" }), dateStr: `${d.getFullYear()}-${pad2(d.getMonth() + 1)}-${pad2(d.getDate())}` });
+    }
+    while (wDays.length < 5) {
+      const d = addDays(today, -(5 + (5 - wDays.length)));
+      if (!isWeekend(d)) wDays.unshift({ label: d.toLocaleDateString("en-ZA", { weekday: "short" }), dateStr: `${d.getFullYear()}-${pad2(d.getMonth() + 1)}-${pad2(d.getDate())}` });
+    }
+
+    const lookup: Record<string, Record<string, AttendanceStatus>> = {};
+    history.forEach(r => {
+      if (!lookup[r.date]) lookup[r.date] = {};
+      lookup[r.date][r.employee_id] = r.status;
+    });
+
+    const g = employees.slice(0, 10).map(emp => ({
+      id: emp.employee_id,
+      name: asText(emp.full_name, "Unknown"),
+      cells: wDays.map(wd => lookup[wd.dateStr]?.[emp.employee_id] || null),
+    }));
+
+    return { weekDays: wDays, grid: g };
+  }, [history, employees]);
+
+  return (
+    <div style={CARD}>
+      <h3 style={{ margin: "0 0 2px", fontSize: 15, fontWeight: 700, color: "#1d2939" }}>Weekly Heatmap</h3>
+      <p style={{ margin: "0 0 16px", fontSize: 12, color: "#9ca3af" }}>Attendance patterns this week</p>
+
+      <div style={{ overflowX: "auto" }}>
+        <table style={{ width: "100%", borderCollapse: "collapse" }}>
+          <thead>
+            <tr>
+              <th style={{ padding: "6px 10px", textAlign: "left", fontSize: 11, fontWeight: 700, color: "#9ca3af" }} />
+              {weekDays.map(wd => (
+                <th key={wd.dateStr} style={{ padding: "6px 4px", textAlign: "center", fontSize: 10, fontWeight: 700, color: "#9ca3af", textTransform: "uppercase" }}>{wd.label}</th>
+              ))}
+            </tr>
+          </thead>
+          <tbody>
+            {grid.map((row, idx) => (
+              <tr key={row.id || idx}>
+                <td style={{ padding: "4px 10px", fontSize: 12, fontWeight: 500, color: "#374151", whiteSpace: "nowrap" }}>{row.name}</td>
+                {row.cells.map((status, ci) => (
+                  <td key={ci} style={{ padding: 3, textAlign: "center" }}>
+                    <div style={{
+                      width: 28, height: 28, borderRadius: 6, margin: "0 auto",
+                      background: status ? STATUS_COLORS[status] + "22" : "#f9fafb",
+                      border: `2px solid ${status ? STATUS_COLORS[status] : "#e4e7ec"}`,
+                      display: "flex", alignItems: "center", justifyContent: "center",
+                      transition: "transform 0.15s",
+                    }}
+                      title={status ? status.replace("_", " ") : "No data"}
+                      onMouseEnter={e => { e.currentTarget.style.transform = "scale(1.2)"; }}
+                      onMouseLeave={e => { e.currentTarget.style.transform = "scale(1)"; }}
+                    >
+                      {status && (
+                        <div style={{ width: 8, height: 8, borderRadius: "50%", background: STATUS_COLORS[status] }} />
+                      )}
+                    </div>
+                  </td>
+                ))}
+              </tr>
+            ))}
+          </tbody>
+        </table>
       </div>
     </div>
   );
@@ -396,9 +494,9 @@ function AttendanceContent() {
                           <tr key={row.attendance_id} onClick={() => setSelectedRow(row)} style={{ borderBottom: "1px solid #f2f4f7", cursor: "pointer" }}
                             onMouseEnter={e => { (e.currentTarget as HTMLTableRowElement).style.background = "#f9fafb"; }}
                             onMouseLeave={e => { (e.currentTarget as HTMLTableRowElement).style.background = "#fff"; }}>
-                            <td style={{ padding: "13px 16px", fontSize: 14, fontWeight: 500, color: "#1d2939" }}>{row.full_name}</td>
-                            <td style={{ padding: "13px 16px", fontSize: 14, color: "#667085", fontVariantNumeric: "tabular-nums" }}>{row.employee_code}</td>
-                            <td style={{ padding: "13px 16px", fontSize: 14, color: "#667085" }}>{row.department}</td>
+                            <td style={{ padding: "13px 16px", fontSize: 14, fontWeight: 500, color: "#1d2939" }}>{asText(row.full_name)}</td>
+                            <td style={{ padding: "13px 16px", fontSize: 14, color: "#667085", fontVariantNumeric: "tabular-nums" }}>{asText(row.employee_code)}</td>
+                            <td style={{ padding: "13px 16px", fontSize: 14, color: "#667085" }}>{asText(row.department)}</td>
                             <td style={{ padding: "13px 16px" }}>
                               <span style={{ display: "inline-block", padding: "3px 12px", borderRadius: 20, fontSize: 12, fontWeight: 700, textTransform: "capitalize", ...badgeStyle(row.status) }}>{row.status.replace("_", " ")}</span>
                             </td>
@@ -438,13 +536,13 @@ function AttendanceContent() {
                       </tr></thead>
                       <tbody>
                         {noClockInList.map(emp => (
-                          <tr key={emp.employee_id} style={{ borderBottom: "1px solid #fef2f2" }}
+                          <tr key={emp.employee_id || (emp as any)._id} style={{ borderBottom: "1px solid #fef2f2" }}
                             onMouseEnter={e => { (e.currentTarget as HTMLTableRowElement).style.background = "#fef2f2"; }}
                             onMouseLeave={e => { (e.currentTarget as HTMLTableRowElement).style.background = "#fff"; }}>
-                            <td style={{ padding: "12px 16px", fontSize: 14, fontWeight: 500, color: "#1d2939" }}>{emp.full_name}</td>
-                            <td style={{ padding: "12px 16px", fontSize: 14, color: "#667085" }}>{emp.employee_code}</td>
-                            <td style={{ padding: "12px 16px", fontSize: 14, color: "#667085" }}>{emp.department}</td>
-                            <td style={{ padding: "12px 16px", fontSize: 14, color: "#667085" }}>{emp.position}</td>
+                            <td style={{ padding: "12px 16px", fontSize: 14, fontWeight: 500, color: "#1d2939" }}>{asText(emp.full_name, "Unknown")}</td>
+                            <td style={{ padding: "12px 16px", fontSize: 14, color: "#667085" }}>{asText(emp.employee_code)}</td>
+                            <td style={{ padding: "12px 16px", fontSize: 14, color: "#667085" }}>{asText(emp.department)}</td>
+                            <td style={{ padding: "12px 16px", fontSize: 14, color: "#667085" }}>{asText(emp.position)}</td>
                           </tr>
                         ))}
                       </tbody>
@@ -497,7 +595,10 @@ function AttendanceContent() {
                   </select>
                   <select value={filters.dept} onChange={e => setDept(e.target.value)} style={INPUT}>
                     <option value="all">All Departments</option>
-                    {departments.map(d => <option key={d} value={d}>{d}</option>)}
+                    {departments.map((d: any, i) => {
+                      const dName = asText(d);
+                      return <option key={(d?._id || dName) + i} value={dName}>{dName}</option>;
+                    })}
                   </select>
                   <button onClick={clearFilters} style={{ ...INPUT, cursor: "pointer", background: "#f9fafb", fontWeight: 500 }}>Clear Filters</button>
                 </div>
@@ -515,8 +616,8 @@ function AttendanceContent() {
                         <tr key={row.attendance_id} onClick={() => setSelectedRow(row)} style={{ borderBottom: "1px solid #f2f4f7", cursor: "pointer" }}
                           onMouseEnter={e => { (e.currentTarget as HTMLTableRowElement).style.background = "#f9fafb"; }}
                           onMouseLeave={e => { (e.currentTarget as HTMLTableRowElement).style.background = "#fff"; }}>
-                          <td style={{ padding: "13px 16px", fontSize: 14, fontWeight: 500, color: "#1d2939" }}>{row.full_name}</td>
-                          <td style={{ padding: "13px 16px", fontSize: 14, color: "#667085" }}>{row.department}</td>
+                          <td style={{ padding: "13px 16px", fontSize: 14, fontWeight: 500, color: "#1d2939" }}>{asText(row.full_name)}</td>
+                          <td style={{ padding: "13px 16px", fontSize: 14, color: "#667085" }}>{asText(row.department)}</td>
                           <td style={{ padding: "13px 16px" }}>
                             <span style={{ display: "inline-block", padding: "3px 12px", borderRadius: 20, fontSize: 12, fontWeight: 700, textTransform: "capitalize", ...badgeStyle(row.status) }}>{row.status.replace("_", " ")}</span>
                           </td>
