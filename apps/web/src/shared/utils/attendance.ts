@@ -511,16 +511,39 @@ export function useEmployeeAttendance() {
         body: JSON.stringify({ attendance_id: todayRecord?.id })
       });
       const data = await response.json();
+      
+      // Log response for debugging shape issues
+      console.log('Clock-out response:', { statusOk: response.ok, dataKeys: Object.keys(data), data });
+      
       if (data.success) {
         const time = time24(new Date());
-        const hours = data.data.hours_worked;
+        
+        // Handle multiple possible response shapes
+        // Shape 1: { success, data: { hours_worked } } - flat
+        // Shape 2: { success, data: { attendance: { hours_worked } } } - nested
+        // Shape 3: { success, data: { totalHours } } or { hours_worked } - alternative fields
+        let hours = 0;
+        if (data.data) {
+          // Try direct access first
+          if (typeof data.data.hours_worked === 'number') {
+            hours = data.data.hours_worked;
+          } else if (typeof data.data.totalHours === 'number') {
+            hours = data.data.totalHours;
+          } else if (data.data.attendance && typeof data.data.attendance.hours_worked === 'number') {
+            // Nested in attendance object
+            hours = data.data.attendance.hours_worked;
+          } else if (data.data.attendance && typeof data.data.attendance.totalHours === 'number') {
+            hours = data.data.attendance.totalHours;
+          }
+        }
+        
         setClock({
           clockedIn: false,
           clockInTime: clock.clockInTime,
           clockOutTime: time,
           sessionHours: hours
         });
-        showAlert(`Clocked out at ${fmtTime(time)} â€” ${hours.toFixed(2)}h logged`, "success");
+        showAlert(`Clocked out at ${fmtTime(time)} - ${hours.toFixed(2)}h logged`, "success");
         fetchHistory();
         fetchTodayStatus();
       } else {
@@ -638,49 +661,70 @@ export function useManagerAttendance() {
             }
             
             // Extract local date in YYYY-MM-DD format (not UTC)
-                        dateStr = `${dateObj.getFullYear()}-${pad2(dateObj.getMonth() + 1)}-${pad2(dateObj.getDate())}`;
+            dateStr = `${dateObj.getFullYear()}-${pad2(dateObj.getMonth() + 1)}-${pad2(dateObj.getDate())}`;
           }
+
+          // Helper to format time strings (HH:MM or ISO datetime)
+          const formatApiTime = (raw: string | null | undefined): string | null => {
+            if (!raw) return null;
+            // If it's already HH:MM((:SS)), return first 5 chars
+            if (/^\d{2}:\d{2}(:\d{2})?$/.test(raw)) return raw.slice(0, 5);
+            // If it's a full ISO datetime, extract local time
+            const d = new Date(raw);
+            return isNaN(d.getTime()) ? null : time24(d);
+          };
           
-          // Extract employee_id correctly - handle both direct ID and object references
-          let empId = item.employee_id;
-          if (empId && typeof empId === 'object') {
-            // If it's an object with _id property, extract the _id
-            empId = empId._id || empId.id || String(empId);
-          }
-          // Ensure it's always a string for consistent comparison
-          if (empId) {
-            empId = String(empId).trim();
-          }
-          
-          // Extract employee_code - may be nested in employee object
-          let empCode = item.employee_code || item.employeeId || '';
-          if (item.employee && typeof item.employee === 'object') {
-            empCode = item.employee.employee_code || item.employee.employeeId || empCode;
-          }
-          
-          // Extract department - may be nested
-          let dept = item.department || '';
-          if (item.employee && typeof item.employee === 'object') {
-            dept = item.employee.department?.name || item.employee.department || dept;
-          }
-          
-          // Extract full_name - try employee_name, then fallback to employee object
-          let fullName = item.employee_name || item.full_name || '';
-          if (!fullName && item.employee && typeof item.employee === 'object') {
-            fullName = item.employee.full_name || `${item.employee.firstName || ''} ${item.employee.lastName || ''}`.trim();
-          }
+          // employeeId may already be a populated object (Mongo populate) - API uses camelCase
+          const empObj =
+            (item.employeeId && typeof item.employeeId === 'object') ? item.employeeId :
+            (item.employee_id && typeof item.employee_id === 'object') ? item.employee_id :
+            (item.employee && typeof item.employee === 'object')       ? item.employee     :
+            null;
+
+          const empId = String(
+            (empObj && (empObj._id || empObj.id)) ||
+            (typeof item.employeeId === 'string' ? item.employeeId : '') ||
+            (typeof item.employee_id === 'string' ? item.employee_id : '') ||
+            ''
+          ).trim();
+
+          const empCode =
+            item.employee_code ||
+            empObj?.employeeId ||
+            empObj?.employee_code ||
+            empObj?.empCode ||
+            (empId ? empId.slice(-6) : '—');
+
+          const fullName =
+            item.employee_name ||
+            item.full_name ||
+            (empObj
+              ? (empObj.full_name ||
+                 `${empObj.firstName || ''} ${empObj.lastName || ''}`.trim())
+              : '') ||
+            'Unknown Employee';
+
+          const dept =
+            item.department ||
+            (typeof empObj?.department === 'object' ? empObj.department?.name : empObj?.department) ||
+            '—';
+
+          const position =
+            item.position ||
+            (typeof empObj?.position === 'object' ? empObj.position?.name || empObj.position?.title : empObj?.position) ||
+            'Employee';
           
           return {
-            attendance_id: item.attendance_id,
+            attendance_id: item.attendance_id ?? item.id,
             employee_id: empId,
             employee_code: empCode,
             full_name: fullName,
             department: dept,
-            position: item.position || item.employee?.position || 'Employee',
+            position: position,
             status: item.status,
-            clock_in: (item.clock_in || item.clockInTime) ? time24(new Date(item.clock_in || item.clockInTime)) : null,
-            clock_out: (item.clock_out || item.clockOutTime) ? time24(new Date(item.clock_out || item.clockOutTime)) : null,
-            work_hours: item.hours_worked,
+            clock_in: formatApiTime(item.clockInTime || item.clock_in),
+            clock_out: formatApiTime(item.clockOutTime || item.clock_out),
+            work_hours: item.totalHours ?? item.hours_worked ?? item.work_hours ?? null,
             date: dateStr,
           };
         });
@@ -688,15 +732,19 @@ export function useManagerAttendance() {
         const today = todayISO();
         const todayRecs = transformed.filter(r => r.date === today);
         
-        // Debug: Log actual dates from records
+        // Debug: Log raw API response and transformed data
         if (transformed.length > 0) {
-          console.log('Date Debug Info:', {
-            todayISO: today,
-            recordDates: transformed.slice(0, 3).map(r => r.date),
-            firstRecordFullDate: transformed[0].date,
-            typeOfDate: typeof transformed[0].date,
-            rawDateFromAPI: attendanceData[0]?.date
-          });
+          console.log('=== ATTENDANCE DEBUG ===');
+          console.log('Raw API record[0]:', attendanceData[0]);
+          console.log('Transformed record[0]:', transformed[0]);
+          console.log('Sample transformed records:', transformed.slice(0, 3).map(r => ({
+            full_name: r.full_name,
+            employee_code: r.employee_code,
+            department: r.department,
+            clock_in: r.clock_in,
+            work_hours: r.work_hours
+          })));
+          console.log('=== END DEBUG ===');
         }
         
         setTodayAttendance(todayRecs);
@@ -899,6 +947,7 @@ export function useManagerAttendance() {
     alert, clearAlert: () => setAlert(null),
   };
 }
+
 
 
 
