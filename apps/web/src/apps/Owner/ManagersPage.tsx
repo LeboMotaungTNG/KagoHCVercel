@@ -1,9 +1,9 @@
 import React, { useState, useEffect } from "react";
-import { Container, Card, CardBody, Spinner, Alert } from "reactstrap";
+import { Container, Card, CardBody, Button, Spinner, Alert } from "reactstrap";
 import DataTable from "react-data-table-component";
 import { AiFillEye, AiOutlineSearch, AiOutlineUser, AiOutlineDownload, AiOutlineUpload, AiOutlineClose } from "react-icons/ai";
 
-const API_URL = 'https://employee-evaluation-kago-e63baae4d822.herokuapp.com/api/v1';
+const API_URL = import.meta.env.VITE_API_URL || "https://employee-evaluation-kago-e63baae4d822.herokuapp.com/api/v1";
 
 // ─── Styles ───────────────────────────────────────────────────────────────────
 
@@ -50,6 +50,7 @@ function AddManagerModal({ onClose, onSuccess }: { onClose: () => void; onSucces
   const [form, setForm] = useState({
     firstName: "", lastName: "", email: "", phone: "",
     department: "", jobTitle: "", password: "",
+    salary: "", hireDate: "",
   });
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
@@ -63,15 +64,18 @@ function AddManagerModal({ onClose, onSuccess }: { onClose: () => void; onSucces
     setForm(f => ({ ...f, [field]: e.target.value }));
 
   const handleSubmit = async () => {
-    const required = ["firstName", "lastName", "email", "password", "department"];
+    const required = ["firstName", "lastName", "email", "password", "department", "salary", "hireDate"];
     const missing = required.filter(k => !(form as any)[k].trim());
-    if (missing.length) { setError("Please fill in all required fields."); return; }
+    if (missing.length) { 
+      setError(`Please fill in: ${missing.join(", ")}`); 
+      return; 
+    }
 
     setSaving(true);
     setError("");
     try {
       const token = localStorage.getItem("token");
-      const response = await fetch(`${API_URL}/manager/create`, {
+      const response = await fetch(`${API_URL}/employees`, {
         method: "POST",
         headers: { "Authorization": `Bearer ${token}`, "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -80,9 +84,12 @@ function AddManagerModal({ onClose, onSuccess }: { onClose: () => void; onSucces
           email:     form.email.trim(),
           phone:     form.phone.trim(),
           department: form.department.trim(),
-          jobTitle:   form.jobTitle.trim(),
+          position:   form.jobTitle.trim(),
+          salary:     parseInt(form.salary),
+          hireDate:   form.hireDate,
           password:   form.password,
-          role: "Manager",
+          role: "admin",
+          createAccount: true
         }),
       });
       const data = await response.json();
@@ -110,8 +117,6 @@ function AddManagerModal({ onClose, onSuccess }: { onClose: () => void; onSucces
     <div style={{ position: "fixed", inset: 0, zIndex: 9999, display: "flex", alignItems: "center", justifyContent: "center", padding: 24 }}>
       <div onClick={onClose} style={{ position: "absolute", inset: 0, background: "rgba(0,0,0,0.55)", backdropFilter: "blur(6px)" }} />
       <div onClick={e => e.stopPropagation()} style={{ position: "relative", width: "100%", maxWidth: 540, borderRadius: 16, background: "#fff", boxShadow: "0 25px 50px rgba(0,0,0,0.2)", display: "flex", flexDirection: "column", maxHeight: "90vh" }}>
-
-        {/* Header */}
         <div style={{ padding: "18px 24px", borderBottom: "1px solid #f2f4f7", display: "flex", alignItems: "center", justifyContent: "space-between", flexShrink: 0 }}>
           <div>
             <h2 style={{ margin: 0, fontSize: 18, fontWeight: 700, color: "#1d2939" }}>Add Manager</h2>
@@ -121,13 +126,10 @@ function AddManagerModal({ onClose, onSuccess }: { onClose: () => void; onSucces
             <AiOutlineClose size={20} />
           </button>
         </div>
-
-        {/* Body */}
         <div style={{ overflowY: "auto", padding: "20px 24px", display: "flex", flexDirection: "column", gap: 16 }}>
           {error && (
             <div style={{ padding: "10px 14px", background: "#fef2f2", border: "1px solid #fecaca", borderRadius: 8, fontSize: 13, color: "#b42318" }}>{error}</div>
           )}
-
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}>
             <div>
               <label style={labelStyle}>First Name *</label>
@@ -138,34 +140,43 @@ function AddManagerModal({ onClose, onSuccess }: { onClose: () => void; onSucces
               <input style={inputStyle} placeholder="e.g. Smith" value={form.lastName} onChange={setField("lastName")} />
             </div>
           </div>
-
           <div>
             <label style={labelStyle}>Email Address *</label>
             <input style={inputStyle} type="email" placeholder="james.smith@company.com" value={form.email} onChange={setField("email")} />
           </div>
-
-          <div>
-            <label style={labelStyle}>Phone Number</label>
-            <input style={inputStyle} placeholder="+27 11 123 4567" value={form.phone} onChange={setField("phone")} />
-          </div>
-
           <div>
             <label style={labelStyle}>Department *</label>
             <input style={inputStyle} placeholder="e.g. Engineering" value={form.department} onChange={setField("department")} />
           </div>
-
           <div>
             <label style={labelStyle}>Job Title</label>
             <input style={inputStyle} placeholder="e.g. Engineering Manager" value={form.jobTitle} onChange={setField("jobTitle")} />
           </div>
-
           <div>
+            <label style={labelStyle}>Salary *</label>
+            <input 
+              type="number" 
+              style={inputStyle} 
+              placeholder="e.g. 75000" 
+              value={form.salary} 
+              onChange={setField("salary")} 
+            />
+          </div>
+                    <div>
+            <label style={labelStyle}>Hire Date *</label>
+            <input 
+              type="date" 
+              style={inputStyle} 
+              value={form.hireDate} 
+              onChange={setField("hireDate")} 
+            />
+          </div>
+          
+                    <div>
             <label style={labelStyle}>Password *</label>
             <input style={inputStyle} type="password" placeholder="Temporary password" value={form.password} onChange={setField("password")} />
           </div>
         </div>
-
-        {/* Footer */}
         <div style={{ padding: "16px 24px", borderTop: "1px solid #f2f4f7", display: "flex", justifyContent: "flex-end", gap: 10, flexShrink: 0 }}>
           <button onClick={onClose} style={{ padding: "9px 18px", borderRadius: 8, border: "1px solid #d0d5dd", background: "#fff", fontSize: 14, fontWeight: 500, color: "#344054", cursor: "pointer" }}>Cancel</button>
           <button
@@ -205,15 +216,14 @@ function ViewManagerModal({ manager, onClose }: { manager: any; onClose: () => v
             )}
           </div>
           <h2 style={{ margin: 0, fontSize: 20, fontWeight: 700, color: "#fff" }}>{manager?.firstName} {manager?.lastName}</h2>
-          <p style={{ margin: "4px 0 0", fontSize: 13, color: "rgba(255,255,255,0.7)" }}>{manager?.roles?.[0]?.type || "Manager"}</p>
+          <p style={{ margin: "4px 0 0", fontSize: 13, color: "rgba(255,255,255,0.7)" }}>{manager?.role || "Manager"}</p>
         </div>
         <div style={{ padding: 24, display: "flex", flexDirection: "column", gap: 12 }}>
           {[
             { label: "Email",      value: manager?.email },
-            { label: "Department", value: manager?.departmentId?.name || manager?.department },
-            { label: "Role",       value: manager?.roles?.[0]?.type },
-            { label: "Phone",      value: manager?.phone || "—" },
-            { label: "Job Title",  value: manager?.jobTitle || "—" },
+            { label: "Department", value: manager?.department },
+            { label: "Role",       value: manager?.role || "Manager" },
+            { label: "Job Title",  value: manager?.position || manager?.jobTitle || "—" },
           ].map(({ label, value }) => (
             <div key={label} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "10px 14px", background: "#f9fafb", borderRadius: 10 }}>
               <span style={{ fontSize: 13, color: "#9ca3af", fontWeight: 600 }}>{label}</span>
@@ -242,23 +252,30 @@ export const ManagersPage = () => {
   const [showAddModal, setShowAddModal]   = useState(false);
   const [viewManager, setViewManager]     = useState<any | null>(null);
 
-  // ── Fetch managers ──────────────────────────────────────────────────────────
-
+  // ── Fetch managers from USERS endpoint (NOT employees) ──────────────────────
   const fetchManagers = async () => {
     setLoadingData(true);
     setFetchError("");
     try {
       const token = localStorage.getItem("token");
-      const res = await fetch(`${API_URL}/manager`, {
+      // CHANGE THIS: Use /users endpoint instead of /employees
+      const res = await fetch(`${API_URL}/users`, {
         headers: { "Authorization": `Bearer ${token}`, "Content-Type": "application/json" },
       });
       const data = await res.json();
-      const rows: any[] =
-        Array.isArray(data)            ? data :
-        Array.isArray(data.data)       ? data.data :
-        Array.isArray(data.data?.data) ? data.data.data :
-        [];
-      setManagers(rows);
+      
+      let rows: any[] = [];
+      if (Array.isArray(data)) {
+        rows = data;
+      } else if (data.success && Array.isArray(data.data)) {
+        rows = data.data;
+      } else if (data.data && Array.isArray(data.data.data)) {
+        rows = data.data.data;
+      }
+      
+      // Filter users with role 'admin' (managers)
+      const managersList = rows.filter(user => user.role === "admin");
+      setManagers(managersList);
     } catch (err) {
       console.error(err);
       setFetchError("Failed to load managers. Please try again.");
@@ -270,18 +287,13 @@ export const ManagersPage = () => {
   useEffect(() => { fetchManagers(); }, []);
 
   // ── Table columns ───────────────────────────────────────────────────────────
-
   const columns = [
     {
       name: <span className="font-weight-bold fs-13">Manager Name</span>,
       cell: (row: any) => (
         <div className="w-100 d-flex align-items-center gap-2">
           <div className="d-flex justify-content-center align-items-center bg-primary" style={{ width: 35, height: 35, borderRadius: "50%", flexShrink: 0 }}>
-            {row?.photo ? (
-              <img src={row.photo} alt="manager" style={{ width: 35, height: 35, borderRadius: "50%", objectFit: "cover" }} />
-            ) : (
-              <AiOutlineUser color="white" size={19} />
-            )}
+            <AiOutlineUser color="white" size={19} />
           </div>
           <div>
             <div style={{ fontSize: 14, fontWeight: 400 }}>{row?.firstName} {row?.lastName}</div>
@@ -294,11 +306,11 @@ export const ManagersPage = () => {
     },
     {
       name: <span className="font-weight-bold fs-13">Department</span>,
-      selector: (row: any) => row?.departmentId?.name || row?.department || "—",
+      selector: (row: any) => row?.department || "—",
     },
     {
       name: <span className="font-weight-bold fs-13">Role</span>,
-      selector: (row: any) => row?.roles?.[0]?.type || "Manager",
+      selector: (row: any) => row?.role === "admin" ? "Manager" : "Admin",
     },
     {
       name: <span className="font-weight-bold fs-13">Action</span>,
@@ -310,13 +322,12 @@ export const ManagersPage = () => {
 
   const filtered = managers.filter((item) => {
     if (!search) return true;
-    return [item?.firstName, item?.lastName, item?.departmentId?.name, item?.department, item?.email].some(
+    return [item?.firstName, item?.lastName, item?.department, item?.email].some(
       (field) => field?.toLowerCase().includes(search.toLowerCase())
     );
   });
 
   // ── Template download ───────────────────────────────────────────────────────
-
   const handleDownloadTemplate = () => {
     const csv = "National ID,Full Name,Department,Job Title,Salary,Bank Account Details\n1234567890123,John Doe,Engineering,Software Engineer,45000,ZAR123456789\n";
     const blob = new Blob([csv], { type: "text/csv" });
@@ -327,7 +338,6 @@ export const ManagersPage = () => {
   };
 
   // ── CSV upload ──────────────────────────────────────────────────────────────
-
   const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
@@ -346,8 +356,6 @@ export const ManagersPage = () => {
         setUploadSuccess(true);
         fetchManagers();
       } else {
-        const data = await res.json().catch(() => ({}));
-        console.error("Upload failed:", data);
         setUploadSuccess(false);
       }
     } catch (err) {

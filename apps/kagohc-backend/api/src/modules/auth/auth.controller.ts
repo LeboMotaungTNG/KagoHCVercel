@@ -104,13 +104,49 @@ export class AuthController {
     try {
       const userId = (req.user as any)._id;
       const { currentPassword, newPassword } = req.body;
-      
+
       await authService.changePassword(userId, currentPassword, newPassword);
-      
+
       // Log password change
       await AuditHelper.log(req, 'UPDATE', 'USER', userId, 'SUCCESS', undefined, 'Password changed');
-      
+
       successResponse(res, 200, 'Password changed successfully');
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  async createManager(req: Request, res: Response, next: NextFunction) {
+    try {
+      // Only extract valid fields for User model
+      const { firstName, lastName, email, password } = req.body;
+      const managerData = {
+        firstName,
+        lastName,
+        email,
+        password,
+        role: 'manager'
+      };
+
+      // Direct user creation
+      const existingUser = await authService.checkExisting(email);
+      if (existingUser) {
+        return res.status(400).json({ success: false, error: 'User already exists' });
+      }
+
+      const result = await authService.createManagerUser(managerData);
+
+      successResponse(res, 201, 'Manager created successfully', result);
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  async getManagers(req: Request, res: Response, next: NextFunction) {
+    try {
+      const managers = await authService.getManagers();
+
+      successResponse(res, 200, 'Managers retrieved successfully', { managers });
     } catch (error) {
       next(error);
     }
