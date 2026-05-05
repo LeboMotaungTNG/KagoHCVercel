@@ -3,7 +3,7 @@ import { Container, Card, CardBody, Spinner } from "reactstrap";
 import DataTable from "react-data-table-component";
 import { AiFillEye, AiOutlineSearch, AiOutlineUser, AiOutlineClose } from "react-icons/ai";
 
-const API_URL = 'https://employee-evaluation-kago-e63baae4d822.herokuapp.com/api/v1';
+const API_URL = import.meta.env.VITE_API_URL || "https://employee-evaluation-kago-e63baae4d822.herokuapp.com/api/v1";
 
 // ─── Styles ───────────────────────────────────────────────────────────────────
 
