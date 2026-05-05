@@ -106,12 +106,18 @@ export interface Toast {
 // UTILITIES (same as before)
 // =============================================================================
 
+
+// Helper: Convert API date to local date string (YYYY-MM-DD)
+export function toLocalDateStr(raw: string | Date): string {
+  const d = typeof raw === "string" ? new Date(raw) : raw;
+  return `${d.getFullYear()}-${pad2(d.getMonth() + 1)}-${pad2(d.getDate())}`;
+}
 export function pad2(n: number): string {
   return String(n).padStart(2, "0");
 }
 
 export function todayISO(): string {
-  return new Date().toISOString().slice(0, 10);
+  return toLocalDateStr(new Date());
 }
 
 export function isWeekend(d: Date): boolean {
@@ -125,7 +131,7 @@ export function addDays(base: Date, delta: number): Date {
 }
 
 export function fmtTime(raw: string | null | undefined): string {
-  if (!raw) return "—";
+  if (!raw) return "Not clocked in";
 
   // If already includes AM/PM (e.g., from legacy input), preserve with normalization.
   const ampmMatch = raw.match(/^(\d{1,2}:\d{2})\s*(AM|PM)$/i);
@@ -271,8 +277,9 @@ export function printAttendance(records: ManagerAttendanceRecord[]): boolean {
     <tr>
       <td>${r.full_name}</td><td>${r.employee_code}</td><td>${r.department}</td>
        <td><span class="badge badge-${r.status}">${r.status.replace("_"," ").toUpperCase()}</span></td>
-       <td>${r.clock_in ?? "—"}</td><td>${r.clock_out ?? "—"}</td>
-       <td>${r.work_hours != null ? r.work_hours + "h" : "—"}</td>
+       <td>${r.clock_in || '—'}</td>
+<td>${r.clock_out || '—'}</td>
+       <td>${r.work_hours != null ? r.work_hours + "h" : "_"}</td>
      </tr>`).join("");
 
   win.document.write(`<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8">
@@ -329,18 +336,60 @@ export function useEmployeeAttendance() {
         headers: { 'Authorization': `Bearer ${token}` }
       });
       const data = await response.json();
-      if (data.success) {
-        // Transform backend data to frontend format
-        const transformed = data.data.data.map((item: any) => ({
-          id: item.attendance_id,
-          date: item.date.split('T')[0],
-          status: item.status,
-          clock_in: item.clock_in ? time24(new Date(item.clock_in)) : null,
-          clock_out: item.clock_out ? time24(new Date(item.clock_out)) : null,
-          work_hours: item.hours_worked,
-        }));
-        setRecords(transformed);
+      
+      // Handle multiple possible response structures
+      let attendanceData: any[] = [];
+      if (data.success === false) {
+        // Explicit failure
+        console.warn('Attendance fetch failed:', data);
+        return;
       }
+      
+      // Try parsing different response shapes
+      if (data.data?.data && Array.isArray(data.data.data)) {
+        attendanceData = data.data.data;
+      } else if (Array.isArray(data.data)) {
+        attendanceData = data.data;
+      } else if (Array.isArray(data)) {
+        attendanceData = data;
+      } else {
+        attendanceData = [];
+      }
+
+      // Helper to format time strings (HH:MM or ISO datetime)
+      const formatApiTime = (raw: string | null | undefined): string | null => {
+        if (!raw) return null;
+        // If it's already HH:MM((:SS)), return first 5 chars
+        if (/^\d{2}:\d{2}(:\d{2})?$/.test(raw)) return raw.slice(0, 5);
+        // If it's a full ISO datetime, extract local time
+        const d = new Date(raw);
+        return isNaN(d.getTime()) ? null : time24(d);
+      };
+      
+      // Transform backend data to frontend format
+      const transformed = attendanceData.map((item: any, index: number) => {
+        let dateStr = '';
+        if (item.date) {
+          let dateObj: Date;
+          if (item.date instanceof Date) {
+            dateObj = item.date;
+          } else if (typeof item.date === 'string') {
+            dateObj = new Date(item.date);
+          } else {
+            dateObj = new Date();
+          }
+          dateStr = `${dateObj.getFullYear()}-${pad2(dateObj.getMonth() + 1)}-${pad2(dateObj.getDate())}`;
+        }
+        return {
+          id: item.attendance_id ?? item.id ?? index,
+          date: dateStr,
+          status: item.status,
+          clock_in: formatApiTime(item.clock_in || item.clockInTime),
+          clock_out: formatApiTime(item.clock_out || item.clockOutTime),
+          work_hours: item.totalHours || item.hours_worked,
+        };
+      });
+      setRecords(transformed);
     } catch (error) {
       console.error('Error fetching attendance:', error);
     }
@@ -354,23 +403,50 @@ export function useEmployeeAttendance() {
         headers: { 'Authorization': `Bearer ${token}` }
       });
       const data = await response.json();
+      
+      // Handle multiple response shapes - the endpoint may not return a success wrapper
+      let status: any = null;
       if (data.success && data.data) {
-        const status = data.data;
-        if (status?.status === 'clocked-in') {
-          setClock({
-            clockedIn: true,
-            clockInTime: time24(new Date(status.clock_in)),
-            clockOutTime: null,
-            sessionHours: null
-          });
-        } else if (status?.status === 'completed') {
-          setClock({
-            clockedIn: false,
-            clockInTime: time24(new Date(status.clock_in)),
-            clockOutTime: time24(new Date(status.clock_out)),
-            sessionHours: status.hours_worked
-          });
-        }
+        status = data.data;
+      } else if (data.data) {
+        status = data.data;
+      } else if (data.success === false && data.message) {
+        // Explicit failure
+        return;
+      } else if (typeof data === 'object' && data !== null && !Array.isArray(data)) {
+        // Response is a direct status object
+        status = data;
+      }
+
+      // Helper to format time strings (HH:MM or ISO datetime)
+      const formatApiTime = (raw: string | null | undefined): string | null => {
+        if (!raw) return null;
+        // If it's already HH:MM((:SS)), return first 5 chars
+        if (/^\d{2}:\d{2}(:\d{2})?$/.test(raw)) return raw.slice(0, 5);
+        // If it's a full ISO datetime, extract local time
+        const d = new Date(raw);
+        return isNaN(d.getTime()) ? null : time24(d);
+      };
+      
+      if (status && typeof status === 'object') {
+        // Get time values - check both camelCase and snake_case
+        const clockInTime = status.clockInTime || status.clock_in;
+        const clockOutTime = status.clockOutTime || status.clock_out;
+        const hasClockOut = !!clockOutTime;
+        
+        // Format times for display
+        const formattedClockIn = formatApiTime(clockInTime);
+        const formattedClockOut = formatApiTime(clockOutTime);
+        
+        // Determine if clocked in (has clockIn but no clockOut)
+        const isClockedIn = !!clockInTime && !hasClockOut;
+        
+        setClock({
+          clockedIn: isClockedIn,
+          clockInTime: formattedClockIn,
+          clockOutTime: formattedClockOut,
+          sessionHours: status.totalHours || status.hours_worked || null
+        });
       }
     } catch (error) {
       console.error('Error fetching today status:', error);
@@ -425,21 +501,49 @@ export function useEmployeeAttendance() {
     setClockLoading(true);
     try {
       const token = localStorage.getItem('token');
+      const todayRecord = records.find(r => r.date === todayISO());
       const response = await fetch(`${API_URL}/attendance/clock-out`, {
         method: 'POST',
-        headers: { 'Authorization': `Bearer ${token}` }
+        headers: { 
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ attendance_id: todayRecord?.id })
       });
       const data = await response.json();
+      
+      // Log response for debugging shape issues
+      console.log('Clock-out response:', { statusOk: response.ok, dataKeys: Object.keys(data), data });
+      
       if (data.success) {
         const time = time24(new Date());
-        const hours = data.data.hours_worked;
+        
+        // Handle multiple possible response shapes
+        // Shape 1: { success, data: { hours_worked } } - flat
+        // Shape 2: { success, data: { attendance: { hours_worked } } } - nested
+        // Shape 3: { success, data: { totalHours } } or { hours_worked } - alternative fields
+        let hours = 0;
+        if (data.data) {
+          // Try direct access first
+          if (typeof data.data.hours_worked === 'number') {
+            hours = data.data.hours_worked;
+          } else if (typeof data.data.totalHours === 'number') {
+            hours = data.data.totalHours;
+          } else if (data.data.attendance && typeof data.data.attendance.hours_worked === 'number') {
+            // Nested in attendance object
+            hours = data.data.attendance.hours_worked;
+          } else if (data.data.attendance && typeof data.data.attendance.totalHours === 'number') {
+            hours = data.data.attendance.totalHours;
+          }
+        }
+        
         setClock({
           clockedIn: false,
           clockInTime: clock.clockInTime,
           clockOutTime: time,
           sessionHours: hours
         });
-        showAlert(`Clocked out at ${fmtTime(time)} — ${hours.toFixed(2)}h logged`, "success");
+        showAlert(`Clocked out at ${fmtTime(time)} - ${hours.toFixed(2)}h logged`, "success");
         fetchHistory();
         fetchTodayStatus();
       } else {
@@ -557,33 +661,70 @@ export function useManagerAttendance() {
             }
             
             // Extract local date in YYYY-MM-DD format (not UTC)
-            dateStr = dateObj.getFullYear().toString() +
-              '-' + pad2(dateObj.getMonth() + 1) +
-              '-' + pad2(dateObj.getDate());
+            dateStr = `${dateObj.getFullYear()}-${pad2(dateObj.getMonth() + 1)}-${pad2(dateObj.getDate())}`;
           }
+
+          // Helper to format time strings (HH:MM or ISO datetime)
+          const formatApiTime = (raw: string | null | undefined): string | null => {
+            if (!raw) return null;
+            // If it's already HH:MM((:SS)), return first 5 chars
+            if (/^\d{2}:\d{2}(:\d{2})?$/.test(raw)) return raw.slice(0, 5);
+            // If it's a full ISO datetime, extract local time
+            const d = new Date(raw);
+            return isNaN(d.getTime()) ? null : time24(d);
+          };
           
-          // Extract employee_id correctly - handle both direct ID and object references
-          let empId = item.employee_id;
-          if (empId && typeof empId === 'object') {
-            // If it's an object with _id property, extract the _id
-            empId = empId._id || empId.id || String(empId);
-          }
-          // Ensure it's always a string for consistent comparison
-          if (empId) {
-            empId = String(empId).trim();
-          }
+          // employeeId may already be a populated object (Mongo populate) - API uses camelCase
+          const empObj =
+            (item.employeeId && typeof item.employeeId === 'object') ? item.employeeId :
+            (item.employee_id && typeof item.employee_id === 'object') ? item.employee_id :
+            (item.employee && typeof item.employee === 'object')       ? item.employee     :
+            null;
+
+          const empId = String(
+            (empObj && (empObj._id || empObj.id)) ||
+            (typeof item.employeeId === 'string' ? item.employeeId : '') ||
+            (typeof item.employee_id === 'string' ? item.employee_id : '') ||
+            ''
+          ).trim();
+
+          const empCode =
+            item.employee_code ||
+            empObj?.employeeId ||
+            empObj?.employee_code ||
+            empObj?.empCode ||
+            (empId ? empId.slice(-6) : '—');
+
+          const fullName =
+            item.employee_name ||
+            item.full_name ||
+            (empObj
+              ? (empObj.full_name ||
+                 `${empObj.firstName || ''} ${empObj.lastName || ''}`.trim())
+              : '') ||
+            'Unknown Employee';
+
+          const dept =
+            item.department ||
+            (typeof empObj?.department === 'object' ? empObj.department?.name : empObj?.department) ||
+            '—';
+
+          const position =
+            item.position ||
+            (typeof empObj?.position === 'object' ? empObj.position?.name || empObj.position?.title : empObj?.position) ||
+            'Employee';
           
           return {
-            attendance_id: item.attendance_id,
+            attendance_id: item.attendance_id ?? item.id,
             employee_id: empId,
-            employee_code: item.employee_code,
-            full_name: item.employee_name,
-            department: item.department,
-            position: item.position || 'Employee',
+            employee_code: empCode,
+            full_name: fullName,
+            department: dept,
+            position: position,
             status: item.status,
-            clock_in: item.clock_in ? time24(new Date(item.clock_in)) : null,
-            clock_out: item.clock_out ? time24(new Date(item.clock_out)) : null,
-            work_hours: item.hours_worked,
+            clock_in: formatApiTime(item.clockInTime || item.clock_in),
+            clock_out: formatApiTime(item.clockOutTime || item.clock_out),
+            work_hours: item.totalHours ?? item.hours_worked ?? item.work_hours ?? null,
             date: dateStr,
           };
         });
@@ -591,15 +732,19 @@ export function useManagerAttendance() {
         const today = todayISO();
         const todayRecs = transformed.filter(r => r.date === today);
         
-        // Debug: Log actual dates from records
+        // Debug: Log raw API response and transformed data
         if (transformed.length > 0) {
-          console.log('Date Debug Info:', {
-            todayISO: today,
-            recordDates: transformed.slice(0, 3).map(r => r.date),
-            firstRecordFullDate: transformed[0].date,
-            typeOfDate: typeof transformed[0].date,
-            rawDateFromAPI: attendanceData[0]?.date
-          });
+          console.log('=== ATTENDANCE DEBUG ===');
+          console.log('Raw API record[0]:', attendanceData[0]);
+          console.log('Transformed record[0]:', transformed[0]);
+          console.log('Sample transformed records:', transformed.slice(0, 3).map(r => ({
+            full_name: r.full_name,
+            employee_code: r.employee_code,
+            department: r.department,
+            clock_in: r.clock_in,
+            work_hours: r.work_hours
+          })));
+          console.log('=== END DEBUG ===');
         }
         
         setTodayAttendance(todayRecs);
@@ -722,7 +867,15 @@ export function useManagerAttendance() {
 
   const noClockInList = useMemo(() => {
     const todayIds = new Set(todayAttendance.map(r => r.employee_id));
-    const notClocked = employees.filter(e => !todayIds.has(e.employee_id));
+    const notClocked = employees.filter(e => !todayIds.has(e.employee_id)).map(emp => ({
+      employee_id: emp.employee_id || "",
+      employee_code: emp.employee_code || "-",
+      full_name: emp.full_name || "Unknown",
+      department: emp.department || "-",
+      position: emp.position || "-",
+      email: emp.email || "",
+      status: emp.status || "active",
+    }));
     
     if (notClocked.length > 0) {
       console.log('Did Not Clock In Debug:', {
@@ -794,3 +947,9 @@ export function useManagerAttendance() {
     alert, clearAlert: () => setAlert(null),
   };
 }
+
+
+
+
+
+
