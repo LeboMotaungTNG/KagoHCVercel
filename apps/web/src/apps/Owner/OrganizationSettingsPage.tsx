@@ -1,12 +1,15 @@
-import React, { useState } from "react";
-import { Container, Row, Col, Card, CardBody, Button, Input, Label, FormGroup, Table } from "reactstrap";
+import React, { useState, useEffect } from "react";
+import { Container, Row, Col, Card, CardBody, Button, Input, Label, FormGroup, Table, Spinner } from "reactstrap";
 import { FaSave, FaEdit, FaPlus, FaTrash, FaChevronDown, FaChevronRight, FaBuilding, FaMoneyBillWave, FaCalendarAlt } from "react-icons/fa";
+
+const API_URL = import.meta.env.VITE_API_URL || "https://employee-evaluation-kago-e63baae4d822.herokuapp.com/api/v1";
 
 // ============================================
 // COMPANY DETAILS TAB (ENHANCED VERSION - FIXED)
 // ============================================
 const CompanyDetailsTab = () => {
   const [isEditing, setIsEditing] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
   const [companyData, setCompanyData] = useState({
     // Basic Information
     name: "Kago Human Capital",
@@ -97,9 +100,62 @@ const CompanyDetailsTab = () => {
 
   const [formData, setFormData] = useState(companyData);
 
-  const handleSave = () => {
-    setCompanyData(formData);
-    setIsEditing(false);
+  // Fetch company data from API on component mount
+  useEffect(() => {
+    const fetchCompanyData = async () => {
+      setIsLoading(true);
+      try {
+        const token = localStorage.getItem("token");
+        const response = await fetch(`${API_URL}/owner/company/settings`, {
+          headers: { "Authorization": `Bearer ${token}` }
+        });
+        const data = await response.json();
+        if (data.success && data.data) {
+          // Merge API data with defaults to ensure all nested objects exist
+          const mergedData = {
+            ...companyData,
+            ...data.data,
+            bank: { ...companyData.bank, ...data.data.bank },
+            contacts: { ...companyData.contacts, ...data.data.contacts },
+            address: { ...companyData.address, ...data.data.address }
+          };
+          setCompanyData(mergedData);
+          setFormData(mergedData);
+        }
+      } catch (error) {
+        console.error("Error fetching company data:", error);
+        // Keep using default mock data on error
+      } finally {
+        setIsLoading(false);
+      }
+    };
+    
+    fetchCompanyData();
+  }, []);
+
+  const handleSave = async () => {
+    try {
+      const token = localStorage.getItem("token");
+      const response = await fetch(`${API_URL}/owner/company/settings`, {
+        method: "PUT",
+        headers: {
+          "Authorization": `Bearer ${token}`,
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify(formData)
+      });
+      
+      if (response.ok) {
+        setCompanyData(formData);
+        setIsEditing(false);
+        alert("Company details saved successfully!");
+      } else {
+        alert("Error saving company details");
+      }
+    } catch (error) {
+      console.error("Error saving company data:", error);
+      alert("Error saving company details");
+    }
   };
 
   // Helper function to get nested value
@@ -270,10 +326,18 @@ const CompanyDetailsTab = () => {
 
       <Card style={{ borderRadius: "16px", boxShadow: "0 2px 8px rgba(0,0,0,0.08)" }}>
         <CardBody>
+          {isLoading && (
+            <div style={{ textAlign: "center", padding: "40px", display: "flex", flexDirection: "column", alignItems: "center", gap: "16px" }}>
+              <Spinner color="primary" />
+              <p style={{ color: "#667085" }}>Loading company data...</p>
+            </div>
+          )}
+          {!isLoading && (
+          <>
           {/* Company Logo & Basic Info */}
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "24px" }}>
             <div style={{ width: "120px", height: "120px", borderRadius: "50%", backgroundColor: "#33A6CD", display: "flex", alignItems: "center", justifyContent: "center", color: "white", fontSize: "48px", fontWeight: "bold" }}>
-              {companyData.name.charAt(0)}
+              {(companyData?.name || "K").charAt(0)}
             </div>
             {isEditing && (
               <Button bsSize="sm" variant="outline" style={{ borderColor: "#33A6CD", color: "#33A6CD" }}>
@@ -334,12 +398,12 @@ const CompanyDetailsTab = () => {
           {/* Banking Information */}
           <h5 style={{ marginBottom: "16px", color: "#33A6CD" }}>Banking Information</h5>
           <Row>
-            {renderField("Bank Name", companyData.bank.bankName, "bank.bankName", "select")}
-            {renderField("Account Name", companyData.bank.accountName, "bank.accountName")}
-            {renderField("Account Number", companyData.bank.accountNumber, "bank.accountNumber")}
-            {renderField("Branch Code", companyData.bank.branchCode, "bank.branchCode")}
-            {renderField("Account Type", companyData.bank.accountType, "bank.accountType", "select")}
-            {renderField("SWIFT Code", companyData.bank.swiftCode, "bank.swiftCode")}
+            {renderField("Bank Name", companyData?.bank?.bankName || "", "bank.bankName", "select")}
+            {renderField("Account Name", companyData?.bank?.accountName || "", "bank.accountName")}
+            {renderField("Account Number", companyData?.bank?.accountNumber || "", "bank.accountNumber")}
+            {renderField("Branch Code", companyData?.bank?.branchCode || "", "bank.branchCode")}
+            {renderField("Account Type", companyData?.bank?.accountType || "", "bank.accountType", "select")}
+            {renderField("SWIFT Code", companyData?.bank?.swiftCode || "", "bank.swiftCode")}
           </Row>
 
           <hr style={{ margin: "24px 0" }} />
@@ -392,6 +456,8 @@ const CompanyDetailsTab = () => {
             {renderField("Verification Status", companyData.verified, "verified", "checkbox")}
             {renderField("Last Audit Date", companyData.lastAuditDate, "lastAuditDate", "date")}
           </Row>
+          </>
+          )}
         </CardBody>
       </Card>
     </div>
