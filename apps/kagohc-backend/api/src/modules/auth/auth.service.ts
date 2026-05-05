@@ -6,28 +6,29 @@ import { AppError } from '../../core/errors/AppError';
 export class AuthService {
   
   async register(userData: any) {
-    const existingUser = await UserModel.findOne({ email: userData.email });
-    if (existingUser) {
-      throw new AppError('User already exists', 400);
-    }
+    try {
+      const existingUser = await UserModel.findOne({ email: userData.email });
+      if (existingUser) {
+        throw new AppError('User already exists', 400);
+      }
 
-    const hashedPassword = await bcrypt.hash(userData.password, 10);
-    
-    const user = await UserModel.create({
-      ...userData,
-      password: hashedPassword,
-      role: userData.role || 'user',
-      isActive: true
-    });
+      const hashedPassword = await bcrypt.hash(userData.password, 10);
 
-    const token = jwt.sign(
-      { 
-        _id: user._id,
-        userId: user._id,
-        email: user.email,
-        role: user.role,
-        firstName: user.firstName,
-        lastName: user.lastName
+      const user = await UserModel.create({
+        ...userData,
+        password: hashedPassword,
+        role: userData.role || 'user',
+        isActive: true
+      });
+
+      const token = jwt.sign(
+        {
+          _id: user._id,
+          userId: user._id,
+          email: user.email,
+          role: user.role,
+          firstName: user.firstName,
+          lastName: user.lastName
       },
       process.env.JWT_SECRET || 'your-secret-key',
       { expiresIn: '30m' }
@@ -54,6 +55,10 @@ export class AuthService {
       token,
       refreshToken
     };
+    } catch (error) {
+      console.error('Register error:', error);
+      throw error;
+    }
   }
 
   async login(email: string, password: string) {
@@ -173,6 +178,39 @@ export class AuthService {
     const hashedPassword = await bcrypt.hash(newPassword, 10);
     user.password = hashedPassword;
     await user.save();
+  }
+
+  async getManagers() {
+    const managers = await UserModel.find({ role: 'manager' }).select('-password -refreshToken');
+    return managers;
+  }
+
+  async checkExisting(email: string) {
+    return await UserModel.findOne({ email });
+  }
+
+  async createManagerUser(userData: any) {
+    const hashedPassword = await bcrypt.hash(userData.password, 10);
+
+    const user = await UserModel.create({
+      firstName: userData.firstName,
+      lastName: userData.lastName,
+      email: userData.email,
+      password: hashedPassword,
+      role: 'manager',
+      isActive: true
+    });
+
+    return {
+      user: {
+        _id: user._id,
+        email: user.email,
+        firstName: user.firstName,
+        lastName: user.lastName,
+        role: user.role,
+        isActive: user.isActive
+      }
+    };
   }
 }
 

@@ -1,7 +1,9 @@
-import React, { useState } from "react";
-import { Container, Card, CardBody, Button, Spinner, Alert } from "reactstrap";
+import React, { useState, useEffect } from "react";
+import { Container, Card, CardBody, Button, Spinner, Alert, Modal, ModalBody, ModalHeader, Form, FormGroup, Label, Input } from "reactstrap";
 import DataTable from "react-data-table-component";
 import { AiFillEye, AiOutlineSearch, AiOutlineUser, AiOutlineDownload, AiOutlineUpload } from "react-icons/ai";
+
+const API_URL = import.meta.env.VITE_API_URL || "https://employee-evaluation-kago-e63baae4d822.herokuapp.com/api/v1";
 
 const employeeTblTitle = {
   width: "100%",
@@ -95,6 +97,85 @@ export const ManagersPage = () => {
   const [uploadSuccess, setUploadSuccess] = useState(false);
   const [uploadedFileName, setUploadedFileName] = useState("");
 
+  // Manager modal state
+  const [showModal, setShowModal] = useState(false);
+  const [managersData, setManagersData] = useState<any[]>([]);
+  const [isLoading, setIsLoading] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
+  const [successMsg, setSuccessMsg] = useState("");
+  const [errorMsg, setErrorMsg] = useState("");
+
+  // Form state
+  const [managerForm, setManagerForm] = useState({
+    firstName: "",
+    lastName: "",
+    email: "",
+    password: "",
+    department: ""
+  });
+
+  // Fetch managers on mount
+  useEffect(() => {
+    fetchManagers();
+  }, []);
+
+  const fetchManagers = async () => {
+    setIsLoading(true);
+    setErrorMsg("");
+    try {
+      const token = localStorage.getItem("token");
+      const response = await fetch(`${API_URL}/auth/managers`, {
+        headers: {
+          "Authorization": `Bearer ${token}`,
+          "Content-Type": "application/json"
+        }
+      });
+      const data = await response.json();
+      if (data.success && Array.isArray(data.data?.managers)) {
+        setManagersData(data.data.managers);
+      } else if (data.error) {
+        setErrorMsg(String(data.error));
+        setManagersData([]);
+      }
+    } catch (error) {
+      console.error("Error fetching managers:", error);
+      setManagersData([]);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleAddManager = async () => {
+    setIsSaving(true);
+    setErrorMsg("");
+    setSuccessMsg("");
+    try {
+      const token = localStorage.getItem("token");
+      const response = await fetch(`${API_URL}/auth/create-manager`, {
+        method: "POST",
+        headers: {
+          "Authorization": `Bearer ${token}`,
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify(managerForm)
+      });
+      const data = await response.json();
+      if (data.success) {
+        setSuccessMsg(String(data.message) || "Manager created successfully!");
+        setManagerForm({ firstName: "", lastName: "", email: "", password: "", department: "" });
+        setShowModal(false);
+        fetchManagers();
+      } else {
+        setErrorMsg(String(data.error) || "Failed to create manager");
+      }
+    } catch (error) {
+      setErrorMsg("Error creating manager");
+      console.error("Error:", error);
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
   const mockManagersData = [
     {
       id: "101",
@@ -115,6 +196,9 @@ export const ManagersPage = () => {
       photo: null
     },
   ];
+
+  // Use API data if available, otherwise fallback to mock
+  const displayData = Array.isArray(managersData) && managersData.length > 0 ? managersData : mockManagersData;
 
   const columns = [
     {
@@ -160,9 +244,9 @@ export const ManagersPage = () => {
     },
   ];
 
-  const filteredEmployeeTable = mockManagersData.filter((item) => {
+  const filteredEmployeeTable = displayData.filter((item: any) => {
     if (!search) return true;
-    return [item?.firstName, item?.lastName, item?.departmentId?.name].some(
+    return [item?.firstName, item?.lastName, item?.email, item?.departmentId?.name].some(
       (field) => field?.toLowerCase().includes(search.toLowerCase())
     );
   });
@@ -278,7 +362,7 @@ export const ManagersPage = () => {
               ColorText="white"
               BorderColor="#33A6CD"
               borderRadius={20}
-              handleOnclick={() => alert("Add Manager modal coming soon")}
+              handleOnclick={() => setShowModal(true)}
             />
           </div>
 
@@ -298,6 +382,72 @@ export const ManagersPage = () => {
           </Card>
         </div>
       </Container>
+
+      {/* ==================== ADD MANAGER MODAL ==================== */}
+      <Modal isOpen={showModal} toggle={() => setShowModal(!showModal)}>
+        <ModalHeader toggle={() => setShowModal(!showModal)}>Add New Manager</ModalHeader>
+        <ModalBody>
+          {successMsg && <Alert color="success">{successMsg}</Alert>}
+          {errorMsg && <Alert color="danger">{errorMsg}</Alert>}
+          <Form>
+            <FormGroup>
+              <Label>First Name</Label>
+              <Input
+                type="text"
+                value={managerForm.firstName}
+                onChange={(e) => setManagerForm({ ...managerForm, firstName: e.target.value })}
+                placeholder="Enter first name"
+                required
+              />
+            </FormGroup>
+            <FormGroup>
+              <Label>Last Name</Label>
+              <Input
+                type="text"
+                value={managerForm.lastName}
+                onChange={(e) => setManagerForm({ ...managerForm, lastName: e.target.value })}
+                placeholder="Enter last name"
+                required
+              />
+            </FormGroup>
+            <FormGroup>
+              <Label>Email</Label>
+              <Input
+                type="email"
+                value={managerForm.email}
+                onChange={(e) => setManagerForm({ ...managerForm, email: e.target.value })}
+                placeholder="Enter email"
+                required
+              />
+            </FormGroup>
+            <FormGroup>
+              <Label>Password</Label>
+              <Input
+                type="password"
+                value={managerForm.password}
+                onChange={(e) => setManagerForm({ ...managerForm, password: e.target.value })}
+                placeholder="Enter password"
+                required
+              />
+            </FormGroup>
+            <FormGroup>
+              <Label>Department</Label>
+              <Input
+                type="text"
+                value={managerForm.department}
+                onChange={(e) => setManagerForm({ ...managerForm, department: e.target.value })}
+                placeholder="Enter department"
+              />
+            </FormGroup>
+            <div className="d-flex gap-2 justify-content-end">
+              <Button color="secondary" onClick={() => setShowModal(false)}>Cancel</Button>
+              <Button color="primary" onClick={handleAddManager} disabled={isSaving}>
+                {isSaving ? <Spinner size="sm" /> : "Add Manager"}
+              </Button>
+            </div>
+          </Form>
+        </ModalBody>
+      </Modal>
     </React.Fragment>
   );
 };
