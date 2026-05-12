@@ -669,15 +669,16 @@ function ManageEmployeesContent() {
 
     try {
       const API_URL = 'https://employee-evaluation-kago-e63baae4d822.herokuapp.com/api/v1/onboarding/process-bulk';
+      const token = localStorage.getItem('token');
       const res = await fetch(API_URL, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
         body: JSON.stringify({ employees: queue }),
       });
       const data = await res.json();
 
       if (data.success) {
-        setShowSuccess(`Success! ${data.successCount ?? queue.length} employee(s) added to the database.`);
+        setShowSuccess(`Success! ${data.data.successCount ?? queue.length} employee(s) added to the database.`);
         setQueue([]);
         clearForm();
       } else {
@@ -685,12 +686,12 @@ function ManageEmployeesContent() {
       }
     } catch (error) {
       console.error('Error processing queue:', error);
-      setShowSuccess(`Success! ${queue.length} employee(s) added to the database. (offline mode)`);
-      setQueue([]);
-      clearForm();
+      alert('Network error — employees were NOT saved. Check your connection.');
     }
 
-    setTimeout(() => setShowSuccess(null), 5000);
+    if (!showSuccess?.includes('Network error')) {
+      setTimeout(() => setShowSuccess(null), 5000);
+    }
   };
 
   const saveDraft = async () => {
@@ -703,9 +704,10 @@ function ManageEmployeesContent() {
 
     try {
       const DRAFT_API = 'https://employee-evaluation-kago-e63baae4d822.herokuapp.com/api/v1/onboarding/save-draft';
+      const token = localStorage.getItem('token');
       const res = await fetch(DRAFT_API, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
         body: JSON.stringify({ draft: draftData }),
       });
       const data = await res.json();
@@ -818,9 +820,10 @@ function ManageEmployeesContent() {
     setUploading(true);
     try {
       const EXTRACT_API = 'https://employee-evaluation-kago-e63baae4d822.herokuapp.com/api/v1/onboarding/extract-document';
+      const token = localStorage.getItem('token');
       const formPayload = new FormData();
       formPayload.append('document', file);
-      const res = await fetch(EXTRACT_API, { method: 'POST', body: formPayload });
+      const res = await fetch(EXTRACT_API, { method: 'POST', headers: { 'Authorization': `Bearer ${token}` }, body: formPayload });
       const data = await res.json();
 
       if (data.success && data.employees?.length) {
