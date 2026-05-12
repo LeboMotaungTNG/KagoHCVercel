@@ -630,7 +630,8 @@ function ManageEmployeesContent() {
       tempId: Date.now().toString() + Math.random().toString(36).substr(2, 9),
     };
 
-    setQueue(prev => [...prev, newItem]);
+    const updatedQueue = [...queue, newItem];
+    setQueue(updatedQueue);
 
     if (continueAdding) {
       clearForm();
@@ -638,10 +639,10 @@ function ManageEmployeesContent() {
     }
 
     if (processImmediately) {
-      setTimeout(() => processQueue(), 500);
+      processQueue(updatedQueue);
     }
 
-    setShowSuccess(`Employee added to queue! Total: ${queue.length + 1}`);
+    setShowSuccess(`Employee added to queue! Total: ${updatedQueue.length}`);
     setTimeout(() => setShowSuccess(null), 3000);
   };
 
@@ -657,28 +658,67 @@ function ManageEmployeesContent() {
     }
   };
 
-  const processQueue = async () => {
-    if (queue.length === 0) {
+  const processQueue = async (itemsToProcess?: QueueItem[]) => {
+    const token = localStorage.getItem('token');
+    console.log('TOKEN BEING SENT:', token ? token.substring(0, 30) + '...' : 'NULL/UNDEFINED');
+    
+    if (!token) {
+      console.error('No token found! Please login again.');
+      alert('Session expired. Please login again.');
+      return;
+    }
+
+    const employees = itemsToProcess ?? queue;
+
+    if (employees.length === 0) {
       alert('No employees in queue to process');
       return;
     }
 
-    if (!window.confirm(`Process ${queue.length} employee(s)? This will add them to the database.`)) {
+    // Map queue items to only the fields the backend expects
+    const cleanEmployees = employees.map(emp => ({
+      full_name: emp.full_name,
+      email: emp.email,
+      department: emp.department,
+      position: emp.position,
+      start_date: emp.start_date,
+      password: emp.password,
+      // Optional fields that backend accepts
+      phone: emp.phone || '',
+      role: 'user'
+    }));
+
+    console.log('Sending clean employees:', cleanEmployees);
+
+    if (!window.confirm(`Process ${employees.length} employee(s)? This will add them to the database.`)) {
       return;
     }
 
     try {
-      const API_URL = 'https://employee-evaluation-kago-e63baae4d822.herokuapp.com/api/v1/onboarding/process-bulk';
-      const token = localStorage.getItem('token');
-      const res = await fetch(API_URL, {
+      const API_URL = import.meta.env.VITE_API_URL || "https://employee-evaluation-kago-e63baae4d822.herokuapp.com/api/v1";
+      const res = await fetch(`${API_URL}/onboarding/process-bulk`, {
         method: 'POST',
-        headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
-        body: JSON.stringify({ employees: queue }),
+        headers: { 
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({ employees: cleanEmployees }),
       });
+      
+      if (!res.ok) {
+        if (res.status === 401) {
+          alert('Session expired. Please login again.');
+          localStorage.removeItem('token');
+          window.location.href = '/login';
+          return;
+        }
+        throw new Error(`HTTP ${res.status}`);
+      }
+      
       const data = await res.json();
 
       if (data.success) {
-        setShowSuccess(`Success! ${data.data.successCount ?? queue.length} employee(s) added to the database.`);
+        setShowSuccess(`Success! ${data.data.successCount ?? employees.length} employee(s) added to the database.`);
         setQueue([]);
         clearForm();
       } else {
@@ -686,7 +726,7 @@ function ManageEmployeesContent() {
       }
     } catch (error) {
       console.error('Error processing queue:', error);
-      alert('Network error — employees were NOT saved. Check your connection.');
+      alert('Error processing employees. Please try again.');
     }
 
     if (!showSuccess?.includes('Network error')) {
@@ -2010,7 +2050,7 @@ function ManageEmployeesContent() {
               <IconTrash /> Clear All
             </button>
             <button
-              onClick={processQueue}
+              onClick={() => processQueue()}
               disabled={queue.length === 0}
               style={{
                 display: "flex", alignItems: "center", gap: 8, width: "100%",
@@ -2049,4 +2089,3 @@ const ManageEmployees: React.FC = () => (
 );
 
 export default ManageEmployees;
-
