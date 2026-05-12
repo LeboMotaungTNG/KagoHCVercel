@@ -49,7 +49,7 @@ function AddEmployeeModal({ onClose, onSuccess }: { onClose: () => void; onSucce
     firstName: "", lastName: "", email: "", phone: "",
     department: "", jobTitle: "", nationalId: "",
     salary: "", bankAccount: "", password: "",
-    role: "Employee",
+    role: "user",
   });
   const [saving, setSaving] = useState(false);
   const [error, setError]   = useState("");
@@ -71,7 +71,7 @@ function AddEmployeeModal({ onClose, onSuccess }: { onClose: () => void; onSucce
     setError("");
     try {
       const token = localStorage.getItem("token");
-      const response = await fetch(`${API_URL}/employee/create`, {
+      const response = await fetch(`${API_URL}/employees`, {
         method: "POST",
         headers: { "Authorization": `Bearer ${token}`, "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -80,12 +80,13 @@ function AddEmployeeModal({ onClose, onSuccess }: { onClose: () => void; onSucce
           email:       form.email.trim(),
           phone:       form.phone.trim(),
           department:  form.department.trim(),
-          jobTitle:    form.jobTitle.trim(),
+          position:    form.jobTitle.trim(),
           nationalId:  form.nationalId.trim(),
           salary:      form.salary ? Number(form.salary) : undefined,
           bankAccount: form.bankAccount.trim(),
           password:    form.password,
           role:        form.role,
+          createAccount: true,
         }),
       });
       const data = await response.json();
@@ -184,9 +185,9 @@ function AddEmployeeModal({ onClose, onSuccess }: { onClose: () => void; onSucce
             <div>
               <label style={labelStyle}>Role</label>
               <select style={{ ...inputStyle, cursor: "pointer" }} value={form.role} onChange={setField("role")}>
-                <option value="Employee">Employee</option>
-                <option value="Intern">Intern</option>
-                <option value="Contractor">Contractor</option>
+                <option value="user">Employee</option>
+                <option value="admin">Admin</option>
+                <option value="owner">Owner</option>
               </select>
             </div>
             <div>
@@ -278,7 +279,7 @@ export const EmployeesPage = () => {
     setFetchError("");
     try {
       const token = localStorage.getItem("token");
-      const res = await fetch(`${API_URL}/employee`, {
+      const res = await fetch(`${API_URL}/employees`, {
         headers: { "Authorization": `Bearer ${token}`, "Content-Type": "application/json" },
       });
       const data = await res.json();
