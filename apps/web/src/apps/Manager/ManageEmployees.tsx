@@ -630,8 +630,8 @@ function ManageEmployeesContent() {
       tempId: Date.now().toString() + Math.random().toString(36).substr(2, 9),
     };
 
-     setQueue(prev => [...prev, newItem]);
-   // setQueue(updatedQueue);
+    const updatedQueue = [...queue, newItem];
+    setQueue(updatedQueue);
 
     if (continueAdding) {
       clearForm();
@@ -639,12 +639,10 @@ function ManageEmployeesContent() {
     }
 
     if (processImmediately) {
-      setTimeout(() => processQueue(), 500);
-     // processQueue(updatedQueue);
+      processQueue(updatedQueue);
     }
 
-    setShowSuccess(`Employee added to queue! Total: ${queue.length + 1}`);
-   //setShowSuccess(`Employee added to queue! Total: ${updatedQueue.length}`);
+    setShowSuccess(`Employee added to queue! Total: ${updatedQueue.length}`);
     setTimeout(() => setShowSuccess(null), 3000);
   };
 
@@ -660,7 +658,7 @@ function ManageEmployeesContent() {
     }
   };
 
-/*   const processQueue = async (itemsToProcess?: QueueItem[]) => {
+  const processQueue = async (itemsToProcess?: QueueItem[]) => {
     const token = localStorage.getItem('token');
     console.log('TOKEN BEING SENT:', token ? token.substring(0, 30) + '...' : 'NULL/UNDEFINED');
     
@@ -675,10 +673,10 @@ function ManageEmployeesContent() {
     if (employees.length === 0) {
       alert('No employees in queue to process');
       return;
-    } */
+    }
 
     // Map queue items to only the fields the backend expects
-   /*  const cleanEmployees = employees.map(emp => ({
+    const cleanEmployees = employees.map(emp => ({
       full_name: emp.full_name,
       email: emp.email,
       department: emp.department,
@@ -694,9 +692,9 @@ function ManageEmployeesContent() {
 
     if (!window.confirm(`Process ${employees.length} employee(s)? This will add them to the database.`)) {
       return;
-    } */
+    }
 
-   /*  try {
+    try {
       const API_URL = import.meta.env.VITE_API_URL || "https://employee-evaluation-kago-e63baae4d822.herokuapp.com/api/v1";
       const res = await fetch(`${API_URL}/onboarding/process-bulk`, {
         method: 'POST',
@@ -734,7 +732,7 @@ function ManageEmployeesContent() {
     if (!showSuccess?.includes('Network error')) {
       setTimeout(() => setShowSuccess(null), 5000);
     }
-  }; */
+  };
 
   const saveDraft = async () => {
     if (queue.length === 0) {
@@ -2052,8 +2050,7 @@ function ManageEmployeesContent() {
               <IconTrash /> Clear All
             </button>
             <button
-              onClick={processQueue}
-              //onClick={() => processQueue()}
+              onClick={() => processQueue()}
               disabled={queue.length === 0}
               style={{
                 display: "flex", alignItems: "center", gap: 8, width: "100%",
