@@ -1109,13 +1109,11 @@ const EmployeeDashboard: React.FC = () => {
         .kg-stats-grid   { display: grid; gap: 16px; grid-template-columns: repeat(2, minmax(0, 1fr)); }
         .kg-actions-grid { display: grid; gap: 12px; grid-template-columns: repeat(3, minmax(0, 1fr)); }
         .kg-leave-grid   { display: grid; gap: 12px; grid-template-columns: repeat(3, minmax(0, 1fr)); }
-
         .kg-row          { display: grid; gap: 20px; margin-bottom: 22px; }
         .kg-row-hero     { grid-template-columns: 1fr; }
         .kg-row-pulse    { grid-template-columns: 1fr; }
         .kg-row-trio     { grid-template-columns: 1fr; }
         .kg-row-pair     { grid-template-columns: 1fr; }
-
         @media (max-width: 420px) {
           .kg-stats-grid,
           .kg-leave-grid   { grid-template-columns: 1fr; }

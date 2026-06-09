@@ -166,20 +166,49 @@ export const avatarBg = (seed: string) =>
  * Network / data helpers
  * ────────────────────────────────────────────────────────────────────────── */
 export const safeJson = async (url: string, init?: RequestInit) => {
-  try { const r = await fetch(url, init); return r.ok ? r.json() : null; }
-  catch { return null; }
+  try {
+    const r = await fetch(url, init);
+    return r.ok ? r.json() : null;
+  } catch {
+    return null;
+  }
+};
+
+/**
+ * Unwraps common backend response shapes like:
+ * - { success, data: payload }
+ * - { data: payload }
+ * - payload directly
+ */
+export const unwrapSuccessData = (payload: any): any => {
+  if (!payload) return payload;
+  if (payload && typeof payload === "object") {
+    if (payload.data !== undefined) return payload.data;
+    if (payload.success !== undefined && payload.data !== undefined) return payload.data;
+  }
+  return payload;
+};
+
+/**
+ * Unwraps arrays from common backend response shapes.
+ */
+export const unwrapArray = (payload: any): any[] => {
+  const p = unwrapSuccessData(payload);
+  if (!p) return [];
+  if (Array.isArray(p)) return p;
+  if (Array.isArray(p.data)) return p.data;
+  if (Array.isArray(p.data?.data)) return p.data.data;
+  if (Array.isArray(p.records)) return p.records;
+  if (Array.isArray(p.items)) return p.items;
+  return [];
 };
 
 /** Normalizes `/employees` list shapes from the API. */
 export const normalizeEmployeeList = (d: unknown): any[] => {
   if (!d || typeof d !== "object") return [];
-  const o = d as Record<string, unknown>;
-  if (Array.isArray(o.data)) return o.data as any[];
-  const inner = o.data as Record<string, unknown> | undefined;
-  if (inner && Array.isArray(inner.data)) return inner.data as any[];
-  if (Array.isArray(o)) return o as any[];
-  return [];
+  return unwrapArray(d);
 };
+
 
 export const namesRoughlyMatch = (a: string, b: string) => {
   const na = a.toLowerCase().replace(/\s+/g, " ").trim();
@@ -191,10 +220,18 @@ export const namesRoughlyMatch = (a: string, b: string) => {
   return pa[0] === pb[0] && pa[pa.length - 1] === pb[pb.length - 1];
 };
 
-export function teammatePresence(email: string | undefined, id: string): "office" | "remote" {
-  const seed = (email || id).split("").reduce((acc, c) => acc + c.charCodeAt(0), 0);
-  return seed % 3 === 0 ? "remote" : "office";
+type PresenceStateFromAttendance = PresenceState;
+
+function mapAttendanceStatusToPresence(status: string | null | undefined): PresenceStateFromAttendance {
+  const s = String(status ?? "").toLowerCase();
+  if (!s) return "office";
+  if (s === "on-leave" || s === "on_leave" || s === "leave" || s === "on leave") return "leave";
+  if (s === "remote") return "remote";
+  // present, absent, late, half-day → treat as office (online/offline is separate from remote)
+  if (["present", "late", "half-day", "half_day"].includes(s)) return "office";
+  return "office";
 }
+
 
 export function sortLeaveBalances(list: LeaveBalance[]): LeaveBalance[] {
   return [...list].sort((a, b) => {
@@ -221,9 +258,14 @@ export function buildTeammateRoster(
 
   const roster: Teammate[] = colleagues
     .filter(c => !isSelf(c))
-    .map(c => {
-      const onLeave = teamOnLeave.some(t => namesRoughlyMatch(t.name, c.name));
-      const state: PresenceState = onLeave ? "leave" : teammatePresence(c.email, c.id);
+    .map((c) => {
+      const onLeave = teamOnLeave.some((t) => namesRoughlyMatch(t.name, c.name));
+
+      // Use HR attendance status (present/late/half-day/remote/on-leave) when available.
+      // teamOnLeave only marks leave; for online/offline we currently don't have a separate attendance-per-colleague feed,
+      // so we treat everyone not-on-leave as office.
+      const state: PresenceState = onLeave ? "leave" : "office";
+
       return {
         id: c.id,
         name: c.name,
@@ -236,6 +278,7 @@ export function buildTeammateRoster(
   roster.sort((a, b) => a.name.localeCompare(b.name));
   return roster;
 }
+
 
 /* ─────────────────────────────────────────────────────────────────────────────
  * Hooks
@@ -345,8 +388,12 @@ export function useEmployeeData() {
 
   const loadLeave = useCallback(async () => {
     const today = todayISO();
-    const d = await safeJson(`${API_URL}/leaves`, { headers });
-    const raw: any[] = Array.isArray(d?.data) ? d.data : Array.isArray(d) ? d : d?.data?.data ?? [];
+
+    // Backend leave endpoints are mounted at: /api/v1/leave
+    // We keep parsing tolerant to wrapper shapes.
+    const d = await safeJson(`${API_URL}/leave`, { headers });
+    const raw: any[] = unwrapArray(d);
+
 
     const mapped: LeaveRecord[] = raw.map((l: any, i: number) => {
       const start = iso(l.startDate || l.start_date || today);
@@ -363,18 +410,26 @@ export function useEmployeeData() {
     setActiveLeave(mapped.find(l => l.status === "approved" && l.start_date <= today && l.end_date >= today) || null);
     setRecentLeaves([...mapped].sort((a, b) => b.start_date.localeCompare(a.start_date)));
 
-    const bd = await safeJson(`${API_URL}/leaves/balance`, { headers });
-    const ba: any[] | null = Array.isArray(bd?.data) ? bd.data : Array.isArray(bd) ? bd : null;
+    // Leave balance endpoint (backend): /api/v1/leave/balance/:employeeId
+    // This hook currently only has user profile (email) and does not expose employeeId.
+    // So we compute balances from leave requests instead of calling the balance endpoint.
 
-    if (ba?.length) {
-      setBalances(ba.map((b: any, i: number) => ({
-        type:  b.leaveType || b.type || "Leave",
-        used:  b.used  || b.usedDays  || 0,
-        total: b.total || b.totalDays || b.allowance || 20,
-        color: LEAVE_PALETTE[i % LEAVE_PALETTE.length],
-      })));
+    // Note: leave balance endpoint isn't wired here yet.
+    // Keep this as a safe no-op to avoid TS narrowing to `never`.
+    const ba: any[] = [];
+
+    if (ba.length) {
+      setBalances(
+        ba.map((b: any, i: number) => ({
+          type: b.leaveType || b.type || "Leave",
+          used: b.used || b.usedDays || 0,
+          total: b.total || b.totalDays || b.allowance || 20,
+          color: LEAVE_PALETTE[i % LEAVE_PALETTE.length],
+        }))
+      );
       return;
     }
+
 
     const tally: Record<string, number> = {};
     mapped.filter(l => l.status === "approved").forEach(l => { tally[l.type] = (tally[l.type] || 0) + l.days; });
@@ -458,4 +513,67 @@ export function useEmployeeData() {
     user, today, stats, balances, activeLeave, recentLeaves, teamOnLeave, birthdays, colleagues,
     loading, error, reload, clockIn, clockOut,
   };
+}
+
+/* ─────────────────────────────────────────────────────────────────────────────
+ * Auth utilities - Handle role changes after promotion
+ * ────────────────────────────────────────────────────────────────────────── */
+
+/**
+ * Refresh current user's data from the backend
+ * Call this after promotion/demotion to update the user's role in localStorage
+ * Returns the updated user data or null if refresh fails
+ */
+export async function refreshUserData(): Promise<any | null> {
+  const token = typeof window !== "undefined" ? localStorage.getItem("token") : null;
+  if (!token) return null;
+
+  try {
+    const response = await fetch(`${API_URL}/auth/me`, {
+      headers: { Authorization: `Bearer ${token}` }
+    });
+    
+    if (!response.ok) {
+      console.error("Failed to refresh user data:", response.status);
+      return null;
+    }
+
+    const data = await response.json();
+    const userData = data?.data || data?.user || data;
+
+    if (userData && userData.email) {
+      // Update localStorage with new user data
+      localStorage.setItem("user", JSON.stringify(userData));
+      console.log("✅ User data refreshed. New role:", userData.role);
+      return userData;
+    }
+    return null;
+  } catch (error) {
+    console.error("Error refreshing user data:", error);
+    return null;
+  }
+}
+
+/**
+ * Check if current user's role has changed and handle redirect if necessary
+ * Call this after a promotion to see if the promoted user is the current logged-in user
+ * If so, redirect to their appropriate dashboard based on their new role
+ */
+export async function handleRoleChangeRedirect(): Promise<void> {
+  const userData = await refreshUserData();
+  if (!userData) return;
+
+  const role = userData.role?.toLowerCase() || userData.userRole?.toLowerCase() || "";
+  
+  if (role === "owner" || role === "admin") {
+    console.log("📊 Role changed to", role, "- Redirecting to manager dashboard...");
+    setTimeout(() => {
+      window.location.href = "/manager";
+    }, 1000);
+  } else if (role === "user") {
+    console.log("👤 Role changed to user - Redirecting to employee dashboard...");
+    setTimeout(() => {
+      window.location.href = "/employee";
+    }, 1000);
+  }
 }
