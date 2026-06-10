@@ -10,21 +10,138 @@ import {
   FaCalculator, FaCheckCircle, FaExclamationTriangle, FaInfoCircle,
   FaUmbrellaBeach, FaHospital, FaHeart, FaBaby, FaUserFriends,
   FaBookOpen, FaCross, FaBan, FaStar, FaTimes, FaPencilAlt,
-  FaFileAlt,
-  FaGlobe,
-  FaIdCard,
-  FaMapMarkerAlt,
-  FaShieldAlt,
-  FaUniversity,
-  FaUserTie
+  FaPhone, FaEnvelope, FaGlobe, FaMapMarkerAlt, FaUniversity, FaLock,
+  FaFileAlt, FaShieldAlt, FaUserTie, FaIndustry, FaIdCard,
+  FaCamera, FaExclamationCircle
 } from "react-icons/fa";
 
 const API_URL = import.meta.env.VITE_API_URL || "https://employee-evaluation-kago-e63baae4d822.herokuapp.com/api/v1";
 
-// ============================================
-// COMPANY DETAILS TAB
-// ============================================
-// COMPANY DETAILS TAB — REDESIGNED
+// ─────────────────────────────────────────────
+// SHARED DESIGN TOKENS (matches Leave tab style)
+// ─────────────────────────────────────────────
+const co_card: React.CSSProperties = {
+  backgroundColor: "white", borderRadius: "12px", border: "1px solid #E2E8F0",
+  boxShadow: "0 1px 4px rgba(0,0,0,0.06)", padding: "22px", marginBottom: "18px",
+};
+const co_secTitle = (color = "#0369A1"): React.CSSProperties => ({
+  fontSize: "13px", fontWeight: 700, color, marginBottom: "16px",
+  display: "flex", alignItems: "center", gap: "8px",
+  textTransform: "uppercase", letterSpacing: "0.05em",
+});
+const co_label: React.CSSProperties = { fontSize: "12px", fontWeight: 600, color: "#718096", display: "block", marginBottom: "5px" };
+const co_input: React.CSSProperties = { width: "100%", padding: "8px 12px", borderRadius: "8px", border: "1px solid #CBD5E0", fontSize: "13px", color: "#2D3748", backgroundColor: "white", outline: "none" };
+const co_value: React.CSSProperties = { fontSize: "14px", color: "#1A202C", fontWeight: 500, padding: "6px 0", margin: 0 };
+const co_infoBox = (color: string): React.CSSProperties => ({
+  display: "flex", gap: "10px", padding: "11px 14px",
+  backgroundColor: `${color}0D`, border: `1px solid ${color}30`,
+  borderRadius: "8px", fontSize: "12px", color: "#374151", lineHeight: 1.6,
+});
+
+// ─────────────────────────────────────────────
+// FIELD RENDERER HELPER
+// ─────────────────────────────────────────────
+type CoFieldType = "text" | "email" | "tel" | "number" | "date" | "select" | "textarea" | "toggle" | "url";
+interface CoFieldDef {
+  label: string; key: string; type?: CoFieldType;
+  options?: string[]; placeholder?: string; hint?: string;
+  required?: boolean; span?: 1 | 2;
+}
+
+const FieldRenderer = ({
+  fields, data, editing, onChange,
+}: {
+  fields: CoFieldDef[];
+  data: any;
+  editing: boolean;
+  onChange: (key: string, value: any) => void;
+}) => {
+  const get = (key: string) => key.split(".").reduce((o: any, k: string) => o?.[k], data) ?? "";
+  return (
+    <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "16px" }}>
+      {fields.map((f) => {
+        const val = get(f.key);
+        return (
+          <div key={f.key} style={{ gridColumn: f.span === 2 ? "1 / -1" : undefined }}>
+            <label style={co_label}>
+              {f.label}{f.required && <span style={{ color: "#EF4444", marginLeft: "3px" }}>*</span>}
+            </label>
+            {editing ? (
+              f.type === "textarea" ? (
+                <textarea rows={3} value={val} placeholder={f.placeholder} onChange={(e) => onChange(f.key, e.target.value)} style={{ ...co_input, resize: "vertical", minHeight: "76px" }} />
+              ) : f.type === "toggle" ? (
+                <select value={val ? "yes" : "no"} onChange={(e) => onChange(f.key, e.target.value === "yes")} style={co_input}>
+                  <option value="yes">Yes</option><option value="no">No</option>
+                </select>
+              ) : f.type === "select" ? (
+                <select value={val} onChange={(e) => onChange(f.key, e.target.value)} style={co_input}>
+                  {!f.required && <option value="">— Select —</option>}
+                  {f.options?.map((o) => <option key={o} value={o}>{o}</option>)}
+                </select>
+              ) : (
+                <input type={f.type ?? "text"} value={val} placeholder={f.placeholder} onChange={(e) => onChange(f.key, f.type === "number" ? (parseFloat(e.target.value) || 0) : e.target.value)} style={co_input} />
+              )
+            ) : (
+              <p style={co_value}>
+                {f.type === "toggle"
+                  ? (val ? <span style={{ color: "#059669", fontWeight: 600 }}>Yes</span> : <span style={{ color: "#9CA3AF" }}>No</span>)
+                  : (val || <span style={{ color: "#CBD5E0" }}>—</span>)}
+              </p>
+            )}
+            {f.hint && <p style={{ fontSize: "11px", color: "#9CA3AF", marginTop: "3px", marginBottom: 0 }}>{f.hint}</p>}
+          </div>
+        );
+      })}
+    </div>
+  );
+};
+
+// ─────────────────────────────────────────────
+// ONBOARDING PROGRESS INDICATOR
+// ─────────────────────────────────────────────
+const OnboardingProgress = ({ data }: { data: any }) => {
+  const checks = [
+    { label: "Company name",           done: !!data.name },
+    { label: "CIPC registration no.",  done: !!data.registrationNumber },
+    { label: "Income tax number",      done: !!data.incomeTaxNumber },
+    { label: "PAYE reference",         done: !!data.payeReference },
+    { label: "UIF reference",          done: !!data.uifReference },
+    { label: "Banking details",        done: !!(data.bank?.accountNumber) },
+    { label: "Physical address",       done: !!(data.address?.physicalAddress) },
+    { label: "Primary contact",        done: !!(data.contacts?.primaryContact?.name) },
+    { label: "Payroll contact",        done: !!(data.contacts?.payroll?.name) },
+    { label: "Fiscal year configured", done: !!(data.fiscalYearStart && data.fiscalYearEnd) },
+  ];
+  const done = checks.filter((c) => c.done).length;
+  const pct = Math.round((done / checks.length) * 100);
+  const color = pct === 100 ? "#059669" : pct >= 60 ? "#D97706" : "#EF4444";
+  return (
+    <div style={{ padding: "18px 22px", borderRadius: "12px", border: `1px solid ${color}25`, backgroundColor: `${color}06`, marginBottom: "18px" }}>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "10px" }}>
+        <div style={{ fontWeight: 700, fontSize: "13px", color: "#1A202C" }}>
+          {pct === 100 ? "✅ Onboarding Complete" : "Onboarding Checklist"}
+        </div>
+        <span style={{ fontWeight: 700, fontSize: "15px", color }}>{pct}%</span>
+      </div>
+      <div style={{ height: "8px", borderRadius: "4px", backgroundColor: "#E5E7EB", overflow: "hidden", marginBottom: "14px" }}>
+        <div style={{ height: "100%", width: `${pct}%`, backgroundColor: color, borderRadius: "4px", transition: "width 0.4s ease" }} />
+      </div>
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(200px, 1fr))", gap: "6px" }}>
+        {checks.map((c) => (
+          <div key={c.label} style={{ display: "flex", alignItems: "center", gap: "6px", fontSize: "12px", color: c.done ? "#374151" : "#9CA3AF" }}>
+            {c.done
+              ? <FaCheckCircle style={{ color: "#059669", flexShrink: 0 }} size={11} />
+              : <FaExclamationCircle style={{ color: "#F59E0B", flexShrink: 0 }} size={11} />}
+            {c.label}
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+};
+
+// ─────────────────────────────────────────────
+// COMPANY DETAILS TAB — REDESIGNED (with backend integration)
 // ─────────────────────────────────────────────
 const CompanyDetailsTab = () => {
   const [activeSection, setActiveSection] = useState<"profile" | "legal" | "banking" | "contacts" | "settings">("profile");
@@ -33,24 +150,24 @@ const CompanyDetailsTab = () => {
   const [saveSuccess, setSaveSuccess] = useState(false);
 
   const defaultData = {
-    name: "Kago Human Capital", tradingName: "", logo: "",
-    sector: "Human Capital & Recruitment", businessType: "Private Company (Pty Ltd)",
-    numberOfEmployees: 45, email: "info@kagohc.com", phone: "+27 11 123 4567",
-    alternativePhone: "", website: "www.kagohc.com", description: "",
-    registrationNumber: "2020/123456/07", vatNumber: "4123456789",
-    incomeTaxNumber: "9876543210", payeReference: "PAYE123456789",
-    uifReference: "UIF123456789", sdlReference: "SDL123456789",
-    coida: "", provisionalTaxpayer: true, taxComplianceStatus: "Compliant", beeLevel: "Level 1",
-    bank: { bankName: "First National Bank (FNB)", accountName: "Kago Human Capital", accountNumber: "62812345678", branchCode: "250655", accountType: "Business Cheque", swiftCode: "FIRNZAJJ" },
+    name: "", tradingName: "", logo: "",
+    sector: "", businessType: "",
+    numberOfEmployees: 0, email: "", phone: "",
+    alternativePhone: "", website: "", description: "",
+    registrationNumber: "", vatNumber: "",
+    incomeTaxNumber: "", payeReference: "",
+    uifReference: "", sdlReference: "",
+    coida: "", provisionalTaxpayer: true, taxComplianceStatus: "Compliant", beeLevel: "",
+    bank: { bankName: "", accountName: "", accountNumber: "", branchCode: "", accountType: "", swiftCode: "" },
     contacts: {
-      primaryContact: { name: "Thabo Mbeki", designation: "CEO", email: "thabo@kagohc.com", phone: "+27 82 123 4567" },
-      finance:        { name: "Naledi Dlamini", designation: "CFO", email: "naledi@kagohc.com", phone: "+27 83 123 4567" },
-      payroll:        { name: "Peter Petersen", designation: "Payroll Manager", email: "peter@kagohc.com", phone: "+27 84 123 4567" },
-      hr:             { name: "Sarah Williams", designation: "HR Manager", email: "sarah@kagohc.com", phone: "+27 85 123 4567" },
+      primaryContact: { name: "", designation: "", email: "", phone: "" },
+      finance:        { name: "", designation: "", email: "", phone: "" },
+      payroll:        { name: "", designation: "", email: "", phone: "" },
+      hr:             { name: "", designation: "", email: "", phone: "" },
     },
-    address: { physicalAddress: "123 Business Park, Sandton, Johannesburg, 2196", postalAddress: "PO Box 1234, Sandton, 2196", street: "123 Business Park", suburb: "Sandton", city: "Johannesburg", province: "Gauteng", country: "South Africa", postalCode: "2196" },
+    address: { physicalAddress: "", postalAddress: "", street: "", suburb: "", city: "", province: "", country: "South Africa", postalCode: "" },
     language: "English", timezone: "Africa/Johannesburg", dateFormat: "DD/MM/YYYY", currency: "ZAR",
-    fiscalYearStart: "2025-03-01", fiscalYearEnd: "2026-02-28", companyStatus: "Active",
+    fiscalYearStart: "", fiscalYearEnd: "", companyStatus: "Active",
   };
 
   const [data, setData] = useState(defaultData);
@@ -815,6 +932,7 @@ interface LeaveTypeConfig {
 
 // Custom company-defined leave type
 interface CustomLeaveType {
+  notes: string | number | readonly string[] | undefined;
   id: string;
   name: string;
   description: string;
@@ -828,8 +946,7 @@ interface CustomLeaveType {
   carryOverAllowed: boolean;
   maxCarryOverDays: number;
   requiresApproval: boolean;
-  minimumServiceMonths: number; // min months employed before eligible
-  notes: string;
+  minimumServiceMonths: number; // min months employed before eligible  notes: string;
 }
 
 interface LeaveBalance {
@@ -1722,176 +1839,7 @@ const LeaveSettingsTab = () => {
 // ============================================
 // MAIN ORGANIZATION SETTINGS PAGE
 // ============================================
-// ============================================
-// SMALL UI HELPERS (missing from this file)
-// ============================================
-const co_card: React.CSSProperties = {
-  backgroundColor: "white",
-  borderRadius: "12px",
-  border: "1px solid #E2E8F0",
-  boxShadow: "0 1px 4px rgba(0,0,0,0.06)",
-  padding: "18px",
-  marginBottom: "18px",
-};
-
-const co_infoBox = (color: string): React.CSSProperties => ({
-  width: "100%",
-  display: "flex",
-  alignItems: "flex-start",
-  gap: "10px",
-  padding: "12px 14px",
-  borderRadius: "12px",
-  backgroundColor: `${color}14`,
-  color: color,
-  border: `1px solid ${color}33`,
-  fontSize: "13px",
-  fontWeight: 600,
-});
-
-const co_secTitle = (): React.CSSProperties => ({
-  fontSize: "14px",
-  fontWeight: 800,
-  color: "#1A202C",
-  marginBottom: "14px",
-  display: "flex",
-  alignItems: "center",
-  gap: "10px",
-});
-
-const getDeepValue = (obj: any, path: string): any => {
-  return path.split(".").reduce((acc, k) => (acc ? acc[k] : undefined), obj);
-};
-
-type FieldDef = {
-  label: string;
-  key: string;
-  required?: boolean;
-  placeholder?: string;
-  hint?: string;
-  type?: "text" | "number" | "email" | "tel" | "url" | "textarea" | "select" | "toggle" | "date";
-  options?: string[];
-  span?: 1 | 2;
-};
-
-const FieldRenderer = ({
-  editing,
-  data,
-  onChange,
-  fields,
-}: {
-  editing: boolean;
-  data: any;
-  onChange: (key: string, value: any) => void;
-  fields: FieldDef[];
-}) => {
-  const grid: React.CSSProperties = { display: "grid", gridTemplateColumns: "repeat(2, minmax(0, 1fr))", gap: 14 };
-  const spanStyle = (span?: number): React.CSSProperties => ({ gridColumn: span === 2 ? "1 / -1" : "auto" });
-
-  return (
-    <div style={grid}>
-      {fields.map((f) => {
-        const v = getDeepValue(data, f.key);
-        const isToggle = f.type === "toggle";
-        const inputStyle: React.CSSProperties = {
-          width: "100%",
-          padding: "9px 12px",
-          borderRadius: 8,
-          border: `1px solid ${"#CBD5E0"}`,
-          fontSize: 13,
-          color: "#2D3748",
-          backgroundColor: editing ? "white" : "#F9FAFB",
-        };
-        const labelStyle: React.CSSProperties = { fontSize: 12, fontWeight: 700, color: "#4A5568", marginBottom: 6, display: "block" };
-
-        if (!editing) {
-          return (
-            <div key={f.key} style={{ ...spanStyle(f.span) }}>
-              <div style={labelStyle}>{f.label}</div>
-              <div style={{ fontSize: 13, color: v !== undefined && v !== null && v !== "" ? "#111827" : "#CBD5E0", fontWeight: 600 }}>
-                {isToggle ? (v ? "Yes" : "No") : v !== undefined && v !== null && v !== "" ? String(v) : "—"}
-              </div>
-            </div>
-          );
-        }
-
-        if (f.type === "textarea") {
-          return (
-            <div key={f.key} style={{ ...spanStyle(f.span) }}>
-              <label style={labelStyle}>
-                {f.label}
-                {f.required ? " *" : ""}
-              </label>
-              <Input
-                style={inputStyle}
-                type="textarea"
-                disabled={!editing}
-                value={v ?? ""}
-                placeholder={f.placeholder}
-                onChange={(e: any) => onChange(f.key, e.target.value)}
-              />
-              {f.hint && <div style={{ fontSize: 11, color: "#A0AEC0", marginTop: 6 }}>{f.hint}</div>}
-            </div>
-          );
-        }
-
-        if (f.type === "toggle") {
-          return (
-            <div key={f.key} style={{ ...spanStyle(f.span) }}>
-              <label style={labelStyle}>{f.label}</label>
-              <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-                <input type="checkbox" checked={!!v} onChange={(e) => onChange(f.key, e.target.checked)} />
-                <span style={{ fontSize: 13, fontWeight: 700, color: "#111827" }}>{v ? "Yes" : "No"}</span>
-              </div>
-              {f.hint && <div style={{ fontSize: 11, color: "#A0AEC0", marginTop: 6 }}>{f.hint}</div>}
-            </div>
-          );
-        }
-
-        if (f.type === "select") {
-          return (
-            <div key={f.key} style={{ ...spanStyle(f.span) }}>
-              <label style={labelStyle}>
-                {f.label}
-                {f.required ? " *" : ""}
-              </label>
-              <Input as="select" style={inputStyle} value={v ?? ""} onChange={(e: any) => onChange(f.key, e.target.value)}>
-                {(f.options || []).map((opt) => (
-                  <option key={opt} value={opt}>
-                    {opt}
-                  </option>
-                ))}
-              </Input>
-              {f.hint && <div style={{ fontSize: 11, color: "#A0AEC0", marginTop: 6 }}>{f.hint}</div>}
-            </div>
-          );
-        }
-
-        const type = f.type && f.type !== "textarea" && f.type !== "toggle" ? f.type : "text";
-        return (
-          <div key={f.key} style={{ ...spanStyle(f.span) }}>
-            <label style={labelStyle}>
-              {f.label}
-              {f.required ? " *" : ""}
-            </label>
-            <Input
-              style={inputStyle}
-              type={type}
-              value={v ?? ""}
-              placeholder={f.placeholder}
-              onChange={(e: any) => {
-                const val = f.type === "number" ? (e.target.value === "" ? "" : Number(e.target.value)) : e.target.value;
-                onChange(f.key, val);
-              }}
-            />
-            {f.hint && <div style={{ fontSize: 11, color: "#A0AEC0", marginTop: 6 }}>{f.hint}</div>}
-          </div>
-        );
-      })}
-    </div>
-  );
-};
-
-const OnboardingProgress = ({ data }: { data: any }) => {
+export const OrganizationSettingsPage = () => {
   const [activeTab, setActiveTab] = useState<"company" | "payroll" | "leave">("company");
 
   const tabStyle = (isActive: boolean): React.CSSProperties => ({
