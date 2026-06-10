@@ -1,15 +1,12 @@
 import React, { useState, useEffect } from "react";
 import { Helmet } from "react-helmet-async";
-import { Calendar, Plus, FileText, Clock, CheckCircle, XCircle } from "lucide-react";
+import { Calendar, Plus, Clock, CheckCircle, XCircle } from "lucide-react";
 import SharedLayout from "./SharedLayout";
 
-// API URL
-const API_URL = 'https://employee-evaluation-kago-e63baae4d822.herokuapp.com/api/v1';
-
+const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000/api/v1';
 
 interface LeaveRequest {
   _id: string;
-  leave_id: number;
   leave_type: string;
   start_date: string;
   end_date: string;
@@ -19,23 +16,26 @@ interface LeaveRequest {
   submitted_at: string;
 }
 
+interface LeavePolicy {
+  type: string;
+  name: string;
+  label?: string;
+  entitlementDays: number;
+  total?: number;
+  icon?: string;
+  color?: string;
+}
+
 interface LeaveBalance {
-  annual: { used: number; total: number; remaining: number };
-  sick: { used: number; total: number; remaining: number };
-  family: { used: number; total: number; remaining: number };
-  other: { used: number; total: number; remaining: number };
+  [key: string]: { used: number; total: number; remaining: number };
 }
 
 const EmployeeLeave: React.FC = () => {
   const [user, setUser] = useState<any>(null);
   const [employee, setEmployee] = useState<any>(null);
   const [leaveRequests, setLeaveRequests] = useState<LeaveRequest[]>([]);
-  const [leaveBalance, setLeaveBalance] = useState<LeaveBalance>({
-    annual: { used: 0, total: 20, remaining: 20 },
-    sick: { used: 0, total: 10, remaining: 10 },
-    family: { used: 0, total: 5, remaining: 5 },
-    other: { used: 0, total: 3, remaining: 3 }
-  });
+  const [availableLeaveTypes, setAvailableLeaveTypes] = useState<LeavePolicy[]>([]);
+  const [leaveBalance, setLeaveBalance] = useState<Record<string, { used: number; total: number; remaining: number }>>({});
   
   const [formData, setFormData] = useState({
     leaveType: 'annual',
@@ -86,47 +86,203 @@ const EmployeeLeave: React.FC = () => {
     return balance;
   };
 
-  // Helper function to fetch leave requests
-  const fetchLeaveRequests = async (employeeId: string, token: string) => {
+  // ✅ Fetch available leave types from backend (employee endpoint)
+  const fetchAvailableLeaveTypes = async (token: string) => {
     try {
-      const leaveResponse = await fetch(`${API_URL}/leave?employee_id=${employeeId}`, {
+      // Use the employee-friendly endpoint (no "owner" in path)
+      const response = await fetch(`${API_URL}/leave/policies`, {
         headers: { 'Authorization': `Bearer ${token}` }
       });
-      const leaveData = await leaveResponse.json();
+      const data = await response.json();
       
-      console.log('Leave API response:', leaveData); // Debug log
+      console.log('Leave policies response:', data);
+      
+      if (data.success && data.data) {
+        const policies = data.data;
+        
+        const leaveTypes = policies.map((policy: any) => {
+          let label = '';
+          let total = 0;
+          let icon = '📅';
+          let color = '#E6A79E';
+          
+          switch(policy.type) {
+            case 'annual':
+              label = 'Annual Leave';
+              total = policy.entitlementDays || 15;
+              icon = '🏖️';
+              color = '#E6A79E';
+              break;
+            case 'sick':
+              label = 'Sick Leave';
+              total = policy.entitlementDays || 30;
+              icon = '🏥';
+              color = '#7DC695';
+              break;
+            case 'family':
+              label = 'Family Responsibility Leave';
+              total = policy.entitlementDays || 3;
+              icon = '👨‍👩‍👧';
+              color = '#6B96E1';
+              break;
+            case 'maternity':
+              label = 'Maternity Leave';
+              total = policy.entitlementDays || 88;
+              icon = '👶';
+              color = '#8B5CF6';
+              break;
+            case 'parental':
+              label = 'Parental Leave';
+              total = policy.entitlementDays || 10;
+              icon = '👨‍👦';
+              color = '#10B981';
+              break;
+            default:
+              label = policy.name || policy.type;
+              total = policy.entitlementDays || 5;
+              icon = policy.icon || '📋';
+              color = policy.color || '#0EA5E9';
+          }
+          
+          return {
+            type: policy.type,
+            label: label,
+            total: total,
+            icon: icon,
+            color: color
+          };
+        });
+        
+        setAvailableLeaveTypes(leaveTypes);
+        
+        // Initialize balance with dynamic types
+        const newBalance: any = {};
+        leaveTypes.forEach((type: any) => {
+          newBalance[type.type] = { used: 0, total: type.total, remaining: type.total };
+        });
+        
+        setLeaveBalance(newBalance);
+        return leaveTypes;
+      }
+    } catch (error) {
+      console.error('Error fetching leave types:', error);
+    }
+    return [];
+  };
+
+  // ✅ Fetch leave policy from backend
+  const fetchLeavePolicy = async (token: string): Promise<LeaveBalance | null> => {
+    try {
+      const response = await fetch(`${API_URL}/owner/leave-policies`, {
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      const data = await response.json();
+      
+      if (data.success && data.data) {
+        const policies = data.data;
+        
+        // Map policies to balance format
+        let newBalance: LeaveBalance = {
+          annual: { used: 0, total: 15, remaining: 15 },
+          sick: { used: 0, total: 30, remaining: 30 },
+          family: { used: 0, total: 3, remaining: 3 },
+          other: { used: 0, total: 0, remaining: 0 }
+        };
+        
+        policies.forEach((policy: any) => {
+          switch(policy.type) {
+            case 'annual':
+              newBalance.annual.total = policy.daysPerYear || 15;
+              newBalance.annual.remaining = policy.daysPerYear || 15;
+              break;
+            case 'sick':
+              newBalance.sick.total = policy.daysTotal || 30;
+              newBalance.sick.remaining = policy.daysTotal || 30;
+              break;
+            case 'family':
+              newBalance.family.total = policy.daysPerYear || 3;
+              newBalance.family.remaining = policy.daysPerYear || 3;
+              break;
+          }
+        });
+        
+        return newBalance;
+      }
+    } catch (error) {
+      console.error('Error fetching leave policy:', error);
+    }
+    
+    // Default fallback
+    return null;
+  };
+
+  // Helper function to fetch leave requests (returns data without setting state)
+  const fetchLeaveRequestsInternal = async (employeeId: string, token: string): Promise<LeaveRequest[]> => {
+    try {
+      const response = await fetch(`${API_URL}/leave/requests`, {
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      const data = await response.json();
+      
+      console.log('Leave requests response:', data);
       
       let requests = [];
-      if (leaveData.success && Array.isArray(leaveData.data)) {
-        requests = leaveData.data;
-      } else if (leaveData.data && Array.isArray(leaveData.data)) {
-        requests = leaveData.data;
+      if (data.success && Array.isArray(data.data)) {
+        // ✅ Backend already filters by user - no client-side filter needed!
+        requests = data.data;
       }
       
       // Map API response to expected format
       const mappedRequests = requests.map((req: any) => ({
         _id: req._id,
-        leave_id: req.leave_id || req._id,
-        leave_type: req.leaveType || req.leave_type,
-        start_date: req.startDate || req.start_date,
-        end_date: req.endDate || req.end_date,
-        total_days: req.daysRequested || req.totalDays || req.total_days || 1,
+        leave_type: req.leave_type || req.leaveType || 'annual',
+        start_date: req.start_date || req.startDate,
+        end_date: req.end_date || req.endDate,
+        total_days: req.total_days || req.totalDays || 1,
         reason: req.reason || '',
         status: req.status || 'pending',
-        submitted_at: req.createdAt || req.submitted_at
+        submitted_at: req.submitted_at || req.createdAt || new Date().toISOString()
       }));
       
-      setLeaveRequests(mappedRequests);
-      setLeaveBalance(calculateLeaveBalance(mappedRequests));
+      console.log('Mapped requests:', mappedRequests);
+      return mappedRequests;
     } catch (error) {
       console.error('Error fetching leave requests:', error);
+      return [];
     }
+  };
+
+  // ✅ Fetch leave balance from employee endpoint
+  const fetchLeaveBalance = async (token: string) => {
+    try {
+      // ✅ Use the correct employee endpoint
+      const response = await fetch(`${API_URL}/leave/balance`, {
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      const data = await response.json();
+      
+      if (data.success && data.data) {
+        setLeaveBalance(data.data);
+        return data.data;
+      }
+    } catch (error) {
+      console.error('Error fetching leave balance:', error);
+    }
+    return null;
+  };
+
+  // Helper function to fetch leave requests and update state
+  const fetchLeaveRequests = async (employeeId: string, token: string) => {
+    const mappedRequests = await fetchLeaveRequestsInternal(employeeId, token);
+    setLeaveRequests(mappedRequests);
+    
+    // Also fetch leave balance from policy
+    await fetchLeaveBalance(token);
   };
 
   useEffect(() => {
     const fetchData = async () => {
       try {
-        // Get user from localStorage
         const userStr = localStorage.getItem('user');
         const token = localStorage.getItem('token');
         
@@ -138,66 +294,73 @@ const EmployeeLeave: React.FC = () => {
         const userData = JSON.parse(userStr);
         setUser(userData);
         
+        // ✅ Fetch available leave types from employee endpoint
+        const leaveTypesData = await fetchAvailableLeaveTypes(token);
+        
         let foundEmployee: any = null;
         
-        // Strategy 1: Fetch current user's employee record directly
-        try {
-          const empResponse = await fetch(`${API_URL}/employees/me`, {
-            headers: { 'Authorization': `Bearer ${token}` }
-          });
-          const empData = await empResponse.json();
-          
-          if (empData.success && empData.data) {
-            foundEmployee = empData.data;
-            console.log('Employee record fetched for user:', userData.email);
-          }
-        } catch (err) {
-          console.warn('Failed to fetch employee record via /me endpoint:', err);
-        }
-        
-        // Strategy 2: Fallback - Search by email
-        if (!foundEmployee) {
-          console.log('Falling back to email search for:', userData.email);
+        // Try to find employee by userId
+        if (userData._id) {
           try {
-            const empResponse = await fetch(`${API_URL}/employees?search=${userData.email}`, {
+            const empResponse = await fetch(`${API_URL}/employees?userId=${userData._id}`, {
               headers: { 'Authorization': `Bearer ${token}` }
             });
             const empData = await empResponse.json();
             
-            if (empData.success && empData.data?.data?.length > 0) {
-              foundEmployee = empData.data.data[0];
-              console.log('Employee found by email:', userData.email);
+            if (empData.success && empData.data && empData.data.length > 0) {
+              foundEmployee = empData.data[0];
             }
           } catch (err) {
-            console.warn('Email search failed:', err);
+            console.warn('Failed to fetch employee by userId:', err);
           }
         }
         
-        // Strategy 3: Final fallback - Fetch all employees and match by userId
-        if (!foundEmployee && userData._id) {
-          console.log('Email search failed, trying by userId:', userData._id);
+        // If not found, try to find by email
+        if (!foundEmployee && userData.email) {
           try {
-            const empResponse = await fetch(`${API_URL}/employees`, {
+            const allEmps = await fetch(`${API_URL}/employees`, {
               headers: { 'Authorization': `Bearer ${token}` }
             });
-            const empData = await empResponse.json();
+            const allData = await allEmps.json();
             
-            if (empData.success && Array.isArray(empData.data?.data)) {
-              foundEmployee = empData.data.data.find((emp: any) => emp.userId === userData._id);
-              if (foundEmployee) {
-                console.log('Employee found by userId:', userData._id);
-              }
+            if (allData.success && allData.data) {
+              foundEmployee = allData.data.find((emp: any) => 
+                emp.email === userData.email
+              );
             }
           } catch (err) {
-            console.warn('UserId search failed:', err);
+            console.warn('Failed to fetch employees for matching:', err);
           }
         }
         
         if (foundEmployee) {
           setEmployee(foundEmployee);
-          await fetchLeaveRequests(foundEmployee._id, token);
+          
+          // Fetch leave requests
+          const requests = await fetchLeaveRequestsInternal(foundEmployee._id, token);
+          setLeaveRequests(requests);
+          
+          // Calculate used days from approved/pending requests
+          if (leaveTypesData.length > 0) {
+            const updatedBalance: any = {};
+            leaveTypesData.forEach((type: any) => {
+              updatedBalance[type.type] = { used: 0, total: type.total, remaining: type.total };
+            });
+            
+            requests.forEach((request: LeaveRequest) => {
+              if (request.status === 'approved' || request.status === 'pending') {
+                const type = request.leave_type;
+                if (updatedBalance[type]) {
+                  updatedBalance[type].used += request.total_days;
+                  updatedBalance[type].remaining -= request.total_days;
+                }
+              }
+            });
+            
+            setLeaveBalance(updatedBalance);
+          }
         } else {
-          console.error('No employee record found for user:', userData);
+          console.error('No employee record not found for user:', userData);
           setMessage({ 
             text: 'Employee record not found. Please contact administrator.', 
             type: 'error' 
@@ -216,6 +379,7 @@ const EmployeeLeave: React.FC = () => {
     
     fetchData();
   }, []);
+  
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
     const { name, value } = e.target;
@@ -329,6 +493,105 @@ const EmployeeLeave: React.FC = () => {
     }
   };
 
+  const getLeaveTypeIcon = (type: string) => {
+    const iconMap: { [key: string]: string } = {
+      annual: '🏖️',
+      sick: '🏥',
+      family: '👨‍👩‍👧',
+      maternity: '👶',
+      parental: '👨‍👦'
+    };
+    return iconMap[type] || '📅';
+  };
+
+  const getLeaveTypeLabel = (type: string) => {
+    const labelMap: { [key: string]: string } = {
+      annual: 'Annual Leave',
+      sick: 'Sick Leave',
+      family: 'Family Leave',
+      maternity: 'Maternity Leave',
+      parental: 'Parental Leave'
+    };
+    return labelMap[type] || type.charAt(0).toUpperCase() + type.slice(1) + ' Leave';
+  };
+
+  const getLeaveTypeColor = (type: string) => {
+    const colorMap: { [key: string]: string } = {
+      annual: '#E6A79E',
+      sick: '#7DC695',
+      family: '#6B96E1',
+      maternity: '#8B5CF6',
+      parental: '#10B981'
+    };
+    return colorMap[type] || '#0EA5E9';
+  };
+
+  const renderBalanceCards = () => {
+    if (availableLeaveTypes.length === 0) {
+      return <div style={{ fontSize: 13, color: "#667085" }}>Loading leave policies...</div>;
+    }
+    
+    return availableLeaveTypes.map((type) => {
+      const balance = leaveBalance[type.type as keyof typeof leaveBalance];
+      const remaining = balance?.remaining ?? type.total;
+      const total = balance?.total ?? type.total;
+      const used = balance?.used ?? 0;
+      const pct = total > 0 ? (used / total) * 100 : 0;
+      const displayName = type.name || type.label;
+      
+      return (
+        <div
+          key={type.type}
+          style={{
+            padding: 12,
+            borderRadius: 12,
+            border: "1px solid #e4e7ec",
+            background: "#f9fafb",
+          }}
+        >
+          <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 4 }}>
+            <span style={{ fontSize: 16 }}>{type.icon}</span>
+            <p
+              style={{
+                fontSize: 13,
+                fontWeight: 500,
+                color: "#344054",
+                margin: 0,
+              }}
+            >
+              {displayName}
+            </p>
+          </div>
+          <p
+            style={{
+              fontSize: 12,
+              color: "#667085",
+              margin: "0 0 8px",
+            }}
+          >
+            {remaining} of {total} days remaining
+          </p>
+          <div
+            style={{
+              height: 6,
+              borderRadius: 999,
+              background: "#e5e7eb",
+              overflow: "hidden",
+            }}
+          >
+            <div
+              style={{
+                width: `${pct}%`,
+                height: "100%",
+                background: type.color,
+              }}
+            />
+          </div>
+        </div>
+      );
+    });
+  };
+
   if (loading) {
     return (
       <SharedLayout>
@@ -424,62 +687,7 @@ const EmployeeLeave: React.FC = () => {
             </div>
 
             <div style={{ display: "grid", gridTemplateColumns: "repeat(2, minmax(0, 1fr))", gap: 12 }}>
-              {[
-                { label: "Annual Leave", key: 'annual', used: leaveBalance.annual.used, total: leaveBalance.annual.total, color: "#E6A79E" },
-                { label: "Sick Leave", key: 'sick', used: leaveBalance.sick.used, total: leaveBalance.sick.total, color: "#7DC695" },
-                { label: "Family Leave", key: 'family', used: leaveBalance.family.used, total: leaveBalance.family.total, color: "#6B96E1" },
-                { label: "Other", key: 'other', used: leaveBalance.other.used, total: leaveBalance.other.total, color: "#F4B740" },
-              ].map((item) => {
-                const remaining = item.total - item.used;
-                const pct = (item.used / item.total) * 100;
-                return (
-                  <div
-                    key={item.label}
-                    style={{
-                      padding: 12,
-                      borderRadius: 12,
-                      border: "1px solid #e4e7ec",
-                      background: "#f9fafb",
-                    }}
-                  >
-                    <p
-                      style={{
-                        fontSize: 13,
-                        fontWeight: 500,
-                        color: "#344054",
-                        margin: "0 0 4px",
-                      }}
-                    >
-                      {item.label}
-                    </p>
-                    <p
-                      style={{
-                        fontSize: 12,
-                        color: "#667085",
-                        margin: "0 0 8px",
-                      }}
-                    >
-                      {remaining} of {item.total} days remaining
-                    </p>
-                    <div
-                      style={{
-                        height: 6,
-                        borderRadius: 999,
-                        background: "#e5e7eb",
-                        overflow: "hidden",
-                      }}
-                    >
-                      <div
-                        style={{
-                          width: `${pct}%`,
-                          height: "100%",
-                          background: item.color,
-                        }}
-                      />
-                    </div>
-                  </div>
-                );
-              })}
+              {renderBalanceCards()}
             </div>
           </section>
 
@@ -533,10 +741,11 @@ const EmployeeLeave: React.FC = () => {
                       }}
                       required
                     >
-                      <option value="annual">Annual Leave</option>
-                      <option value="sick">Sick Leave</option>
-                      <option value="family">Family Responsibility</option>
-                      <option value="other">Other</option>
+                      {availableLeaveTypes.map((type) => (
+                        <option key={type.type} value={type.type}>
+                          {type.label}
+                        </option>
+                      ))}
                     </select>
                   </div>
                   <div>
