@@ -1,416 +1,166 @@
-import React, { useState, useEffect } from "react";
-import { Container, Card, CardBody, Spinner } from "reactstrap";
-import DataTable from "react-data-table-component";
-import { AiFillEye, AiOutlineSearch, AiOutlineUser, AiOutlineClose } from "react-icons/ai";
+import React, { useState, useEffect, useCallback } from "react";
+import { useNavigate } from "react-router-dom";
+import SharedLayout from "./SharedLayout";
 
-const API_URL = import.meta.env.VITE_API_URL || "https://employee-evaluation-kago-e63baae4d822.herokuapp.com/api/v1";
+const API_URL  = import.meta.env.VITE_API_URL || "https://employee-evaluation-kago-e63baae4d822.herokuapp.com/api/v1";
+const getToken = () => localStorage.getItem("token") || "";
 
-// ─── Styles ───────────────────────────────────────────────────────────────────
+const AVATAR_COLORS = ["#E6A79E","#12b76a","#f79009","#ee46bc","#7a5af8","#f04438","#0891b2","#059669"];
 
-const employeeTblTitle = {
-  width: "100%", display: "flex", padding: 5,
-  justifyContent: "center", alignItems: "center",
-  fontSize: 16, fontWeight: "bolder" as const,
-};
-
-const employeeTbl = {
-  borderRadius: 10, padding: 5,
-  borderWidth: 2, borderStyle: "solid", borderColor: "#D9D9D9",
-  boxShadow: "0px 4px 8px rgba(0, 0, 0, 0.1)",
-};
-
-// ─── Sub-components ───────────────────────────────────────────────────────────
-
-const SearchInput = ({ Title, search, setSearch, radius }: any) => (
-  <div style={{ width: 300, height: "3em", display: "flex", alignItems: "center", background: "#ffffff", paddingTop: ".58rem", paddingBottom: ".5rem", paddingLeft: "1rem", paddingRight: "1rem", marginRight: 32, border: "solid", borderWidth: 0.1, borderRadius: radius }}>
-    <AiOutlineSearch size={24} />
-    <input type="text" placeholder={Title} value={search} onChange={(e) => setSearch(e.target.value)} style={{ border: "none", marginLeft: 8, paddingRight: 24, outline: "none", width: "100%" }} />
-  </div>
-);
-
-const ButtonBtn = ({ Title, BackgroundColor, ColorText, BorderColor, borderRadius, handleOnclick, pending, type }: any) => (
-  <button
-    className="btn"
-    style={{ fontWeight: "600", color: ColorText, borderColor: BorderColor, borderWidth: "2px", borderStyle: "solid", borderRadius, backgroundColor: BackgroundColor }}
-    type={type}
-    onClick={handleOnclick}
-    disabled={pending}
-  >
-    <div className="d-flex justify-content-center align-items-center">
-      {!pending ? <span>{Title}</span> : <><Spinner size="sm" /> <span> Loading</span></>}
-    </div>
-  </button>
-);
-
-// ─── Add Employee Modal ───────────────────────────────────────────────────────
-
-function AddEmployeeModal({ onClose, onSuccess }: { onClose: () => void; onSuccess: () => void }) {
-  const [form, setForm] = useState({
-    firstName: "", lastName: "", email: "", phone: "",
-    department: "", jobTitle: "", nationalId: "",
-    salary: "", bankAccount: "", password: "",
-    role: "user",
-  });
-  const [saving, setSaving] = useState(false);
-  const [error, setError]   = useState("");
-
-  useEffect(() => {
-    document.body.style.overflow = "hidden";
-    return () => { document.body.style.overflow = ""; };
-  }, []);
-
-  const setField = (field: string) => (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) =>
-    setForm(f => ({ ...f, [field]: e.target.value }));
-
-  const handleSubmit = async () => {
-    const required = ["firstName", "lastName", "email", "password", "department"];
-    const missing = required.filter(k => !(form as any)[k].trim());
-    if (missing.length) { setError("Please fill in all required fields (marked with *)."); return; }
-
-    setSaving(true);
-    setError("");
-    try {
-      const token = localStorage.getItem("token");
-      const response = await fetch(`${API_URL}/employees`, {
-        method: "POST",
-        headers: { "Authorization": `Bearer ${token}`, "Content-Type": "application/json" },
-        body: JSON.stringify({
-          firstName:   form.firstName.trim(),
-          lastName:    form.lastName.trim(),
-          email:       form.email.trim(),
-          phone:       form.phone.trim(),
-          department:  form.department.trim(),
-          position:    form.jobTitle.trim(),
-          nationalId:  form.nationalId.trim(),
-          salary:      form.salary ? Number(form.salary) : undefined,
-          bankAccount: form.bankAccount.trim(),
-          password:    form.password,
-          role:        form.role,
-          createAccount: true,
-        }),
-      });
-      const data = await response.json();
-      if (response.ok || data.success) {
-        onSuccess();
-        onClose();
-      } else {
-        setError(data.message || data.error?.message || "Failed to create employee.");
-      }
-    } catch (err) {
-      console.error(err);
-      setError("Network error. Please try again.");
-    } finally {
-      setSaving(false);
-    }
-  };
-
-  const inputStyle: React.CSSProperties = {
-    width: "100%", height: 42, borderRadius: 8, border: "1px solid #d1d5db",
-    padding: "0 12px", fontSize: 14, color: "#344054", outline: "none", boxSizing: "border-box",
-  };
-  const labelStyle: React.CSSProperties = { fontSize: 13, fontWeight: 600, color: "#344054", marginBottom: 4, display: "block" };
-
-  return (
-    <div style={{ position: "fixed", inset: 0, zIndex: 9999, display: "flex", alignItems: "center", justifyContent: "center", padding: 24 }}>
-      <div onClick={onClose} style={{ position: "absolute", inset: 0, background: "rgba(0,0,0,0.55)", backdropFilter: "blur(6px)" }} />
-      <div onClick={e => e.stopPropagation()} style={{ position: "relative", width: "100%", maxWidth: 580, borderRadius: 16, background: "#fff", boxShadow: "0 25px 50px rgba(0,0,0,0.2)", display: "flex", flexDirection: "column", maxHeight: "90vh" }}>
-
-        {/* Header */}
-        <div style={{ padding: "18px 24px", borderBottom: "1px solid #f2f4f7", display: "flex", alignItems: "center", justifyContent: "space-between", flexShrink: 0 }}>
-          <div>
-            <h2 style={{ margin: 0, fontSize: 18, fontWeight: 700, color: "#1d2939" }}>Add Employee</h2>
-            <p style={{ margin: "2px 0 0", fontSize: 13, color: "#667085" }}>Create a new employee account</p>
-          </div>
-          <button onClick={onClose} style={{ background: "none", border: "none", cursor: "pointer", color: "#667085", padding: 4, display: "flex" }}>
-            <AiOutlineClose size={20} />
-          </button>
-        </div>
-
-        {/* Body */}
-        <div style={{ overflowY: "auto", padding: "20px 24px", display: "flex", flexDirection: "column", gap: 16 }}>
-          {error && (
-            <div style={{ padding: "10px 14px", background: "#fef2f2", border: "1px solid #fecaca", borderRadius: 8, fontSize: 13, color: "#b42318" }}>{error}</div>
-          )}
-
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}>
-            <div>
-              <label style={labelStyle}>First Name *</label>
-              <input style={inputStyle} placeholder="e.g. Alinah" value={form.firstName} onChange={setField("firstName")} />
-            </div>
-            <div>
-              <label style={labelStyle}>Last Name *</label>
-              <input style={inputStyle} placeholder="e.g. Molepo" value={form.lastName} onChange={setField("lastName")} />
-            </div>
-          </div>
-
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}>
-            <div>
-              <label style={labelStyle}>Email Address *</label>
-              <input style={inputStyle} type="email" placeholder="alinah.m@company.com" value={form.email} onChange={setField("email")} />
-            </div>
-            <div>
-              <label style={labelStyle}>Phone Number</label>
-              <input style={inputStyle} placeholder="+27 11 123 4567" value={form.phone} onChange={setField("phone")} />
-            </div>
-          </div>
-
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}>
-            <div>
-              <label style={labelStyle}>Department *</label>
-              <input style={inputStyle} placeholder="e.g. Design" value={form.department} onChange={setField("department")} />
-            </div>
-            <div>
-              <label style={labelStyle}>Job Title</label>
-              <input style={inputStyle} placeholder="e.g. UI Designer" value={form.jobTitle} onChange={setField("jobTitle")} />
-            </div>
-          </div>
-
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}>
-            <div>
-              <label style={labelStyle}>National ID</label>
-              <input style={inputStyle} placeholder="e.g. 9001015009087" value={form.nationalId} onChange={setField("nationalId")} />
-            </div>
-            <div>
-              <label style={labelStyle}>Salary (ZAR)</label>
-              <input style={inputStyle} type="number" placeholder="e.g. 35000" value={form.salary} onChange={setField("salary")} />
-            </div>
-          </div>
-
-          <div>
-            <label style={labelStyle}>Bank Account Details</label>
-            <input style={inputStyle} placeholder="e.g. FNB 123456789" value={form.bankAccount} onChange={setField("bankAccount")} />
-          </div>
-
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}>
-            <div>
-              <label style={labelStyle}>Role</label>
-              <select style={{ ...inputStyle, cursor: "pointer" }} value={form.role} onChange={setField("role")}>
-                <option value="user">Employee</option>
-                <option value="admin">Admin</option>
-                <option value="owner">Owner</option>
-              </select>
-            </div>
-            <div>
-              <label style={labelStyle}>Password *</label>
-              <input style={inputStyle} type="password" placeholder="Temporary password" value={form.password} onChange={setField("password")} />
-            </div>
-          </div>
-        </div>
-
-        {/* Footer */}
-        <div style={{ padding: "16px 24px", borderTop: "1px solid #f2f4f7", display: "flex", justifyContent: "flex-end", gap: 10, flexShrink: 0 }}>
-          <button onClick={onClose} style={{ padding: "9px 18px", borderRadius: 8, border: "1px solid #d0d5dd", background: "#fff", fontSize: 14, fontWeight: 500, color: "#344054", cursor: "pointer" }}>Cancel</button>
-          <button
-            onClick={handleSubmit}
-            disabled={saving}
-            style={{ padding: "9px 20px", borderRadius: 8, border: "none", background: "#33A6CD", fontSize: 14, fontWeight: 600, color: "#fff", cursor: saving ? "not-allowed" : "pointer", opacity: saving ? 0.7 : 1, display: "flex", alignItems: "center", gap: 8 }}
-          >
-            {saving ? <><Spinner size="sm" /> Creating...</> : "Create Employee"}
-          </button>
-        </div>
-      </div>
-    </div>
-  );
+function initials(first: string, last: string) {
+  return `${first?.[0]||""}${last?.[0]||""}`.toUpperCase();
 }
 
-// ─── View Employee Modal ──────────────────────────────────────────────────────
-
-function ViewEmployeeModal({ employee, onClose }: { employee: any; onClose: () => void }) {
-  useEffect(() => {
-    document.body.style.overflow = "hidden";
-    return () => { document.body.style.overflow = ""; };
-  }, []);
-
-  return (
-    <div style={{ position: "fixed", inset: 0, zIndex: 9999, display: "flex", alignItems: "center", justifyContent: "center", padding: 24 }}>
-      <div onClick={onClose} style={{ position: "absolute", inset: 0, background: "rgba(0,0,0,0.55)", backdropFilter: "blur(6px)" }} />
-      <div onClick={e => e.stopPropagation()} style={{ position: "relative", width: "100%", maxWidth: 420, borderRadius: 16, background: "#fff", boxShadow: "0 25px 50px rgba(0,0,0,0.2)", overflow: "hidden" }}>
-        <div style={{ background: "linear-gradient(135deg, #33A6CD 0%, #1a7fa3 100%)", padding: "28px 24px 36px", position: "relative" }}>
-          <button onClick={onClose} style={{ position: "absolute", top: 14, right: 14, background: "rgba(255,255,255,0.15)", border: "none", borderRadius: 8, padding: 6, cursor: "pointer", color: "#fff", display: "flex" }}>
-            <AiOutlineClose size={18} />
-          </button>
-          <div style={{ width: 60, height: 60, borderRadius: "50%", background: "rgba(255,255,255,0.25)", display: "flex", alignItems: "center", justifyContent: "center", marginBottom: 12 }}>
-            {employee?.photo ? (
-              <img src={employee.photo} alt="" style={{ width: 60, height: 60, borderRadius: "50%", objectFit: "cover" }} />
-            ) : (
-              <AiOutlineUser color="white" size={30} />
-            )}
-          </div>
-          <h2 style={{ margin: 0, fontSize: 20, fontWeight: 700, color: "#fff" }}>{employee?.firstName} {employee?.lastName}</h2>
-          <p style={{ margin: "4px 0 0", fontSize: 13, color: "rgba(255,255,255,0.7)" }}>{employee?.roles?.[0]?.type || "Employee"}</p>
-        </div>
-        <div style={{ padding: 24, display: "flex", flexDirection: "column", gap: 12 }}>
-          {[
-            { label: "Email",      value: employee?.email },
-            { label: "Department", value: employee?.departmentId?.name || employee?.department },
-            { label: "Role",       value: employee?.roles?.[0]?.type },
-            { label: "Phone",      value: employee?.phone || "—" },
-            { label: "Job Title",  value: employee?.jobTitle || "—" },
-            { label: "National ID",value: employee?.nationalId || "—" },
-          ].map(({ label, value }) => (
-            <div key={label} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "10px 14px", background: "#f9fafb", borderRadius: 10 }}>
-              <span style={{ fontSize: 13, color: "#9ca3af", fontWeight: 600 }}>{label}</span>
-              <span style={{ fontSize: 13, fontWeight: 600, color: "#1d2939", maxWidth: 220, textAlign: "right", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{value || "—"}</span>
-            </div>
-          ))}
-        </div>
-        <div style={{ padding: "0 24px 24px" }}>
-          <button onClick={onClose} style={{ width: "100%", padding: 11, borderRadius: 10, border: "1px solid #d0d5dd", background: "#fff", fontSize: 14, fontWeight: 600, color: "#344054", cursor: "pointer" }}>Close</button>
-        </div>
-      </div>
-    </div>
-  );
+interface Employee {
+  _id: string; employeeId: string; firstName: string; lastName: string;
+  email: string; department: any; position: string; status: string; onPayroll: boolean;
 }
 
-// ─── Main Page ────────────────────────────────────────────────────────────────
+function EmployeesContent() {
+  const navigate  = useNavigate();
+  const [search, setSearch]       = useState("");
+  const [employees, setEmployees] = useState<Employee[]>([]);
+  const [loading, setLoading]     = useState(true);
+  const [error, setError]         = useState<string|null>(null);
 
-export const EmployeesPage = () => {
-  const [search, setSearch]             = useState("");
-  const [employees, setEmployees]       = useState<any[]>([]);
-  const [loadingData, setLoadingData]   = useState(true);
-  const [fetchError, setFetchError]     = useState("");
-  const [showAddModal, setShowAddModal] = useState(false);
-  const [viewEmployee, setViewEmployee] = useState<any | null>(null);
+  useEffect(() => {
+    const t = getToken(); const u = localStorage.getItem("user");
+    if (!t || !u) { navigate("/"); return; }
+  }, [navigate]);
 
-  // ── Fetch ───────────────────────────────────────────────────────────────────
-
-  const fetchEmployees = async () => {
-    setLoadingData(true);
-    setFetchError("");
+  const fetchEmployees = useCallback(async () => {
+    setLoading(true); setError(null);
     try {
-      const token = localStorage.getItem("token");
-      const res = await fetch(`${API_URL}/employees`, {
-        headers: { "Authorization": `Bearer ${token}`, "Content-Type": "application/json" },
-      });
+      const res  = await fetch(`${API_URL}/employees`, { headers: { Authorization: `Bearer ${getToken()}` } });
       const data = await res.json();
-      const rows: any[] =
-        Array.isArray(data)            ? data :
-        Array.isArray(data.data)       ? data.data :
-        Array.isArray(data.data?.data) ? data.data.data :
-        [];
-      setEmployees(rows);
-    } catch (err) {
-      console.error(err);
-      setFetchError("Failed to load employees. Please try again.");
+      if (!res.ok) throw new Error(data.message || `${res.status}`);
+      const arr = Array.isArray(data?.data?.data) ? data.data.data : Array.isArray(data?.data) ? data.data : [];
+      setEmployees(arr);
+    } catch (e: any) {
+      setError(e.message);
     } finally {
-      setLoadingData(false);
+      setLoading(false);
     }
-  };
+  }, []);
 
-  useEffect(() => { fetchEmployees(); }, []);
+  useEffect(() => { fetchEmployees(); }, [fetchEmployees]);
 
-  // ── Table columns ───────────────────────────────────────────────────────────
+  const getDept = (emp: Employee) => emp.department?.name || emp.department || "Unassigned";
 
-  const columns = [
-    {
-      name: <span className="font-weight-bold fs-13">Employee Name</span>,
-      cell: (row: any) => (
-        <div style={{ width: "100%" }}>
-          <div className="w-100 d-flex align-items-center gap-2">
-            <div className="d-flex justify-content-center align-items-center bg-primary" style={{ width: 35, height: 35, borderRadius: "50%", flexShrink: 0 }}>
-              {row?.photo ? (
-                <img src={row.photo} alt="employee" style={{ width: 35, height: 35, borderRadius: "50%", objectFit: "cover" }} />
-              ) : (
-                <AiOutlineUser color="white" size={19} />
-              )}
-            </div>
-            <div>
-              <div style={{ fontSize: 14, fontWeight: 400 }}>{row?.firstName} {row?.lastName}</div>
-              <div style={{ fontSize: 12, fontWeight: 500, color: "#A7A7A7" }}>
-                {row?.email?.length < 27 ? row?.email : `${row?.email?.substring(0, 28)}...`}
-              </div>
-            </div>
-          </div>
-        </div>
-      ),
-    },
-    {
-      name: <span className="font-weight-bold fs-13">Department</span>,
-      selector: (row: any) => row?.departmentId?.name || row?.department || "—",
-    },
-    {
-      name: <span className="font-weight-bold fs-13">Role</span>,
-      selector: (row: any) => row?.roles?.[0]?.type || "Employee",
-    },
-    {
-      name: <span className="font-weight-bold fs-13">Action</span>,
-      cell: (row: any) => (
-        <div style={{ display: "flex", alignItems: "center" }}>
-          <AiFillEye size={20} className="mx-1" style={{ cursor: "pointer", color: "#33A6CD" }} onClick={() => setViewEmployee(row)} />
-        </div>
-      ),
-    },
-  ];
-
-  const filteredEmployees = employees.filter((item) => {
+  const filtered = employees.filter(e => {
     if (!search) return true;
-    return [item?.firstName, item?.lastName, item?.departmentId?.name, item?.department, item?.email].some(
-      (field) => field?.toLowerCase().includes(search.toLowerCase())
-    );
+    const q = search.toLowerCase();
+    return [e.firstName, e.lastName, e.employeeId, e.email, getDept(e), e.position].some(f => f?.toLowerCase().includes(q));
   });
 
+  const stats = {
+    total:    employees.length,
+    depts:    new Set(employees.map(getDept)).size,
+    active:   employees.filter(e => e.status === "active").length,
+    onPayroll:employees.filter(e => e.onPayroll === true).length,
+  };
+
   return (
-    <React.Fragment>
-      <Container fluid={true}>
-        <div className="mt-3 mb-5 w-100">
+    <div style={{ maxWidth: 1200, margin: "0 auto" }}>
+      <div style={{ marginBottom: 24 }}>
+        <h2 style={{ fontSize: 22, fontWeight: 700, color: "#1d2939", margin: 0 }}>All Employees</h2>
+        <p style={{ margin: "4px 0 0", fontSize: 14, color: "#667085" }}>Home � All Employees</p>
+      </div>
 
-          {fetchError && (
-            <div style={{ padding: "12px 16px", background: "#fef2f2", border: "1px solid #fecaca", borderRadius: 8, marginBottom: 16, fontSize: 14, color: "#b42318" }}>
-              {fetchError}
-            </div>
-          )}
-
-          <div className="w-100 mb-3 d-flex justify-content-between">
-            <SearchInput Title="Search" search={search} setSearch={setSearch} radius={20} />
-            <div style={{ fontSize: 18, fontWeight: "bolder" }}>
-              <ButtonBtn
-                Title="Add Employee"
-                type="button"
-                BackgroundColor="#33A6CD"
-                ColorText="white"
-                BorderColor="#33A6CD"
-                borderRadius={20}
-                handleOnclick={() => setShowAddModal(true)}
-                pending={false}
-              />
-            </div>
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(200px,1fr))", gap: 16, marginBottom: 24 }}>
+        {[
+          { label: "Total Employees", value: stats.total,     color: "#E6A79E" },
+          { label: "Departments",     value: stats.depts,     color: "#12b76a" },
+          { label: "Active",          value: stats.active,    color: "#f79009" },
+          { label: "On Payroll",      value: stats.onPayroll, color: "#7a5af8" },
+        ].map(s => (
+          <div key={s.label} style={{ borderRadius: 16, border: "1px solid #e4e7ec", padding: 20, background: "#fff" }}>
+            <p style={{ margin: 0, fontSize: 13, fontWeight: 500, color: s.color }}>{s.label}</p>
+            <p style={{ margin: "6px 0 0", fontSize: 26, fontWeight: 700, color: "#1d2939" }}>{s.value}</p>
           </div>
+        ))}
+      </div>
 
-          <Card style={employeeTbl}>
-            <CardBody>
-              <div style={employeeTblTitle}>Employees</div>
-              {loadingData ? (
-                <div className="d-flex justify-content-center align-items-center py-5">
-                  <Spinner color="primary" /> <span className="ms-2">Loading employees...</span>
-                </div>
-              ) : (
-                <DataTable
-                  fixedHeader
-                  fixedHeaderScrollHeight="300px"
-                  columns={columns}
-                  responsive
-                  data={filteredEmployees}
-                  pagination
-                  highlightOnHover
-                  noDataComponent={<div style={{ padding: 32, color: "#667085" }}>No employees found.</div>}
-                />
-              )}
-            </CardBody>
-          </Card>
+      <div style={{ background: "#fff", borderRadius: 16, border: "1px solid #e4e7ec", padding: 20 }}>
+        <div style={{ display: "flex", flexWrap: "wrap", alignItems: "center", justifyContent: "space-between", gap: 16, marginBottom: 20 }}>
+          <div>
+            <h3 style={{ margin: 0, fontSize: 17, fontWeight: 600, color: "#1d2939" }}>Employee Directory</h3>
+            <p style={{ margin: "4px 0 0", fontSize: 13, color: "#667085" }}>Showing {filtered.length} of {employees.length}</p>
+          </div>
+          <div style={{ display: "flex", gap: 10 }}>
+            <input type="text" placeholder="Search employees�" value={search} onChange={e => setSearch(e.target.value)}
+              style={{ height: 40, width: 260, borderRadius: 8, border: "1px solid #d1d5db", padding: "0 12px", fontSize: 14, outline: "none" }} />
+            <button onClick={fetchEmployees} style={{ padding: "8px 16px", borderRadius: 8, border: "none", background: "#E6A79E", color: "#fff", fontSize: 14, fontWeight: 500, cursor: "pointer" }}>Refresh</button>
+            <button onClick={() => navigate("/manager/manage-employees")} style={{ padding: "8px 16px", borderRadius: 8, border: "none", background: "#1d2939", color: "#fff", fontSize: 14, fontWeight: 500, cursor: "pointer" }}>+ Add</button>
+          </div>
         </div>
-      </Container>
 
-      {showAddModal && (
-        <AddEmployeeModal
-          onClose={() => setShowAddModal(false)}
-          onSuccess={() => { fetchEmployees(); }}
-        />
-      )}
+        {error && <div style={{ padding: "12px 16px", marginBottom: 16, borderRadius: 8, background: "#fef2f2", border: "1px solid #fca5a5", color: "#dc2626", fontSize: 14 }}>{error}</div>}
 
-      {viewEmployee && (
-        <ViewEmployeeModal employee={viewEmployee} onClose={() => setViewEmployee(null)} />
-      )}
-    </React.Fragment>
+        {loading ? (
+          <div style={{ padding: "48px 0", textAlign: "center" }}>
+            <div style={{ display: "inline-block", width: 36, height: 36, border: "3px solid #f3f4f6", borderTopColor: "#E6A79E", borderRadius: "50%", animation: "spin 0.8s linear infinite" }} />
+            <style>{`@keyframes spin{to{transform:rotate(360deg)}}`}</style>
+            <p style={{ marginTop: 12, color: "#9ca3af" }}>Loading employees�</p>
+          </div>
+        ) : (
+          <div style={{ overflowX: "auto", borderRadius: 12, border: "1px solid #e4e7ec" }}>
+            <table style={{ width: "100%", minWidth: 600, borderCollapse: "collapse" }}>
+              <thead>
+                <tr style={{ background: "#f9fafb", borderBottom: "1px solid #e4e7ec" }}>
+                  {["Employee","Department","Position","Status","Actions"].map(h => (
+                    <th key={h} style={{ padding: "10px 16px", textAlign: "left", fontSize: 12, fontWeight: 600, color: "#667085", textTransform: "uppercase", letterSpacing: 0.5 }}>{h}</th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {filtered.length === 0 ? (
+                  <tr><td colSpan={5} style={{ padding: "48px 16px", textAlign: "center", fontSize: 14, color: "#9ca3af" }}>No employees found</td></tr>
+                ) : filtered.map((emp, idx) => (
+                  <tr key={emp._id} style={{ borderBottom: "1px solid #f2f4f7" }}
+                    onMouseEnter={e => (e.currentTarget.style.background = "#f9fafb")}
+                    onMouseLeave={e => (e.currentTarget.style.background = "#fff")}>
+                    <td style={{ padding: "12px 16px" }}>
+                      <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+                        <div style={{ width: 40, height: 40, borderRadius: "50%", flexShrink: 0, background: AVATAR_COLORS[idx % AVATAR_COLORS.length], color: "#fff", display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 700, fontSize: 13 }}>
+                          {initials(emp.firstName, emp.lastName)}
+                        </div>
+                        <div>
+                          <div style={{ fontSize: 14, fontWeight: 600, color: "#1d2939" }}>{emp.firstName} {emp.lastName}</div>
+                          <div style={{ fontSize: 12, color: "#98a2b3" }}>{emp.email}</div>
+                          <div style={{ fontSize: 11, color: "#98a2b3" }}>ID: {emp.employeeId || emp._id}</div>
+                        </div>
+                      </div>
+                    </td>
+                    <td style={{ padding: "12px 16px", fontSize: 14, color: "#667085" }}>{getDept(emp)}</td>
+                    <td style={{ padding: "12px 16px", fontSize: 14, color: "#667085" }}>{emp.position || "�"}</td>
+                    <td style={{ padding: "12px 16px" }}>
+                      <span style={{ display: "inline-block", padding: "2px 10px", borderRadius: 20, fontSize: 12, fontWeight: 600,
+                        background: emp.status === "active" ? "#ecfdf3" : "#fef3c7",
+                        color: emp.status === "active" ? "#027a48" : "#d97706" }}>
+                        {emp.status || "inactive"}
+                      </span>
+                    </td>
+                    <td style={{ padding: "12px 16px" }}>
+                      <button onClick={() => navigate(`/manager/profile?id=${emp._id}`)}
+                        style={{ display: "inline-flex", alignItems: "center", gap: 4, padding: "5px 12px", borderRadius: 7, fontSize: 12, fontWeight: 500, cursor: "pointer", border: "1px solid #d0d5dd", background: "#fff", color: "#344054" }}
+                        onMouseEnter={e => (e.currentTarget.style.background = "#f9fafb")}
+                        onMouseLeave={e => (e.currentTarget.style.background = "#fff")}>
+                        View Profile
+                      </button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </div>
+    </div>
   );
-};
- 
+}
+
+const EmployeesPage: React.FC = () => (
+  <SharedLayout title="All Employees"><EmployeesContent /></SharedLayout>
+);
+export default EmployeesPage;
