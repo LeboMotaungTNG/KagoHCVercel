@@ -74,6 +74,11 @@ const OwnerSidebar = () => {
                     Employees
                   </Link>
                 </li>
+                <li>
+                  <Link to="/owner/manage-employees" style={{ color: "rgba(255, 255, 255, 0.6)", padding: "8px 0", display: "block", fontSize: "14px" }}>
+                    Manage Employees
+                  </Link>
+                </li>
               </ul>
             </li>
             <li>
