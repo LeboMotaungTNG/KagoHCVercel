@@ -1,678 +1,1260 @@
-import React, { useEffect, useState, useCallback } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import { Helmet } from "react-helmet-async";
+import { useNavigate } from "react-router-dom";
 import {
-  Users, Calendar, ChevronRight,
-  Award, Target, Clock,
-  FileText, TrendingUp, MapPin, Mail, Phone,
-  AlertCircle, CheckCircle, UserCheck,
+  AlertCircle, ArrowUp, Award, Cake, Calendar, Clock,
+  Coffee, FileText, GraduationCap, Heart, MapPin, Megaphone, MessageCircle,
+  Palmtree, Pin, Plane, Plus, Receipt, Search, Sparkles, Star, Target, TrendingUp, Users,
+  Video, Zap,
 } from "lucide-react";
 import SharedLayout from "./SharedLayout";
+import {
+  C, SHADOW, SHADOW_L, R, FONT_NUM,
+  type UserProfile, type TodayAttendance, type LeaveStatus, type LeaveRecord,
+  type LeaveBalance, type AttendanceStats, type BirthdayEntry,
+  type PresenceState, type Teammate,
+  PRESENCE_STYLES,
+  greetingFor, longDate, fmtTime, fmtHMS, fmtDateRange,
+  getInitials, avatarBg,
+  sortLeaveBalances, buildTeammateRoster,
+  useLiveTick, useEmployeeData,
+} from "../../shared/utils/employee";
+/* ─────────────────────────────────────────────────────────────────────────────
+ * Primitives
+ * ────────────────────────────────────────────────────────────────────────── */
+const Card: React.FC<React.PropsWithChildren<{ style?: React.CSSProperties; pad?: number }>> = ({
+  children, style, pad = 22,
+}) => (
+  <section
+    style={{
+      background: C.surface,
+      border: `1px solid ${C.line}`,
+      borderRadius: R.xl,
+      boxShadow: SHADOW,
+      padding: pad,
+      ...style,
+    }}
+  >
+    {children}
+  </section>
+);
 
-// =============================================================================
-// CONFIG
-// =============================================================================
-const API_URL =
-  (import.meta as any).env?.VITE_API_URL ||
-  "https://employee-evaluation-kago-e63baae4d822.herokuapp.com/api/v1";
+const IconBubble: React.FC<{
+  bg: string; color: string; size?: number; children: React.ReactNode;
+}> = ({ bg, color, size = 40, children }) => (
+  <div
+    style={{
+      width: size, height: size, borderRadius: 12,
+      background: bg, color,
+      display: "flex", alignItems: "center", justifyContent: "center",
+      flexShrink: 0,
+    }}
+  >
+    {children}
+  </div>
+);
 
-// =============================================================================
-// HELPERS
-// =============================================================================
-const pad2 = (n: number) => String(n).padStart(2, "0");
+const SectionHead: React.FC<{
+  title: string; subtitle?: string; right?: React.ReactNode;
+}> = ({ title, subtitle, right }) => (
+  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 16, gap: 12 }}>
+    <div>
+      <h3 style={{ margin: 0, fontSize: 16, fontWeight: 700, color: C.ink, letterSpacing: -0.2 }}>{title}</h3>
+      {subtitle && <p style={{ margin: "2px 0 0", fontSize: 12.5, color: C.muted }}>{subtitle}</p>}
+    </div>
+    {right}
+  </div>
+);
 
-function toLocalDateStr(raw: string | Date): string {
-  const d = typeof raw === "string" ? new Date(raw) : raw;
-  return `${d.getFullYear()}-${pad2(d.getMonth() + 1)}-${pad2(d.getDate())}`;
-}
-function todayISO(): string { return toLocalDateStr(new Date()); }
-
-const getGreeting = () => {
-  const h = new Date().getHours();
-  if (h >= 5 && h < 12) return "Good Morning";
-  if (h >= 12 && h < 18) return "Good Afternoon";
-  return "Good Evening";
-};
-const getMonthYear = (date = new Date()) =>
-  date.toLocaleDateString("en-ZA", { month: "long", year: "numeric" });
-
-function fmtTime(raw: string | null | undefined): string {
-  if (!raw) return "--:--";
-  if (/^\d{2}:\d{2}(:\d{2})?$/.test(raw)) {
-    const [h, m] = raw.split(":").map(Number);
-    return `${h % 12 === 0 ? 12 : h % 12}:${pad2(m)} ${h >= 12 ? "PM" : "AM"}`;
-  }
-  const d = new Date(raw);
-  if (!isNaN(d.getTime())) {
-    const h = d.getHours(), m = d.getMinutes();
-    return `${h % 12 === 0 ? 12 : h % 12}:${pad2(m)} ${h >= 12 ? "PM" : "AM"}`;
-  }
-  return raw;
-}
-
-function daysBetween(start: string, end: string): number {
-  return Math.max(0, Math.round((new Date(end).getTime() - new Date(start).getTime()) / 86400000) + 1);
-}
-function formatDateRange(start: string, end: string): string {
-  const opts: Intl.DateTimeFormatOptions = { day: "numeric", month: "short" };
-  return `${new Date(start).toLocaleDateString("en-ZA", opts)} – ${new Date(end).toLocaleDateString("en-ZA", { ...opts, year: "numeric" })}`;
-}
-function daysRemaining(end: string): number {
-  const today = new Date(); today.setHours(0, 0, 0, 0);
-  return Math.max(0, Math.round((new Date(end).getTime() - today.getTime()) / 86400000));
-}
-function daysUntilBirthday(dob: string): number {
-  const today = new Date(); today.setHours(0, 0, 0, 0);
-  const bDay = new Date(dob);
-  const next = new Date(today.getFullYear(), bDay.getMonth(), bDay.getDate());
-  if (next < today) next.setFullYear(today.getFullYear() + 1);
-  return Math.round((next.getTime() - today.getTime()) / 86400000);
-}
-function getInitials(name: string): string {
-  return name.split(" ").map(w => w[0]).join("").slice(0, 2).toUpperCase();
-}
-
-const AVATAR_PALETTE = [
-  "#E6A79E","#7DC695","#6B96E1","#F096C3","#8b5cf6",
-  "#f59e0b","#10b981","#3b82f6","#0891b2","#db2777",
-];
-function avatarColor(name: string): string {
-  return AVATAR_PALETTE[name.split("").reduce((a, c) => a + c.charCodeAt(0), 0) % AVATAR_PALETTE.length];
-}
-
-// =============================================================================
-// TYPES
-// =============================================================================
-interface UserProfile { firstName: string; lastName: string; email: string; position?: string; department?: string | { name: string }; phone?: string; joinDate?: string; }
-interface TodayAttendance { status: string | null; clock_in: string | null; clock_out: string | null; work_hours: number | null; }
-interface LeaveRecord { id: string; type: string; start_date: string; end_date: string; status: "approved" | "pending" | "rejected"; days: number; }
-interface LeaveBalance { type: string; used: number; total: number; color: string; }
-interface AttendanceStats { rate: number; present: number; late: number; total: number; }
-interface BirthdayEntry { name: string; dob: string; department: string; daysUntil: number; }
-interface TeamOnLeave { name: string; type: string; end_date: string; daysLeft: number; department: string; }
-
-// =============================================================================
-// STYLE TOKENS
-// =============================================================================
-const STATUS_DOT: Record<string, string> = {
-  present:"#10b981",absent:"#ef4444",late:"#f59e0b",
-  leave:"#3b82f6",holiday:"#8b5cf6",half_day:"#f97316",
-};
-const STATUS_BADGE: Record<string, { bg: string; color: string; label: string }> = {
-  present:  { bg:"#ecfdf3", color:"#027a48", label:"Present" },
-  absent:   { bg:"#fef2f2", color:"#b42318", label:"Absent" },
-  late:     { bg:"#fffaeb", color:"#b54708", label:"Late" },
-  leave:    { bg:"#eff6ff", color:"#1d4ed8", label:"On Leave" },
-  holiday:  { bg:"#f5f3ff", color:"#6d28d9", label:"Holiday" },
-  half_day: { bg:"#fff7ed", color:"#c2410c", label:"Half Day" },
-};
-const LEAVE_COLORS = ["#E6A79E","#7DC695","#6B96E1","#F096C3","#8b5cf6"];
-const CARD: React.CSSProperties = {
-  backgroundColor:"white", borderRadius:16, padding:24,
-  boxShadow:"0 2px 8px rgba(0,0,0,0.06)", border:"1px solid #f0f2f5",
-};
-
-// =============================================================================
-// SHARED SUB-COMPONENTS
-// =============================================================================
-const Avatar = ({ name, size = 38 }: { name: string; size?: number }) => (
-  <div style={{ width:size, height:size, borderRadius:"50%", flexShrink:0, background:avatarColor(name), display:"flex", alignItems:"center", justifyContent:"center", fontSize:size*0.35, fontWeight:700, color:"#fff" }}>
+const Avatar: React.FC<{ name: string; size?: number }> = ({ name, size = 38 }) => (
+  <div
+    style={{
+      width: size, height: size, borderRadius: "50%", flexShrink: 0,
+      background: avatarBg(name),
+      display: "flex", alignItems: "center", justifyContent: "center",
+      fontSize: Math.round(size * 0.36), fontWeight: 700, color: "#fff",
+    }}
+  >
     {getInitials(name)}
   </div>
 );
 
-const CardHeader = ({ icon, iconBg, iconColor, title, badge }: { icon: React.ReactNode; iconBg: string; iconColor: string; title: string; badge?: number }) => (
-  <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:18 }}>
-    <div style={{ display:"flex", alignItems:"center", gap:10 }}>
-      <div style={{ width:38, height:38, borderRadius:10, background:iconBg, display:"flex", alignItems:"center", justifyContent:"center", color:iconColor }}>{icon}</div>
-      <h3 style={{ fontSize:15, fontWeight:700, color:"#1d2939", margin:0 }}>{title}</h3>
-    </div>
-    {badge !== undefined && (
-      <span style={{ fontSize:12, fontWeight:700, color:iconColor, background:iconBg, borderRadius:20, padding:"3px 10px" }}>{badge}</span>
-    )}
+const StatusPill: React.FC<{ bg: string; color: string; dot?: boolean; children: React.ReactNode }> = ({
+  bg, color, dot, children,
+}) => (
+  <span
+    style={{
+      display: "inline-flex", alignItems: "center", gap: 6,
+      background: bg, color,
+      borderRadius: 999, padding: "4px 10px",
+      fontSize: 11.5, fontWeight: 700,
+    }}
+  >
+    {dot && <span style={{ width: 6, height: 6, borderRadius: "50%", background: color }} />}
+    {children}
+  </span>
+);
+
+const ProgressBar: React.FC<{ value: number; color: string; track?: string; height?: number }> = ({
+  value, color, track = "rgba(255,255,255,0.35)", height = 6,
+}) => (
+  <div style={{ height, background: track, borderRadius: 999, overflow: "hidden" }}>
+    <div style={{
+      width: `${Math.min(100, Math.max(0, value))}%`,
+      height: "100%", background: color, borderRadius: 999,
+      transition: "width .35s ease",
+    }} />
   </div>
 );
 
-// =============================================================================
-// ON-LEAVE BANNER (my own leave)
-// =============================================================================
-const OnLeaveBanner = ({ leave }: { leave: LeaveRecord }) => {
-  const remaining = daysRemaining(leave.end_date);
-  const total = daysBetween(leave.start_date, leave.end_date);
-  const pct = Math.min(100, total > 0 ? ((total - remaining) / total) * 100 : 0);
+const linkBtn: React.CSSProperties = {
+  border: "none", background: "transparent",
+  color: C.coral, fontSize: 13, fontWeight: 700, cursor: "pointer",
+};
+
+/* ─────────────────────────────────────────────────────────────────────────────
+ * Sections
+ * ────────────────────────────────────────────────────────────────────────── */
+const GreetingHeader: React.FC<{ user: UserProfile | null; onLeave: boolean }> = ({ user, onLeave }) => (
+  <header style={{
+    display: "flex", justifyContent: "space-between", alignItems: "center",
+    gap: 20, flexWrap: "wrap", marginBottom: 22,
+  }}>
+    <div>
+      <h1 style={{ margin: 0, fontSize: 36, fontWeight: 800, color: C.ink, letterSpacing: -0.9, lineHeight: 1.05 }}>
+        {greetingFor()}, {user?.firstName || "there"} {onLeave ? "🌴" : "👋"}
+      </h1>
+      <p style={{ margin: "8px 0 0", color: C.muted, fontSize: 15 }}>
+        {onLeave ? "You're currently on leave. Enjoy your time off!" : "Here's what's happening in your workspace today."}
+      </p>
+    </div>
+    <div style={{
+      display: "inline-flex", alignItems: "center", gap: 10,
+      padding: "9px 18px", borderRadius: 999,
+      background: "#fff", border: `1px solid ${C.line}`,
+      boxShadow: SHADOW,
+      fontSize: 13.5, fontWeight: 600, color: C.text,
+    }}>
+      <span style={{ width: 8, height: 8, borderRadius: "50%", background: C.ok, boxShadow: "0 0 0 4px rgba(16,185,129,0.18)" }} />
+      <strong style={{ color: C.ink, fontWeight: 700 }}>All systems normal</strong>
+      <span style={{ color: C.faint }}>·</span>
+      <span style={{ color: C.muted }}>{longDate()}</span>
+    </div>
+  </header>
+);
+
+const TodaysSessionCard: React.FC<{
+  today: TodayAttendance;
+  onClockIn: () => void;
+  onClockOut: () => void;
+  location?: string;
+}> = ({ today, onClockIn, onClockOut, location = "KagoHC HQ" }) => {
+  const [onBreak, setOnBreak] = useState(false);
+  const active = !!today.clock_in && !today.clock_out;
+  const tick = useLiveTick(active);
+
+  const elapsedSec = useMemo(() => {
+    if (!today.clock_in) return 0;
+    const [h, m] = today.clock_in.split(":").map(Number);
+    const start = new Date(); start.setHours(h, m, 0, 0);
+    return Math.max(0, Math.floor((tick.getTime() - start.getTime()) / 1000));
+  }, [today.clock_in, tick]);
+
+  const goalSec = 8 * 3600;
+  const progress = Math.min(100, (elapsedSec / goalSec) * 100);
+
+  const statusPill = active
+    ? { label: "Active",   bg: "rgba(255,255,255,0.18)", color: "#fff", dot: true }
+    : today.clock_out
+      ? { label: "Wrapped", bg: "rgba(255,255,255,0.18)", color: "#fff", dot: false }
+      : { label: "Not started", bg: "rgba(255,255,255,0.16)", color: "rgba(255,255,255,0.85)", dot: false };
+
+  const FooterStat: React.FC<{ label: string; value: string }> = ({ label, value }) => (
+    <div>
+      <div style={{ fontSize: 10.5, letterSpacing: 0.8, textTransform: "uppercase", color: "rgba(255,255,255,0.7)", fontWeight: 700 }}>
+        {label}
+      </div>
+      <div style={{ fontSize: 18, fontWeight: 800, color: "#fff", marginTop: 2, ...FONT_NUM }}>
+        {value}
+      </div>
+    </div>
+  );
+
+  const weekHours = today.work_hours ? today.work_hours.toFixed(1) : "0.0";
+
   return (
-    <div style={{ background:"linear-gradient(135deg,#eff6ff,#dbeafe)", border:"1px solid #bfdbfe", borderRadius:16, padding:"20px 24px", marginBottom:24, display:"flex", alignItems:"center", gap:20, flexWrap:"wrap" }}>
-      <div style={{ width:48, height:48, borderRadius:12, background:"#3b82f6", display:"flex", alignItems:"center", justifyContent:"center", flexShrink:0 }}>
-        <Calendar size={24} color="white" />
-      </div>
-      <div style={{ flex:1, minWidth:200 }}>
-        <div style={{ display:"flex", alignItems:"center", gap:8, marginBottom:4 }}>
-          <span style={{ background:"#3b82f6", color:"#fff", borderRadius:20, padding:"2px 10px", fontSize:11, fontWeight:700, textTransform:"uppercase" }}>On Leave</span>
-          <span style={{ fontSize:14, fontWeight:600, color:"#1e40af" }}>{leave.type}</span>
+    <section
+      style={{
+        position: "relative", overflow: "hidden",
+        background: `linear-gradient(135deg, #2a2f7a 0%, #4f3da3 60%, #6a5cd8 100%)`,
+        borderRadius: R.hero,
+        padding: 28,
+        boxShadow: "0 12px 32px rgba(42,47,122,0.35)",
+        color: "#fff",
+      }}
+    >
+      {/* decorative blobs */}
+      <div aria-hidden style={{ position: "absolute", right: -60, top: -60, width: 220, height: 220, borderRadius: "50%", background: "rgba(255,255,255,0.10)" }} />
+      <div aria-hidden style={{ position: "absolute", right: 60, bottom: -100, width: 220, height: 220, borderRadius: "50%", background: "rgba(255,255,255,0.06)" }} />
+
+      <div style={{ position: "relative", display: "flex", justifyContent: "space-between", alignItems: "flex-start", flexWrap: "wrap", gap: 12 }}>
+        <div>
+          <div style={{ fontSize: 11.5, letterSpacing: 1, fontWeight: 700, opacity: 0.85, textTransform: "uppercase" }}>
+            Today's session
+          </div>
+          <div style={{ display: "flex", alignItems: "center", gap: 8, marginTop: 6, color: "rgba(255,255,255,0.92)", fontSize: 13.5, fontWeight: 600 }}>
+            <MapPin size={14} /> {location}&nbsp;·&nbsp;{longDate()}
+          </div>
         </div>
-        <p style={{ margin:"0 0 8px", fontSize:13, color:"#1d4ed8" }}>{formatDateRange(leave.start_date, leave.end_date)} · {total} day{total!==1?"s":""}</p>
-        <div style={{ height:6, background:"#bfdbfe", borderRadius:99, overflow:"hidden" }}>
-          <div style={{ width:`${pct}%`, height:"100%", background:"#3b82f6", borderRadius:99 }} />
+        <StatusPill bg={statusPill.bg} color={statusPill.color} dot={statusPill.dot}>{statusPill.label}</StatusPill>
+      </div>
+
+      <div style={{ position: "relative", marginTop: 22, display: "flex", alignItems: "baseline", gap: 14, flexWrap: "wrap" }}>
+        <div style={{ fontSize: 64, fontWeight: 800, letterSpacing: -2.5, lineHeight: 1, ...FONT_NUM }}>
+          {fmtHMS(elapsedSec)}
+        </div>
+        <div style={{ fontSize: 16, fontWeight: 600, opacity: 0.8, ...FONT_NUM }}>/ 08:00:00 goal</div>
+      </div>
+
+      <div style={{ position: "relative", marginTop: 18 }}>
+        <ProgressBar value={progress} color="#fff" track="rgba(255,255,255,0.25)" height={8} />
+      </div>
+
+      <div style={{ position: "relative", display: "flex", gap: 12, marginTop: 18, flexWrap: "wrap" }}>
+        {!today.clock_in ? (
+          <button onClick={onClockIn} style={btnPrimary}>
+            <Clock size={16} style={{ marginRight: 8 }} />Clock in
+          </button>
+        ) : (
+          <button
+            onClick={onClockOut}
+            disabled={!!today.clock_out}
+            style={today.clock_out ? btnDisabled : btnPrimary}
+          >
+            <Clock size={16} style={{ marginRight: 8 }} />
+            {today.clock_out ? "Clocked out" : "Clock out"}
+          </button>
+        )}
+        <button
+          onClick={() => setOnBreak(b => !b)}
+          disabled={!active}
+          style={active ? (onBreak ? btnGhostActive : btnGhost) : btnGhostDisabled}
+        >
+          <Coffee size={16} style={{ marginRight: 8 }} />
+          {onBreak ? "End break" : "Break"}
+        </button>
+      </div>
+
+      <div style={{ position: "relative", display: "flex", gap: 28, marginTop: 22, paddingTop: 18, borderTop: "1px solid rgba(255,255,255,0.18)", flexWrap: "wrap" }}>
+        <FooterStat label="Clock in"   value={fmtTime(today.clock_in)} />
+        <FooterStat label="Break"      value={onBreak ? "On break" : "0 min"} />
+        <FooterStat label="This week"  value={`${weekHours}h`} />
+        <FooterStat label="Status"     value={today.clock_out ? "Wrapped" : active ? "Working" : "Idle"} />
+      </div>
+    </section>
+  );
+};
+
+const btnPrimary: React.CSSProperties = {
+  display: "inline-flex", alignItems: "center", justifyContent: "center",
+  padding: "12px 22px", borderRadius: 999, border: "none",
+  background: "#fff", color: C.coralDk,
+  fontSize: 14, fontWeight: 700, cursor: "pointer",
+  boxShadow: "0 4px 14px rgba(0,0,0,0.12)",
+};
+const btnDisabled: React.CSSProperties = {
+  ...btnPrimary, background: "rgba(255,255,255,0.4)", color: "rgba(255,255,255,0.8)",
+  cursor: "not-allowed", boxShadow: "none",
+};
+const btnGhost: React.CSSProperties = {
+  display: "inline-flex", alignItems: "center", justifyContent: "center",
+  padding: "12px 22px", borderRadius: 999,
+  border: "1px solid rgba(255,255,255,0.5)",
+  background: "transparent", color: "#fff",
+  fontSize: 14, fontWeight: 700, cursor: "pointer",
+};
+const btnGhostActive: React.CSSProperties = { ...btnGhost, background: "rgba(255,255,255,0.18)" };
+const btnGhostDisabled: React.CSSProperties = { ...btnGhost, opacity: 0.45, cursor: "not-allowed" };
+
+const StreakCard: React.FC<{ rate: number; days?: number; badges?: number }> = ({
+  rate, days = 7, badges = 12,
+}) => {
+  const tier = rate >= 95 ? "Top 5%" : rate >= 85 ? "Top 15%" : "Rising star";
+  return (
+    <section
+      style={{
+        position: "relative", overflow: "hidden",
+        background: `linear-gradient(155deg, ${C.coral} 0%, ${C.coralDk} 100%)`,
+        borderRadius: R.hero,
+        padding: 24,
+        boxShadow: SHADOW_L,
+        color: "#fff",
+        display: "flex", flexDirection: "column",
+        minHeight: 240,
+      }}
+    >
+      <div aria-hidden style={{ position: "absolute", right: -50, top: -50, width: 180, height: 180, borderRadius: "50%", background: "rgba(255,255,255,0.10)" }} />
+      <div aria-hidden style={{ position: "absolute", left: -40, bottom: -90, width: 200, height: 200, borderRadius: "50%", background: "rgba(255,255,255,0.06)" }} />
+
+      <div style={{ position: "relative", display: "flex", alignItems: "center", gap: 10 }}>
+        <Award size={18} />
+        <div style={{ fontSize: 11.5, letterSpacing: 1.2, fontWeight: 800, textTransform: "uppercase" }}>
+          You're on fire
         </div>
       </div>
-      <div style={{ textAlign:"right", flexShrink:0 }}>
-        <p style={{ margin:"0 0 2px", fontSize:11, color:"#60a5fa", textTransform:"uppercase", fontWeight:700 }}>Returns in</p>
-        <p style={{ margin:0, fontSize:28, fontWeight:800, color:"#1e40af", letterSpacing:-1 }}>{remaining} <span style={{ fontSize:14, fontWeight:500 }}>day{remaining!==1?"s":""}</span></p>
+
+      <div style={{ position: "relative", marginTop: 18 }}>
+        <div style={{ fontSize: 30, fontWeight: 800, letterSpacing: -1, lineHeight: 1.1 }}>
+          {days}-day streak
+        </div>
+        <div style={{ fontSize: 18, fontWeight: 700, opacity: 0.95, marginTop: 2 }}>
+          of clocking in early
+        </div>
+      </div>
+
+      <p style={{ position: "relative", margin: "14px 0 0", fontSize: 13, lineHeight: 1.45, opacity: 0.9, flex: 1 }}>
+        Keep it up — earn the Punctuality badge in 3 more days.
+      </p>
+
+      <div style={{
+        position: "relative", marginTop: 16, paddingTop: 14,
+        borderTop: "1px solid rgba(255,255,255,0.22)",
+        display: "flex", alignItems: "center", gap: 12,
+      }}>
+        <div style={{ display: "flex", gap: 6 }}>
+          {[<Star size={14} key="s" />, <Zap size={14} key="z" />, <Award size={14} key="a" />].map((ic, i) => (
+            <div key={i} style={{
+              width: 30, height: 30, borderRadius: "50%",
+              background: "rgba(255,255,255,0.22)",
+              display: "flex", alignItems: "center", justifyContent: "center",
+            }}>{ic}</div>
+          ))}
+        </div>
+        <div>
+          <div style={{ fontSize: 13.5, fontWeight: 700 }}>{badges} badges earned</div>
+          <div style={{ fontSize: 11.5, opacity: 0.85 }}>{tier} in your team · {rate}% on-time</div>
+        </div>
+      </div>
+    </section>
+  );
+};
+
+const StatTile: React.FC<{
+  label: string;
+  value: string;
+  delta?: { up: boolean; text: string };
+  sub: string;
+  icon: React.ReactNode;
+  iconBg: string;
+  iconColor: string;
+}> = ({ label, value, delta, sub, icon, iconBg, iconColor }) => (
+  <Card style={{ padding: 20 }}>
+    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
+      <IconBubble bg={iconBg} color={iconColor}>{icon}</IconBubble>
+      {delta && (
+        <span style={{
+          fontSize: 12, fontWeight: 700,
+          color: delta.up ? C.ok : C.bad,
+          background: delta.up ? "#ecfdf3" : "#fef2f2",
+          padding: "2px 8px", borderRadius: 999,
+        }}>
+          {delta.up ? "↑" : "↓"} {delta.text}
+        </span>
+      )}
+    </div>
+    <div style={{ marginTop: 16, fontSize: 13, color: C.muted, fontWeight: 600 }}>{label}</div>
+    <div style={{ fontSize: 32, fontWeight: 800, color: C.ink, letterSpacing: -1, marginTop: 2, ...FONT_NUM }}>
+      {value}
+    </div>
+    <div style={{ fontSize: 12, color: C.faint, marginTop: 4 }}>{sub}</div>
+  </Card>
+);
+
+const StatsGrid: React.FC<{
+  balances: LeaveBalance[];
+  today: TodayAttendance;
+  stats: AttendanceStats;
+  teamOnLeaveCount: number;
+}> = ({ balances, today, stats, teamOnLeaveCount }) => {
+  const totalLeave   = balances.reduce((a, b) => a + Math.max(0, b.total - b.used), 0);
+  const pendingLeave = balances.length;
+  const monthHours   = today.work_hours ? (today.work_hours * 22).toFixed(0) : "0";
+  const target       = 176; // 22 working days * 8h
+  const pct          = Math.min(999, Math.round((Number(monthHours) / target) * 100));
+
+  return (
+    <div className="kg-stats-grid">
+      <StatTile
+        label="Leave balance" value={`${totalLeave}d`}
+        sub={`${pendingLeave} pending requests`}
+        delta={{ up: true, text: `+${Math.max(0, totalLeave - 20)}` }}
+        icon={<Calendar size={20} />} iconBg={C.coralBg} iconColor={C.coral}
+      />
+      <StatTile
+        label="This month" value={`${monthHours}h`}
+        sub={`${pct}% of target`}
+        delta={{ up: pct >= 80, text: `${pct}%` }}
+        icon={<TrendingUp size={20} />} iconBg={C.greenBg} iconColor={C.green}
+      />
+      <StatTile
+        label="Team online" value={`${Math.max(0, 18 - teamOnLeaveCount)}/18`}
+        sub={`${teamOnLeaveCount} on leave today`}
+        icon={<Users size={20} />} iconBg={C.blueBg} iconColor={C.blue}
+      />
+      <StatTile
+        label="Goals progress" value={`${stats.rate}%`}
+        sub={`${stats.present} present · ${stats.late} late`}
+        delta={{ up: stats.rate >= 80, text: `${stats.rate}%` }}
+        icon={<Target size={20} />} iconBg={C.pinkBg} iconColor={C.pink}
+      />
+    </div>
+  );
+};
+
+/* Mini SVG area chart — Worked vs Focus across 7 days */
+const PulseChart: React.FC<{ worked: number[]; focus: number[] }> = ({ worked, focus }) => {
+  const W = 640, H = 160, P = 20;
+  const max = Math.max(...worked, ...focus, 1);
+  const x = (i: number) => P + (i * (W - 2 * P)) / (worked.length - 1);
+  const y = (v: number) => H - P - (v / max) * (H - 2 * P);
+
+  const path = (vals: number[]) => vals.map((v, i) => `${i ? "L" : "M"}${x(i)},${y(v)}`).join(" ");
+  const area = (vals: number[]) =>
+    `${path(vals)} L${x(vals.length - 1)},${H - P} L${x(0)},${H - P} Z`;
+
+  return (
+    <svg viewBox={`0 0 ${W} ${H}`} width="100%" height={H} style={{ display: "block" }}>
+      <defs>
+        <linearGradient id="g-worked" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0%"  stopColor={C.coral} stopOpacity="0.35" />
+          <stop offset="100%" stopColor={C.coral} stopOpacity="0" />
+        </linearGradient>
+        <linearGradient id="g-focus" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0%"  stopColor={C.green} stopOpacity="0.35" />
+          <stop offset="100%" stopColor={C.green} stopOpacity="0" />
+        </linearGradient>
+      </defs>
+
+      {[0.25, 0.5, 0.75].map(p => (
+        <line key={p} x1={P} x2={W - P} y1={H - P - p * (H - 2 * P)} y2={H - P - p * (H - 2 * P)}
+              stroke={C.line} strokeDasharray="3 4" />
+      ))}
+
+      <path d={area(worked)} fill="url(#g-worked)" />
+      <path d={path(worked)} fill="none" stroke={C.coral} strokeWidth={2.5} strokeLinecap="round" />
+
+      <path d={area(focus)}  fill="url(#g-focus)" />
+      <path d={path(focus)}  fill="none" stroke={C.green} strokeWidth={2.5} strokeLinecap="round" />
+
+      {worked.map((v, i) => (
+        <circle key={i} cx={x(i)} cy={y(v)} r={3.5} fill="#fff" stroke={C.coral} strokeWidth={2} />
+      ))}
+    </svg>
+  );
+};
+
+const ProductivityPulseCard: React.FC<{ todayHours: number | null }> = ({ todayHours }) => {
+  const todayIdx = (new Date().getDay() + 6) % 7; // Mon=0..Sun=6
+  const baseW = [7.2, 8.1, 7.6, 8.4, 6.9, 0, 0];
+  const baseF = [4.5, 5.2, 4.8, 5.5, 4.1, 0, 0];
+  const worked = baseW.map((v, i) => (i === todayIdx && todayHours != null ? todayHours : v));
+  const focus  = baseF.map((v, i) => (i === todayIdx && todayHours != null ? Math.max(0, todayHours - 2.5) : v));
+
+  return (
+    <Card>
+      <SectionHead
+        title="Productivity pulse"
+        subtitle="Hours worked vs deep focus, this week"
+        right={(
+          <div style={{ display: "flex", gap: 14, fontSize: 12, color: C.muted }}>
+            <span style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
+              <span style={{ width: 8, height: 8, borderRadius: "50%", background: C.coral }} />Worked
+            </span>
+            <span style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
+              <span style={{ width: 8, height: 8, borderRadius: "50%", background: C.green }} />Focus
+            </span>
+          </div>
+        )}
+      />
+      <PulseChart worked={worked} focus={focus} />
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(7,1fr)", marginTop: 8, fontSize: 11, color: C.faint, textAlign: "center", fontWeight: 600 }}>
+        {["Mon","Tue","Wed","Thu","Fri","Sat","Sun"].map(d => <div key={d}>{d}</div>)}
+      </div>
+    </Card>
+  );
+};
+
+const QUICK_ACTIONS: Array<{
+  label: string; icon: React.ReactNode; bg: string; color: string; badge?: string;
+}> = [
+  { label: "Payslip on WhatsApp", icon: <Receipt   size={20} />, bg: C.coralBg,  color: C.coral,  badge: "NEW" },
+  { label: "Book meeting room",   icon: <Video     size={20} />, bg: C.blueBg,   color: C.blue   },
+  { label: "Submit expense",      icon: <FileText  size={20} />, bg: C.greenBg,  color: C.green  },
+  { label: "Contact HR",          icon: <MessageCircle size={20} />, bg: C.pinkBg,   color: C.pink   },
+  { label: "Give kudos",          icon: <Sparkles  size={20} />, bg: C.amberBg,  color: C.amber  },
+  { label: "Browse courses",      icon: <GraduationCap size={20} />, bg: C.purpleBg, color: C.purple },
+];
+
+const QuickActionsCard: React.FC = () => (
+  <Card>
+    <SectionHead title="Quick actions" />
+    <div className="kg-actions-grid">
+      {QUICK_ACTIONS.map(a => (
+        <button
+          key={a.label}
+          style={{
+            border: `1px solid ${C.line}`, background: C.surface,
+            borderRadius: R.lg, padding: "16px 12px", cursor: "pointer",
+            display: "flex", flexDirection: "column", alignItems: "center", gap: 10,
+            transition: "transform .15s, box-shadow .15s, border-color .15s",
+            position: "relative",
+          }}
+          onMouseEnter={e => {
+            e.currentTarget.style.transform = "translateY(-2px)";
+            e.currentTarget.style.boxShadow = "0 6px 18px rgba(16,24,40,0.08)";
+            e.currentTarget.style.borderColor = a.color;
+          }}
+          onMouseLeave={e => {
+            e.currentTarget.style.transform = "";
+            e.currentTarget.style.boxShadow = "";
+            e.currentTarget.style.borderColor = C.line;
+          }}
+        >
+          {a.badge && (
+            <span style={{
+              position: "absolute", top: 10, right: 10,
+              fontSize: 9.5, fontWeight: 800, letterSpacing: 0.6,
+              background: C.coral, color: "#fff",
+              borderRadius: 999, padding: "2px 6px",
+            }}>{a.badge}</span>
+          )}
+          <IconBubble bg={a.bg} color={a.color} size={44}>{a.icon}</IconBubble>
+          <span style={{ fontSize: 12.5, fontWeight: 600, color: C.ink, textAlign: "center", lineHeight: 1.3 }}>
+            {a.label}
+          </span>
+        </button>
+      ))}
+    </div>
+  </Card>
+);
+
+function leaveCategoryIcon(type: string): React.ReactNode {
+  const t = type.toLowerCase();
+  if (/(sick|medical|illness)/.test(t)) return <Heart size={20} strokeWidth={2} aria-hidden />;
+  if (/(personal|study|compassion|unpaid)/.test(t)) return <Palmtree size={20} strokeWidth={2} aria-hidden />;
+  if (/(annual|vacation|holiday|pto)/.test(t)) return <Plane size={20} strokeWidth={2} aria-hidden />;
+  return <Calendar size={20} strokeWidth={2} aria-hidden />;
+}
+
+const LeaveBalanceTile: React.FC<{ balance: LeaveBalance; gradient: string }> = ({ balance, gradient }) => {
+  const remaining = Math.max(0, balance.total - balance.used);
+  const pct = balance.total ? Math.min(100, (balance.used / balance.total) * 100) : 0;
+  const label = balance.type.replace(/\s+leave$/i, "").trim();
+
+  return (
+    <div
+      style={{
+        position: "relative",
+        background: gradient,
+        borderRadius: R.lg,
+        padding: "16px 16px 14px",
+        color: "#fff",
+        boxShadow: "0 8px 24px rgba(29,41,57,0.12)",
+        minHeight: 142,
+        display: "flex",
+        flexDirection: "column",
+        overflow: "hidden",
+      }}
+    >
+      <div
+        aria-hidden
+        style={{
+          position: "absolute", right: -28, top: -28, width: 100, height: 100,
+          borderRadius: "50%", background: "rgba(255,255,255,0.08)",
+        }}
+      />
+      <div style={{ position: "relative", display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 12 }}>
+        <div
+          style={{
+            width: 40, height: 40, borderRadius: 12,
+            background: "rgba(255,255,255,0.22)",
+            display: "flex", alignItems: "center", justifyContent: "center",
+          }}
+        >
+          {leaveCategoryIcon(balance.type)}
+        </div>
+      </div>
+      <div style={{ position: "relative", flex: 1, display: "flex", flexDirection: "column", justifyContent: "flex-end" }}>
+        <div
+          style={{
+            fontSize: 10, fontWeight: 800, letterSpacing: 1.4, textTransform: "uppercase",
+            opacity: 0.92, marginBottom: 6,
+          }}
+        >
+          {label}
+        </div>
+        <div style={{ display: "flex", alignItems: "baseline", gap: 4, flexWrap: "wrap", ...FONT_NUM }}>
+          <span style={{ fontSize: 28, fontWeight: 800, letterSpacing: -1.4, lineHeight: 1 }}>
+            {remaining}
+          </span>
+          <span style={{ fontSize: 18, fontWeight: 600, opacity: 0.88 }}>
+            /{balance.total}
+          </span>
+          <span style={{ fontSize: 11, fontWeight: 600, opacity: 0.75, width: "100%", marginTop: 2 }}>
+            days left · {balance.used} used
+          </span>
+        </div>
+        <div style={{ marginTop: 12 }}>
+          <ProgressBar value={pct} color="rgba(255,255,255,0.95)" track="rgba(255,255,255,0.28)" height={6} />
+        </div>
       </div>
     </div>
   );
 };
 
-// =============================================================================
-// WHO'S ON LEAVE TODAY  ← NEW
-// =============================================================================
-const TeamOnLeaveCard = ({ team }: { team: TeamOnLeave[] }) => (
-  <div style={CARD}>
-    <CardHeader icon={<UserCheck size={18}/>} iconBg="rgba(59,130,246,0.1)" iconColor="#3b82f6" title="Team on Leave Today" badge={team.length} />
-    {team.length === 0 ? (
-      <div style={{ textAlign:"center", padding:"28px 0", color:"#9ca3af", fontSize:13 }}>
-        <div style={{ fontSize:32, marginBottom:8 }}>🎉</div>
-        Everyone is in today!
-      </div>
-    ) : (
-      <>
-        <div style={{ display:"flex", flexDirection:"column", gap:10 }}>
-          {team.map((m, i) => (
-            <div key={i} style={{ display:"flex", alignItems:"center", gap:12, padding:"10px 12px", borderRadius:12, background:"#f9fafb", border:"1px solid #f0f2f5" }}>
-              <Avatar name={m.name} size={38} />
-              <div style={{ flex:1, minWidth:0 }}>
-                <p style={{ margin:0, fontSize:13, fontWeight:700, color:"#1d2939", overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>{m.name}</p>
-                <p style={{ margin:0, fontSize:11, color:"#9ca3af" }}>{m.department}</p>
-              </div>
-              <div style={{ textAlign:"right", flexShrink:0 }}>
-                <span style={{ display:"block", fontSize:11, fontWeight:700, background:"#eff6ff", color:"#1d4ed8", borderRadius:20, padding:"2px 8px", marginBottom:3 }}>{m.type}</span>
-                <span style={{ fontSize:11, color: m.daysLeft <= 1 ? "#10b981" : "#9ca3af" }}>
-                  {m.daysLeft === 0 ? "Back tomorrow" : `${m.daysLeft}d left`}
-                </span>
-              </div>
-            </div>
-          ))}
-        </div>
-        {/* Earliest return date summary */}
-        <div style={{ marginTop:14, padding:"10px 14px", background:"#f0f9ff", borderRadius:10, border:"1px solid #bae6fd", display:"flex", justifyContent:"space-between", fontSize:13 }}>
-          <span style={{ color:"#0369a1" }}>Earliest return</span>
-          <span style={{ fontWeight:700, color:"#0c4a6e" }}>
-            {new Date(Math.min(...team.map(t => new Date(t.end_date).getTime())))
-              .toLocaleDateString("en-ZA",{day:"numeric",month:"short",year:"numeric"})}
-          </span>
-        </div>
-      </>
-    )}
-  </div>
-);
+const TimeOffCard: React.FC<{
+  balances: LeaveBalance[]; recent: LeaveRecord[]; onApplyLeave?: () => void;
+}> = ({ balances, recent, onApplyLeave }) => {
+  const tilePalette = [
+    `linear-gradient(145deg, #2d3a69 0%, #4a5fc1 55%, #5b6fd4 100%)`,
+    `linear-gradient(145deg, #c75c5c 0%, #e07a6e 100%)`,
+    `linear-gradient(145deg, #2a8a7a 0%, #3cb8a8 100%)`,
+    `linear-gradient(135deg, ${C.purple} 0%, #7041e3 100%)`,
+    `linear-gradient(135deg, ${C.pink} 0%, #dc7aa9 100%)`,
+  ];
 
-// =============================================================================
-// UPCOMING BIRTHDAYS  ← NEW
-// =============================================================================
-const UpcomingBirthdaysCard = ({ birthdays }: { birthdays: BirthdayEntry[] }) => {
-  const todayBdays = birthdays.filter(b => b.daysUntil === 0);
-  const upcoming   = birthdays.filter(b => b.daysUntil > 0);
+  const statusStyles: Record<LeaveStatus, { bg: string; color: string }> = {
+    approved: { bg: "#ecfdf3", color: "#027a48" },
+    pending:  { bg: "#fffaeb", color: "#b54708" },
+    rejected: { bg: "#fef2f2", color: "#b42318" },
+  };
+
+  const sortedBalances = useMemo(() => sortLeaveBalances(balances), [balances]);
 
   return (
-    <div style={CARD}>
-      <CardHeader icon={<span style={{fontSize:18}}>🎂</span>} iconBg="rgba(236,72,153,0.1)" iconColor="#db2777" title="Upcoming Birthdays" badge={birthdays.length || undefined} />
+    <Card>
+      <SectionHead
+        title="Time off"
+        subtitle="Your balance & requests"
+        right={(
+          <button
+            type="button"
+            onClick={() => onApplyLeave?.()}
+            style={{
+              display: "inline-flex", alignItems: "center", gap: 7,
+              padding: "10px 18px", borderRadius: 999, border: "none",
+              background: C.ink, color: "#fff", fontSize: 13, fontWeight: 700, cursor: "pointer",
+              boxShadow: "0 2px 8px rgba(29,41,57,0.14)",
+              transition: "transform .15s, box-shadow .15s, background .15s",
+            }}
+            onMouseEnter={e => {
+              e.currentTarget.style.transform = "translateY(-1px)";
+              e.currentTarget.style.boxShadow = "0 4px 14px rgba(29,41,57,0.18)";
+            }}
+            onMouseLeave={e => {
+              e.currentTarget.style.transform = "";
+              e.currentTarget.style.boxShadow = "0 2px 8px rgba(29,41,57,0.14)";
+            }}
+          >
+            <Plus size={16} strokeWidth={2.5} aria-hidden />Apply
+          </button>
+        )}
+      />
 
-      {birthdays.length === 0 ? (
-        <div style={{ textAlign:"center", padding:"28px 0", color:"#9ca3af", fontSize:13 }}>
-          No birthdays in the next 30 days.
+      {sortedBalances.length === 0 ? (
+        <div
+          style={{
+            padding: "28px 20px", textAlign: "center", borderRadius: R.md,
+            background: C.surfaceAlt, border: `1px dashed ${C.line}`,
+          }}
+        >
+          <Calendar size={32} color={C.faint} style={{ marginBottom: 10 }} aria-hidden />
+          <p style={{ margin: 0, fontSize: 14, fontWeight: 700, color: C.ink }}>No leave balances yet</p>
+          <p style={{ margin: "8px 0 0", fontSize: 13, color: C.muted, lineHeight: 1.45 }}>
+            Balances appear here when HR assigns your leave policy.
+          </p>
         </div>
       ) : (
-        <>
-          {/* Today's birthdays */}
-          {todayBdays.map((b, i) => (
-            <div key={`td-${i}`} style={{ display:"flex", alignItems:"center", gap:12, marginBottom:10, padding:"12px 14px", borderRadius:14, background:"linear-gradient(135deg,#fffbeb,#fef3c7)", border:"1px solid #fde68a" }}>
-              <Avatar name={b.name} size={44} />
-              <div style={{ flex:1 }}>
-                <p style={{ margin:0, fontSize:14, fontWeight:800, color:"#92400e" }}>{b.name}</p>
-                <p style={{ margin:0, fontSize:11, color:"#b45309" }}>{b.department}</p>
-              </div>
-              <div style={{ textAlign:"right" }}>
-                <div style={{ fontSize:28 }}>🎂</div>
-                <p style={{ margin:"2px 0 0", fontSize:11, fontWeight:700, color:"#b45309" }}>Today!</p>
-              </div>
-            </div>
+        <div className="kg-leave-grid" style={{ marginBottom: 4 }}>
+          {sortedBalances.slice(0, 3).map((b, i) => (
+            <LeaveBalanceTile key={b.type} balance={b} gradient={tilePalette[i % tilePalette.length]} />
           ))}
+        </div>
+      )}
 
-          {/* Upcoming */}
-          <div style={{ display:"flex", flexDirection:"column", gap:8 }}>
-            {upcoming.map((b, i) => {
-              const isThisWeek = b.daysUntil <= 7;
-              const chip = b.daysUntil === 1
-                ? { text:"Tomorrow",  bg:"#f5f3ff", color:"#7c3aed" }
-                : isThisWeek
-                ? { text:`In ${b.daysUntil} days`, bg:"#eff6ff", color:"#1d4ed8" }
-                : { text:`In ${b.daysUntil} days`, bg:"#f9fafb", color:"#374151" };
-
-              // Show birthday date (this year)
-              const bDate = new Date(b.dob);
-              const thisYear = new Date(new Date().getFullYear(), bDate.getMonth(), bDate.getDate());
-              const dateLabel = thisYear.toLocaleDateString("en-ZA",{day:"numeric",month:"short"});
-
+      <div
+        style={{
+          marginTop: 22,
+          paddingTop: 20,
+          borderTop: `1px solid ${C.line}`,
+        }}
+      >
+        <div
+          style={{
+            fontSize: 10, letterSpacing: 1.6, fontWeight: 800, color: C.muted,
+            textTransform: "uppercase", marginBottom: 12,
+          }}
+        >
+          Recent requests
+        </div>
+        {recent.length === 0 ? (
+          <div
+            style={{
+              display: "flex", flexDirection: "column", alignItems: "center",
+              textAlign: "center",
+              padding: "26px 18px",
+              borderRadius: R.md,
+              background: C.surfaceAlt,
+              border: `1px solid ${C.line}`,
+            }}
+          >
+            <div
+              style={{
+                width: 48, height: 48, borderRadius: "50%",
+                background: "#fff", border: `1px solid ${C.line}`,
+                display: "flex", alignItems: "center", justifyContent: "center",
+                marginBottom: 12,
+              }}
+            >
+              <FileText size={22} color={C.coral} strokeWidth={1.75} aria-hidden />
+            </div>
+            <p style={{ margin: 0, fontSize: 14, fontWeight: 700, color: C.ink }}>No recent requests</p>
+            <p style={{ margin: "8px 0 16px", fontSize: 13, color: C.muted, lineHeight: 1.5, maxWidth: 260 }}>
+              When you apply for leave, pending and past requests will appear in this list.
+            </p>
+            <button
+              type="button"
+              onClick={() => onApplyLeave?.()}
+              style={{
+                border: `1px solid ${C.coral}`, background: "#fff", color: C.coralDk,
+                borderRadius: 999, padding: "8px 16px", fontSize: 12.5, fontWeight: 700, cursor: "pointer",
+              }}
+            >
+              Submit a request
+            </button>
+          </div>
+        ) : (
+          <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+            {recent.slice(0, 3).map(l => {
+              const s = statusStyles[l.status];
               return (
-                <div key={i} style={{ display:"flex", alignItems:"center", gap:12, padding:"9px 12px", borderRadius:12, background: isThisWeek ? "#faf5ff" : "#f9fafb", border:`1px solid ${isThisWeek ? "#e9d5ff" : "#f0f2f5"}` }}>
-                  <Avatar name={b.name} size={36} />
-                  <div style={{ flex:1, minWidth:0 }}>
-                    <p style={{ margin:0, fontSize:13, fontWeight:600, color:"#1d2939", overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>{b.name}</p>
-                    <p style={{ margin:0, fontSize:11, color:"#9ca3af" }}>{b.department}</p>
+                <div
+                  key={l.id}
+                  style={{
+                    display: "flex", justifyContent: "space-between", alignItems: "center",
+                    padding: "14px 16px", background: "#fff", borderRadius: R.md,
+                    border: `1px solid ${C.line}`,
+                    boxShadow: "0 1px 2px rgba(16,24,40,0.04)",
+                  }}
+                >
+                  <div style={{ minWidth: 0 }}>
+                    <div style={{ fontSize: 14, fontWeight: 700, color: C.ink }}>{l.type}</div>
+                    <div style={{ fontSize: 12.5, color: C.muted, marginTop: 3 }}>
+                      {fmtDateRange(l.start_date, l.end_date)}
+                      <span style={{ color: C.faint }}> · </span>
+                      {l.days} day{l.days === 1 ? "" : "s"}
+                    </div>
                   </div>
-                  <div style={{ textAlign:"right", flexShrink:0 }}>
-                    <span style={{ display:"block", fontSize:11, fontWeight:700, background:chip.bg, color:chip.color, borderRadius:20, padding:"2px 8px", marginBottom:2 }}>{chip.text}</span>
-                    <span style={{ fontSize:11, color:"#9ca3af" }}>{dateLabel}</span>
-                  </div>
+                  <StatusPill bg={s.bg} color={s.color}>
+                    {l.status.charAt(0).toUpperCase() + l.status.slice(1)}
+                  </StatusPill>
                 </div>
               );
             })}
           </div>
-        </>
-      )}
-    </div>
-  );
-};
-
-// =============================================================================
-// METRICS
-// =============================================================================
-const MetricsCards = ({ stats, leaveBalance, todayStatus }: { stats: AttendanceStats; leaveBalance: LeaveBalance[]; todayStatus: TodayAttendance }) => {
-  const totalLeave = leaveBalance.reduce((a, b) => a + (b.total - b.used), 0);
-  const badge = todayStatus.status ? STATUS_BADGE[todayStatus.status] : null;
-  const cards = [
-    { title:"Attendance Rate", count:`${stats.rate}%`,   color:"#E6A79E", icon:<Clock size={22} color="white"/>,     sub:`${stats.present} present · ${stats.late} late` },
-    { title:"Leave Balance",   count:`${totalLeave}d`,   color:"#7DC695", icon:<Calendar size={22} color="white"/>,  sub:"days remaining" },
-    { title:"Today's Status",  count: badge?.label ?? "Not Recorded", color: todayStatus.status ? STATUS_DOT[todayStatus.status] : "#9ca3af", icon:<Target size={22} color="white"/>, sub: todayStatus.clock_in ? `In: ${fmtTime(todayStatus.clock_in)}` : "No clock-in yet" },
-    { title:"Hours This Month",count: todayStatus.work_hours != null ? `${todayStatus.work_hours.toFixed(1)}h` : "0h", color:"#6B96E1", icon:<TrendingUp size={22} color="white"/>, sub:"today's session" },
-  ];
-  return (
-    <div style={{ display:"flex", gap:16, marginBottom:24, flexWrap:"wrap" }}>
-      {cards.map((c,i)=>(
-        <div key={i} style={{ flex:"1", backgroundColor:c.color, borderRadius:14, padding:"20px 22px", minWidth:180, color:"white", transition:"transform 0.18s,box-shadow 0.18s", cursor:"default" }}
-          onMouseOver={e=>{e.currentTarget.style.transform="translateY(-4px)";e.currentTarget.style.boxShadow="0 10px 24px rgba(0,0,0,0.15)";}}
-          onMouseOut={e=>{e.currentTarget.style.transform="";e.currentTarget.style.boxShadow="";}}>
-          <div style={{ display:"flex", justifyContent:"space-between", marginBottom:10 }}>
-            <span style={{ fontSize:13, fontWeight:600, opacity:0.9 }}>{c.title}</span>{c.icon}
-          </div>
-          <div style={{ fontSize:36, fontWeight:800, letterSpacing:-1 }}>{c.count}</div>
-          <div style={{ fontSize:12, opacity:0.75, marginTop:4 }}>{c.sub}</div>
-        </div>
-      ))}
-    </div>
-  );
-};
-
-// =============================================================================
-// PROFILE CARD
-// =============================================================================
-const ProfileSummaryCard = ({ user }: { user: UserProfile }) => {
-  const initials = `${user.firstName?.[0]??""}${user.lastName?.[0]??""}`.toUpperCase() || "?";
-  const dept = typeof user.department === "object" ? user.department?.name : user.department;
-  const joined = user.joinDate ? new Date(user.joinDate).toLocaleDateString("en-ZA",{month:"long",year:"numeric"}) : "—";
-  return (
-    <div style={CARD}>
-      <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:20 }}>
-        <div style={{ display:"flex", alignItems:"center", gap:10 }}>
-          <div style={{ width:38, height:38, borderRadius:10, background:"rgba(230,167,158,0.12)", display:"flex", alignItems:"center", justifyContent:"center", color:"#E6A79E" }}><Users size={19}/></div>
-          <h3 style={{ fontSize:15, fontWeight:700, color:"#1d2939", margin:0 }}>Profile Summary</h3>
-        </div>
-        <span style={{ display:"inline-flex", alignItems:"center", gap:5, background:"#ecfdf3", color:"#027a48", borderRadius:20, padding:"3px 11px", fontSize:12, fontWeight:600 }}>
-          <span style={{ width:6, height:6, borderRadius:"50%", background:"#12b76a" }}/>Active
-        </span>
+        )}
       </div>
-      <div style={{ display:"flex", gap:20 }}>
-        <div style={{ width:76, height:76, borderRadius:"50%", flexShrink:0, background:"linear-gradient(135deg,#e4e7ec,#f2f4f7)", border:"3px solid #E6A79E", display:"flex", alignItems:"center", justifyContent:"center", fontWeight:800, fontSize:26, color:"#1d2939", boxShadow:"0 0 0 4px rgba(230,167,158,0.15)" }}>{initials}</div>
-        <div style={{ flex:1 }}>
-          <h4 style={{ fontSize:18, fontWeight:700, color:"#1d2939", margin:"0 0 2px" }}>{user.firstName} {user.lastName}</h4>
-          <p style={{ fontSize:13, color:"#667085", margin:"0 0 14px" }}>{user.position||"—"}</p>
-          <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:10 }}>
-            {[
-              {icon:<MapPin size={14} color="#E6A79E"/>,text:dept||"—"},
-              {icon:<Mail size={14} color="#E6A79E"/>,text:user.email},
-              {icon:<Phone size={14} color="#E6A79E"/>,text:user.phone||"—"},
-              {icon:<Calendar size={14} color="#E6A79E"/>,text:`Joined ${joined}`},
-            ].map(({icon,text},i)=>(
-              <div key={i} style={{ display:"flex", alignItems:"center", gap:7, fontSize:13, color:"#667085" }}>
-                {icon}<span style={{ overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>{text}</span>
+    </Card>
+  );
+};
+
+const WhosAroundCard: React.FC<{
+  roster: Teammate[];
+  onViewAll: () => void;
+}> = ({ roster, onViewAll }) => {
+  const preview = roster.slice(0, 8);
+
+  const counts = roster.reduce(
+    (a, r) => ((a[r.state]++), a),
+    { office: 0, remote: 0, leave: 0 } as Record<PresenceState, number>,
+  );
+
+  return (
+    <Card>
+      <SectionHead
+        title="Who's around today"
+        subtitle={`${roster.length} teammates`}
+        right={(
+          <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 8 }}>
+            <div style={{ display: "flex", gap: 8, flexWrap: "wrap", justifyContent: "flex-end" }}>
+              {(Object.keys(PRESENCE_STYLES) as PresenceState[]).map(s => (
+                <span key={s} style={{
+                  display: "inline-flex", alignItems: "center", gap: 4,
+                  fontSize: 11.5, fontWeight: 700, color: C.muted,
+                }}>
+                  <span style={{ width: 7, height: 7, borderRadius: "50%", background: PRESENCE_STYLES[s].dot }} />
+                  {counts[s]}
+                </span>
+              ))}
+            </div>
+            <button type="button" style={linkBtn} onClick={onViewAll}>View all</button>
+          </div>
+        )}
+      />
+      {roster.length === 0 ? (
+        <p style={{ margin: 0, padding: "16px 0", textAlign: "center", color: C.faint, fontSize: 13 }}>
+          No colleagues found. Your HR directory will appear here once employees are loaded.
+        </p>
+      ) : (
+        <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+          {preview.map(m => {
+            const s = PRESENCE_STYLES[m.state];
+            return (
+              <div key={m.id} style={{
+                display: "flex", alignItems: "center", gap: 12,
+                padding: "8px 6px",
+              }}>
+                <div style={{ position: "relative", flexShrink: 0 }}>
+                  <Avatar name={m.name} size={36} />
+                  <span style={{
+                    position: "absolute", right: -1, bottom: -1,
+                    width: 11, height: 11, borderRadius: "50%",
+                    background: s.dot, border: "2px solid #fff",
+                  }} />
+                </div>
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div style={{ fontSize: 13.5, fontWeight: 700, color: C.ink, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                    {m.name}
+                  </div>
+                  <div style={{ fontSize: 11.5, color: C.faint }}>{m.department}</div>
+                </div>
+                <div style={{ fontSize: 12, fontWeight: 600, color: s.color, flexShrink: 0 }}>
+                  {s.label}
+                </div>
               </div>
-            ))}
-          </div>
-        </div>
-      </div>
-    </div>
-  );
-};
-
-// =============================================================================
-// ATTENDANCE TODAY
-// =============================================================================
-const AttendanceTodayCard = ({ today }: { today: TodayAttendance }) => {
-  const badge = today.status ? STATUS_BADGE[today.status] : null;
-  const isActive = today.status === "present" || today.status === "late";
-  return (
-    <div style={CARD}>
-      <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:20 }}>
-        <div style={{ display:"flex", alignItems:"center", gap:10 }}>
-          <div style={{ width:38, height:38, borderRadius:10, background:"rgba(125,198,149,0.12)", display:"flex", alignItems:"center", justifyContent:"center", color:"#7DC695" }}><Clock size={19}/></div>
-          <h3 style={{ fontSize:15, fontWeight:700, color:"#1d2939", margin:0 }}>Attendance Today</h3>
-        </div>
-        {badge
-          ? <span style={{ display:"inline-flex", alignItems:"center", gap:5, background:badge.bg, color:badge.color, borderRadius:20, padding:"3px 11px", fontSize:12, fontWeight:700 }}><span style={{ width:6, height:6, borderRadius:"50%", background:badge.color }}/>{badge.label}</span>
-          : <span style={{ fontSize:12, color:"#9ca3af", fontWeight:600 }}>Not Recorded</span>}
-      </div>
-      <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:14, background:"#f9fafb", borderRadius:12, border:"1px solid #f0f2f5", padding:18, marginBottom:18 }}>
-        {[
-          {label:"Clock In",   value:fmtTime(today.clock_in),  color:"#10b981"},
-          {label:"Clock Out",  value:fmtTime(today.clock_out), color:"#ef4444"},
-          {label:"Hours Worked",value:today.work_hours!=null?`${today.work_hours.toFixed(2)}h`:"--",color:"#1d2939"},
-          {label:"Status",value:badge?.label??"—",color:badge?.color??"#9ca3af"},
-        ].map(({label,value,color})=>(
-          <div key={label}>
-            <div style={{ fontSize:11, fontWeight:700, textTransform:"uppercase", color:"#9ca3af", marginBottom:6, letterSpacing:0.5 }}>{label}</div>
-            <div style={{ fontSize:20, fontWeight:800, color, fontVariantNumeric:"tabular-nums" }}>{value}</div>
-          </div>
-        ))}
-      </div>
-      {isActive && !today.clock_out && (
-        <div style={{ display:"flex", alignItems:"center", gap:8, padding:"10px 14px", background:"#ecfdf3", borderRadius:10, border:"1px solid #a7f3d0" }}>
-          <span style={{ width:8, height:8, borderRadius:"50%", background:"#10b981", flexShrink:0 }}/>
-          <span style={{ fontSize:13, color:"#065f46", fontWeight:600 }}>Session in progress</span>
+            );
+          })}
         </div>
       )}
-      {today.status === "leave" && (
-        <div style={{ display:"flex", alignItems:"center", gap:8, padding:"10px 14px", background:"#eff6ff", borderRadius:10, border:"1px solid #bfdbfe" }}>
-          <Calendar size={16} color="#3b82f6"/>
-          <span style={{ fontSize:13, color:"#1e40af", fontWeight:600 }}>You are on approved leave today</span>
-        </div>
-      )}
-    </div>
+    </Card>
   );
 };
 
-// =============================================================================
-// LEAVE OVERVIEW
-// =============================================================================
-const LeaveOverviewCard = ({ balances, activeLeave, recentLeaves }: { balances:LeaveBalance[]; activeLeave:LeaveRecord|null; recentLeaves:LeaveRecord[] }) => (
-  <div style={CARD}>
-    <CardHeader icon={<Calendar size={18}/>} iconBg="rgba(230,167,158,0.12)" iconColor="#E6A79E" title="My Leave" />
-    {activeLeave && (
-      <div style={{ marginBottom:16, padding:"12px 14px", background:"linear-gradient(135deg,#eff6ff,#dbeafe)", border:"1px solid #bfdbfe", borderRadius:12 }}>
-        <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center" }}>
-          <div>
-            <span style={{ fontSize:11, fontWeight:700, color:"#3b82f6", textTransform:"uppercase" }}>Currently on leave</span>
-            <p style={{ margin:"2px 0 0", fontSize:13, fontWeight:600, color:"#1e40af" }}>{activeLeave.type} · {formatDateRange(activeLeave.start_date,activeLeave.end_date)}</p>
-          </div>
-          <div style={{ textAlign:"right" }}>
-            <p style={{ margin:0, fontSize:22, fontWeight:800, color:"#1e40af" }}>{daysRemaining(activeLeave.end_date)}</p>
-            <p style={{ margin:0, fontSize:11, color:"#60a5fa" }}>days left</p>
-          </div>
-        </div>
-      </div>
-    )}
-    {balances.length===0
-      ? <p style={{ fontSize:13, color:"#9ca3af", textAlign:"center", padding:"16px 0" }}>No leave balance data</p>
-      : balances.map((l,i)=>(
-        <div key={i} style={{ marginBottom:14 }}>
-          <div style={{ display:"flex", justifyContent:"space-between", marginBottom:4 }}>
-            <span style={{ fontSize:13, fontWeight:600, color:"#1d2939" }}>{l.type}</span>
-            <span style={{ fontSize:13, color:l.color, fontWeight:700 }}>{l.total-l.used} days left</span>
-          </div>
-          <div style={{ display:"flex", justifyContent:"space-between", fontSize:11, color:"#9ca3af", marginBottom:5 }}>
-            <span>{l.used} used</span><span>{l.total} total</span>
-          </div>
-          <div style={{ height:6, background:"#f0f2f5", borderRadius:99, overflow:"hidden" }}>
-            <div style={{ width:`${l.total?(l.used/l.total)*100:0}%`, height:"100%", background:l.color, borderRadius:99 }}/>
-          </div>
-        </div>
-      ))}
-    {recentLeaves.length>0 && (
-      <div style={{ marginTop:16, paddingTop:16, borderTop:"1px solid #f0f2f5" }}>
-        <p style={{ fontSize:11, fontWeight:700, color:"#9ca3af", textTransform:"uppercase", letterSpacing:0.5, marginBottom:10 }}>Recent Requests</p>
-        {recentLeaves.slice(0,3).map((l,i)=>(
-          <div key={i} style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:8 }}>
-            <div>
-              <span style={{ fontSize:12, fontWeight:600, color:"#344054" }}>{l.type}</span>
-              <span style={{ fontSize:11, color:"#9ca3af", marginLeft:6 }}>{formatDateRange(l.start_date,l.end_date)}</span>
-            </div>
-            <span style={{ fontSize:11, fontWeight:700, padding:"2px 8px", borderRadius:10, background:l.status==="approved"?"#ecfdf3":l.status==="pending"?"#fffaeb":"#fef2f2", color:l.status==="approved"?"#027a48":l.status==="pending"?"#b54708":"#b42318" }}>{l.status}</span>
-          </div>
-        ))}
-      </div>
-    )}
-  </div>
-);
-
-// =============================================================================
-// PAYROLL
-// =============================================================================
-const PayrollSummaryCard = () => (
-  <div style={CARD}>
-    <CardHeader icon={<FileText size={18}/>} iconBg="rgba(125,198,149,0.12)" iconColor="#7DC695" title="Payroll Summary"/>
-    <div style={{ padding:"20px 0", textAlign:"center", color:"#9ca3af", fontSize:13 }}>Payroll data not available from API yet.</div>
-    <button style={{ width:"100%", padding:"11px 0", borderRadius:25, border:"1px solid #7DC695", background:"transparent", color:"#7DC695", fontSize:13, fontWeight:700, cursor:"pointer" }}>View Payslips</button>
-  </div>
-);
-
-// =============================================================================
-// PERFORMANCE
-// =============================================================================
-const PerformanceCard = ({ stats }: { stats: AttendanceStats }) => {
-  const kpi  = Math.min(100, stats.rate);
-  const onTime = stats.total > 0 ? Math.round((stats.present/stats.total)*100) : 0;
+const AI_PROMPTS = [
+  "How do I claim my WFH stipend?",
+  "What's the carry-over leave policy?",
+  "When is the next payday?",
+];
+const AIAssistantCard: React.FC = () => {
+  const [value, setValue] = useState("");
   return (
-    <div style={CARD}>
-      <CardHeader icon={<TrendingUp size={18}/>} iconBg="rgba(107,150,225,0.12)" iconColor="#6B96E1" title="Performance"/>
-      {[
-        stats.late===0 ? {text:"Zero late arrivals this month.",ok:true} : {text:`${stats.late} late arrival${stats.late>1?"s":""} this month.`,ok:false},
-        {text:`${stats.present} days present out of ${stats.total} recorded.`,ok:true},
-        {text:"Keep it up — performance review coming next quarter!",ok:true},
-      ].map((item,i,arr)=>(
-        <div key={i} style={{ display:"flex", gap:10, marginBottom:10, paddingBottom:10, borderBottom:i<arr.length-1?"1px solid #f0f2f5":"none" }}>
-          {item.ok ? <CheckCircle size={15} color="#7DC695" style={{ flexShrink:0, marginTop:2 }}/> : <AlertCircle size={15} color="#f59e0b" style={{ flexShrink:0, marginTop:2 }}/>}
-          <span style={{ fontSize:13, color:"#344054", lineHeight:1.5 }}>{item.text}</span>
-        </div>
-      ))}
-      <div style={{ padding:"12px 14px", background:"#f9fafb", borderRadius:10, marginTop:4 }}>
-        {[{label:"Attendance score",value:`${kpi}%`,color:"#6B96E1",pct:kpi},{label:"On-time rate",value:`${onTime}%`,color:"#10b981",pct:onTime}].map(({label,value,color,pct},i)=>(
-          <div key={i} style={{ marginBottom:i===0?12:0 }}>
-            <div style={{ display:"flex", justifyContent:"space-between", marginBottom:6 }}>
-              <span style={{ fontSize:13, color:"#667085" }}>{label}</span>
-              <span style={{ fontSize:16, fontWeight:800, color }}>{value}</span>
-            </div>
-            <div style={{ height:6, background:"#f0f2f5", borderRadius:99, overflow:"hidden" }}>
-              <div style={{ width:`${pct}%`, height:"100%", background:color, borderRadius:99 }}/>
+    <Card style={{ background: `linear-gradient(180deg, #fff 0%, ${C.coralBg} 220%)` }}>
+      <SectionHead
+        title="KagoHC AI"
+        subtitle="Ask anything about HR policies, leave, or payroll."
+        right={(
+          <IconBubble bg={C.coralBg} color={C.coral} size={36}>
+            <Sparkles size={16} />
+          </IconBubble>
+        )}
+      />
+      <div style={{ display: "flex", flexDirection: "column", gap: 8, marginBottom: 12 }}>
+        {AI_PROMPTS.map(p => (
+          <button
+            key={p}
+            onClick={() => setValue(p)}
+            style={{
+              display: "flex", alignItems: "center", gap: 8,
+              padding: "10px 14px", borderRadius: R.md,
+              border: `1px solid ${C.line}`,
+              background: C.surfaceAlt, color: C.text,
+              fontSize: 13, fontWeight: 600, cursor: "pointer", textAlign: "left",
+              transition: "border-color .15s, background .15s",
+            }}
+            onMouseEnter={e => { e.currentTarget.style.borderColor = C.coral; e.currentTarget.style.background = "#fff"; }}
+            onMouseLeave={e => { e.currentTarget.style.borderColor = C.line; e.currentTarget.style.background = C.surfaceAlt; }}
+          >
+            <MessageCircle size={14} color={C.coral} />{p}
+          </button>
+        ))}
+      </div>
+      <form
+        onSubmit={e => { e.preventDefault(); setValue(""); }}
+        style={{
+          display: "flex", alignItems: "center", gap: 8,
+          padding: "8px 8px 8px 16px", borderRadius: 999,
+          background: "#fff", border: `1px solid ${C.line}`,
+          boxShadow: SHADOW,
+        }}
+      >
+        <Search size={16} color={C.faint} />
+        <input
+          value={value}
+          onChange={e => setValue(e.target.value)}
+          placeholder="Ask KagoHC AI…"
+          style={{
+            flex: 1, border: "none", outline: "none",
+            background: "transparent", fontSize: 13.5, color: C.ink,
+            padding: "8px 0",
+          }}
+        />
+        <button
+          type="submit"
+          style={{
+            border: "none", cursor: "pointer",
+            width: 36, height: 36, borderRadius: "50%",
+            background: C.coral, color: "#fff",
+            display: "flex", alignItems: "center", justifyContent: "center",
+          }}
+        >
+          <ArrowUp size={16} />
+        </button>
+      </form>
+    </Card>
+  );
+};
+
+interface AppEvent { icon: React.ReactNode; bg: string; color: string; title: string; when: string }
+
+function buildAllEvents(birthdays: BirthdayEntry[]): AppEvent[] {
+  return [
+    ...birthdays.map<AppEvent>(b => ({
+      icon: <Cake size={18} />, bg: C.pinkBg, color: C.pink,
+      title: `${b.name}'s birthday`,
+      when: b.daysUntil === 0 ? "Today" : b.daysUntil === 1 ? "Tomorrow" : `In ${b.daysUntil} days`,
+    })),
+    { icon: <Users size={18} />, bg: C.blueBg, color: C.blue, title: "All-hands meeting", when: "Fri · 3:00 PM" },
+    { icon: <GraduationCap size={18} />, bg: C.purpleBg, color: C.purple, title: "Leadership workshop", when: "Next Mon" },
+    { icon: <Calendar size={18} />, bg: C.greenBg, color: C.green, title: "Benefits enrollment window", when: "Jun 15 · 5:00 PM" },
+    { icon: <Cake size={18} />, bg: C.amberBg, color: C.amber, title: "Company anniversary lunch", when: "Jul 3 · 12:30 PM" },
+    { icon: <Video size={18} />, bg: C.coralBg, color: C.coral, title: "Remote work policy webinar", when: "Jul 18 · 10:00 AM" },
+  ];
+}
+
+const UpcomingEventsCard: React.FC<{ birthdays: BirthdayEntry[]; onViewAll: () => void }> = ({ birthdays, onViewAll }) => {
+  const events = buildAllEvents(birthdays).slice(0, 4);
+
+  return (
+    <Card>
+      <SectionHead
+        title="Upcoming events"
+        right={<button type="button" style={linkBtn} onClick={onViewAll}>View all</button>}
+      />
+      <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+        {events.map((e, i) => (
+          <div key={`${e.title}-${i}`} style={{ display: "flex", alignItems: "center", gap: 12 }}>
+            <IconBubble bg={e.bg} color={e.color}>{e.icon}</IconBubble>
+            <div style={{ flex: 1, minWidth: 0 }}>
+              <div style={{ fontSize: 13.5, fontWeight: 700, color: C.ink, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                {e.title}
+              </div>
+              <div style={{ fontSize: 12, color: C.muted, marginTop: 2 }}>{e.when}</div>
             </div>
           </div>
         ))}
+      </div>
+    </Card>
+  );
+};
+
+type NoticeKind = "POLICY" | "NOTICE" | "ACTION";
+const NOTICE_STYLES: Record<NoticeKind, { bg: string; color: string; icon: React.ReactNode }> = {
+  POLICY: { bg: C.coralBg,  color: C.coral,  icon: <Pin       size={14} /> },
+  NOTICE: { bg: C.blueBg,   color: C.blue,   icon: <Megaphone size={14} /> },
+  ACTION: { bg: C.amberBg,  color: C.amber,  icon: <Target    size={14} /> },
+};
+const NOTICES: Array<{ kind: NoticeKind; title: string; body: string }> = [
+  { kind: "POLICY", title: "New parental leave policy", body: "12 weeks fully paid for all parents, effective July 1." },
+  { kind: "NOTICE", title: "Office closed Monday",      body: "Public holiday observance. Remote work optional." },
+  { kind: "ACTION", title: "Q2 performance reviews open", body: "Self-assessments due by end of next week." },
+];
+const MORE_NOTICES: Array<{ kind: NoticeKind; title: string; body: string }> = [
+  { kind: "NOTICE", title: "Parking garage maintenance", body: "Levels B2–B3 closed this weekend; plan alternate parking." },
+  { kind: "ACTION", title: "Confirm emergency contacts", body: "HR requires an update in People — complete by Friday COB." },
+  { kind: "POLICY", title: "Travel & per diem refresh", body: "Domestic nightly cap updated; see Finance policy hub." },
+  { kind: "NOTICE", title: "IT security awareness drill", body: "Simulated phishing exercise runs next Thursday — stay alert." },
+];
+const ALL_NOTICES = [...NOTICES, ...MORE_NOTICES];
+
+const CompanyNoticesCard: React.FC<{ onViewAll: () => void }> = ({ onViewAll }) => (
+  <Card>
+    <SectionHead
+      title="Company notices"
+      right={<button type="button" style={linkBtn} onClick={onViewAll}>All notices</button>}
+    />
+    <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(240px,1fr))", gap: 12 }}>
+      {NOTICES.map((n, i) => {
+        const s = NOTICE_STYLES[n.kind];
+        return (
+          <div key={i} style={{
+            border: `1px solid ${C.line}`, borderRadius: R.lg,
+            padding: 16, background: C.surfaceAlt,
+          }}>
+            <StatusPill bg={s.bg} color={s.color}>{s.icon}{n.kind}</StatusPill>
+            <div style={{ fontSize: 14, fontWeight: 800, color: C.ink, marginTop: 10 }}>{n.title}</div>
+            <div style={{ fontSize: 12.5, color: C.muted, marginTop: 4, lineHeight: 1.45 }}>{n.body}</div>
+          </div>
+        );
+      })}
+    </div>
+  </Card>
+);
+
+const SimpleModal: React.FC<{
+  open: boolean;
+  title: string;
+  onClose: () => void;
+  children: React.ReactNode;
+}> = ({ open, title, onClose, children }) => {
+  useEffect(() => {
+    if (!open) return;
+    const h = (e: KeyboardEvent) => { if (e.key === "Escape") onClose(); };
+    window.addEventListener("keydown", h);
+    return () => window.removeEventListener("keydown", h);
+  }, [open, onClose]);
+
+  if (!open) return null;
+
+  return (
+    <div
+      role="presentation"
+      style={{
+        position: "fixed", inset: 0, zIndex: 5000,
+        background: "rgba(15,23,42,0.45)",
+        display: "flex", alignItems: "center", justifyContent: "center",
+        padding: 24,
+      }}
+      onClick={onClose}
+    >
+      <div
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="kg-modal-title"
+        style={{
+          background: C.surface, borderRadius: R.xl,
+          maxWidth: 560, width: "100%", maxHeight: "88vh",
+          overflow: "hidden", display: "flex", flexDirection: "column",
+          boxShadow: "0 25px 80px rgba(0,0,0,0.18)",
+        }}
+        onClick={e => { e.stopPropagation(); }}
+      >
+        <div style={{
+          padding: "18px 22px",
+          borderBottom: `1px solid ${C.line}`,
+          display: "flex", justifyContent: "space-between", alignItems: "center",
+        }}>
+          <h2 id="kg-modal-title" style={{ margin: 0, fontSize: 18, fontWeight: 800, color: C.ink }}>{title}</h2>
+          <button
+            type="button"
+            onClick={onClose}
+            aria-label="Close"
+            style={{
+              border: "none", background: "transparent",
+              fontSize: 26, lineHeight: 1, cursor: "pointer", color: C.muted,
+            }}
+          >
+            ×
+          </button>
+        </div>
+        <div style={{ padding: 20, overflowY: "auto" }}>{children}</div>
       </div>
     </div>
   );
 };
 
-// =============================================================================
-// MAIN
-// =============================================================================
-const EmployeeDashboard = () => {
-  const [user, setUser]                     = useState<UserProfile | null>(null);
-  const [todayAttendance, setTodayAttendance] = useState<TodayAttendance>({ status:null, clock_in:null, clock_out:null, work_hours:null });
-  const [attendanceStats, setAttendanceStats] = useState<AttendanceStats>({ rate:0, present:0, late:0, total:0 });
-  const [leaveBalances, setLeaveBalances]   = useState<LeaveBalance[]>([]);
-  const [activeLeave, setActiveLeave]       = useState<LeaveRecord | null>(null);
-  const [recentLeaves, setRecentLeaves]     = useState<LeaveRecord[]>([]);
-  const [teamOnLeave, setTeamOnLeave]       = useState<TeamOnLeave[]>([]);
-  const [birthdays, setBirthdays]           = useState<BirthdayEntry[]>([]);
-  const [loading, setLoading]               = useState(true);
-  const [error, setError]                   = useState<string | null>(null);
+/* ─────────────────────────────────────────────────────────────────────────────
+ * Main
+ * ────────────────────────────────────────────────────────────────────────── */
+const EmployeeDashboard: React.FC = () => {
+  const navigate = useNavigate();
+  const {
+    user, today, stats, balances, activeLeave, recentLeaves, teamOnLeave, birthdays, colleagues,
+    loading, error, clockIn, clockOut,
+  } = useEmployeeData();
 
-  const token = localStorage.getItem("token");
-  const H = { Authorization:`Bearer ${token}`, "Content-Type":"application/json" };
+  const [modal, setModal] = useState<null | "events" | "notices" | "directory">(null);
 
-  const fetchProfile = useCallback(async () => {
-    try {
-      const d = await fetch(`${API_URL}/auth/me`,{headers:H}).then(r=>r.json());
-      const u = d.data||d.user||d;
-      if (u?.firstName||u?.email) setUser({ firstName:u.firstName||"", lastName:u.lastName||"", email:u.email||"", position:u.position||"", department:u.department, phone:u.phone||u.phoneNumber||"", joinDate:u.joinDate||u.createdAt||"" });
-    } catch { try { const s=localStorage.getItem("user"); if(s) setUser(JSON.parse(s)); } catch {} }
-  },[token]);
-
-  const fetchTodayAttendance = useCallback(async () => {
-    try {
-      const d = await fetch(`${API_URL}/attendance/today`,{headers:H}).then(r=>r.json());
-      const rec = d.data||d;
-      if (rec&&typeof rec==="object"&&!Array.isArray(rec)) {
-        const fmt = (raw:string|null|undefined)=>{ if(!raw)return null; if(/^\d{2}:\d{2}/.test(raw))return raw.slice(0,5); const x=new Date(raw); return isNaN(x.getTime())?null:`${pad2(x.getHours())}:${pad2(x.getMinutes())}`; };
-        setTodayAttendance({ status:rec.status||null, clock_in:fmt(rec.clockInTime||rec.clock_in), clock_out:fmt(rec.clockOutTime||rec.clock_out), work_hours:rec.totalHours||rec.hours_worked||rec.work_hours||null });
-      }
-    } catch(e){ console.warn(e); }
-  },[token]);
-
-  const fetchAttendanceStats = useCallback(async () => {
-    try {
-      const d = await fetch(`${API_URL}/attendance`,{headers:H}).then(r=>r.json());
-      let records:any[] = d.data?.data??( Array.isArray(d.data)?d.data:(Array.isArray(d)?d:[]));
-      const now=new Date();
-      const month=records.filter((r:any)=>{ const ds=r.date?toLocalDateStr(r.date):""; if(!ds)return false; const x=new Date(ds); return x.getMonth()===now.getMonth()&&x.getFullYear()===now.getFullYear(); });
-      const present=month.filter((r:any)=>r.status==="present"||r.status==="half_day").length;
-      const late=month.filter((r:any)=>r.status==="late").length;
-      const total=month.length;
-      setAttendanceStats({ present, late, total, rate:total>0?Math.round(((present+late)/total)*100):0 });
-    } catch(e){ console.warn(e); }
-  },[token]);
-
-  const fetchLeaveData = useCallback(async () => {
-    try {
-      const d = await fetch(`${API_URL}/leaves`,{headers:H}).then(r=>r.json());
-      let leaves:any[] = Array.isArray(d.data)?d.data:(Array.isArray(d)?d:(d.data?.data??[]));
-      const today=todayISO();
-      const mapped:LeaveRecord[] = leaves.map((l:any,i:number)=>({
-        id:l._id||l.id||String(i),
-        type:l.leaveType||l.type||l.leave_type||"Leave",
-        start_date:toLocalDateStr(l.startDate||l.start_date||today),
-        end_date:toLocalDateStr(l.endDate||l.end_date||today),
-        status:l.status||"pending",
-        days:l.numberOfDays||l.days||daysBetween(toLocalDateStr(l.startDate||l.start_date||today),toLocalDateStr(l.endDate||l.end_date||today)),
-      }));
-      setActiveLeave(mapped.find(l=>l.status==="approved"&&l.start_date<=today&&l.end_date>=today)||null);
-      setRecentLeaves([...mapped].sort((a,b)=>b.start_date.localeCompare(a.start_date)));
-
-      // balances
-      try {
-        const bd=await fetch(`${API_URL}/leaves/balance`,{headers:H}).then(r=>r.json());
-        const ba=Array.isArray(bd.data)?bd.data:(Array.isArray(bd)?bd:null);
-        if(ba?.length){ setLeaveBalances(ba.map((b:any,i:number)=>({type:b.leaveType||b.type||"Leave",used:b.used||b.usedDays||0,total:b.total||b.totalDays||b.allowance||20,color:LEAVE_COLORS[i%LEAVE_COLORS.length]}))); return; }
-      } catch {}
-
-      const tm:Record<string,number>={};
-      mapped.filter(l=>l.status==="approved").forEach(l=>{ tm[l.type]=(tm[l.type]||0)+l.days; });
-      const bal=Object.entries(tm).map(([type,used],i)=>({type,used,total:Math.max(used,20),color:LEAVE_COLORS[i%LEAVE_COLORS.length]}));
-      setLeaveBalances(bal.length?bal:[{type:"Annual Leave",used:0,total:20,color:LEAVE_COLORS[0]},{type:"Sick Leave",used:0,total:10,color:LEAVE_COLORS[1]}]);
-    } catch(e){
-      console.warn(e);
-      setLeaveBalances([{type:"Annual Leave",used:0,total:20,color:LEAVE_COLORS[0]},{type:"Sick Leave",used:0,total:10,color:LEAVE_COLORS[1]}]);
-    }
-  },[token]);
-
-  const fetchEmployeeData = useCallback(async () => {
-    // --- birthdays from employee list ---
-    try {
-      const d = await fetch(`${API_URL}/employees`,{headers:H}).then(r=>r.json());
-      let emps:any[] = Array.isArray(d.data)?d.data:(d.data?.data??( Array.isArray(d)?d:[]));
-      const bdList:BirthdayEntry[] = emps
-        .filter((e:any)=>e.dateOfBirth||e.dob||e.birthDate)
-        .map((e:any)=>{
-          const dob=e.dateOfBirth||e.dob||e.birthDate;
-          const dept=typeof e.department==="object"?e.department?.name:e.department||"—";
-          return { name:`${e.firstName||""} ${e.lastName||""}`.trim()||e.full_name||"Unknown", dob, department:dept, daysUntil:daysUntilBirthday(dob) };
-        })
-        .filter(b=>b.daysUntil<=30)
-        .sort((a,b)=>a.daysUntil-b.daysUntil);
-      setBirthdays(bdList);
-    } catch(e){ console.warn("birthdays:",e); }
-
-    // --- who's on leave today from attendance ---
-    try {
-      const d = await fetch(`${API_URL}/attendance`,{headers:H}).then(r=>r.json());
-      let records:any[] = d.data?.data??(Array.isArray(d.data)?d.data:(Array.isArray(d)?d:[]));
-      const today=todayISO();
-      const onLeave:TeamOnLeave[] = records
-        .filter((r:any)=>{ const ds=r.date?toLocalDateStr(r.date):""; return ds===today&&r.status==="leave"; })
-        .map((r:any)=>{
-          const name=r.employee_name||r.full_name||`${r.firstName||""} ${r.lastName||""}`.trim()||"Employee";
-          const dept=typeof r.department==="object"?r.department?.name:r.department||"—";
-          const endRaw=r.endDate||r.end_date||today;
-          const end=toLocalDateStr(endRaw);
-          return { name, type:r.leaveType||r.leave_type||"Leave", end_date:end, daysLeft:daysRemaining(end), department:dept };
-        });
-      setTeamOnLeave(onLeave);
-    } catch(e){ console.warn("team leave:",e); }
-  },[token]);
-
-  useEffect(()=>{
-    try { const s=localStorage.getItem("user"); if(s) setUser(JSON.parse(s)); } catch {}
-    Promise.all([fetchProfile(),fetchTodayAttendance(),fetchAttendanceStats(),fetchLeaveData(),fetchEmployeeData()])
-      .catch(()=>setError("Some data failed to load."))
-      .finally(()=>setLoading(false));
-  },[]);
-
-  const firstName = user?.firstName||"there";
-  const isOnLeave = !!activeLeave||todayAttendance.status==="leave";
-
-  if(loading) return (
-    <SharedLayout>
-      <div style={{ display:"flex", flexDirection:"column", alignItems:"center", justifyContent:"center", minHeight:"60vh", gap:16 }}>
-        <div style={{ width:40, height:40, border:"4px solid #f3f4f6", borderTopColor:"#E6A79E", borderRadius:"50%", animation:"spin 0.7s linear infinite" }}/>
-        <style>{`@keyframes spin{to{transform:rotate(360deg)}}`}</style>
-        <p style={{ color:"#9ca3af", fontSize:14 }}>Loading your dashboard…</p>
-      </div>
-    </SharedLayout>
+  const teammateRoster = useMemo(
+    () => buildTeammateRoster(
+      colleagues,
+      teamOnLeave,
+      user?.email,
+      user ? `${user.firstName || ""} ${user.lastName || ""}`.trim() : undefined,
+    ),
+    [colleagues, teamOnLeave, user],
   );
+
+  const onLeave = !!activeLeave || today.status === "leave";
+
+  if (loading) {
+    return (
+      <SharedLayout>
+        <div style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", minHeight: "60vh", gap: 16 }}>
+          <div style={{ width: 42, height: 42, border: `4px solid ${C.line}`, borderTopColor: C.coral, borderRadius: "50%", animation: "kgSpin .8s linear infinite" }} />
+          <style>{`@keyframes kgSpin{to{transform:rotate(360deg)}}`}</style>
+          <p style={{ color: C.faint, fontSize: 14, margin: 0 }}>Loading your dashboard…</p>
+        </div>
+      </SharedLayout>
+    );
+  }
 
   return (
     <SharedLayout>
       <Helmet>
         <title>Employee Dashboard | Kago HC</title>
-        <meta name="description" content="Kago HC Employee Portal"/>
+        <meta name="description" content="Your Kago HC employee workspace — attendance, leave, and updates." />
       </Helmet>
-      <div style={{ maxWidth:1200, margin:"0 auto" }}>
 
+      <style>{`
+        .kg-stats-grid   { display: grid; gap: 16px; grid-template-columns: repeat(2, minmax(0, 1fr)); }
+        .kg-actions-grid { display: grid; gap: 12px; grid-template-columns: repeat(3, minmax(0, 1fr)); }
+        .kg-leave-grid   { display: grid; gap: 12px; grid-template-columns: repeat(3, minmax(0, 1fr)); }
+        .kg-row          { display: grid; gap: 20px; margin-bottom: 22px; }
+        .kg-row-hero     { grid-template-columns: 1fr; }
+        .kg-row-pulse    { grid-template-columns: 1fr; }
+        .kg-row-trio     { grid-template-columns: 1fr; }
+        .kg-row-pair     { grid-template-columns: 1fr; }
+        @media (max-width: 420px) {
+          .kg-stats-grid,
+          .kg-leave-grid   { grid-template-columns: 1fr; }
+          .kg-actions-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+        }
+        @media (min-width: 1100px) {
+          .kg-stats-grid   { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+          .kg-row-hero     { grid-template-columns: 2fr 1fr; }
+          .kg-row-pulse    { grid-template-columns: 2fr 1fr; }
+          .kg-row-trio     { grid-template-columns: 1fr 1fr 1fr; }
+          .kg-row-pair     { grid-template-columns: 1fr 1fr; }
+        }
+        @media (min-width: 1500px) {
+          .kg-actions-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+        }
+      `}</style>
+
+      <div style={{ maxWidth: 1280, margin: "0 auto" }}>
         {error && (
-          <div style={{ display:"flex", alignItems:"center", gap:10, padding:"12px 16px", background:"#fef2f2", border:"1px solid #fecaca", borderRadius:12, marginBottom:20 }}>
-            <AlertCircle size={18} color="#ef4444"/>
-            <span style={{ fontSize:13, color:"#b42318" }}>{error}</span>
+          <div style={{
+            display: "flex", alignItems: "center", gap: 10,
+            padding: "12px 16px", marginBottom: 18,
+            background: "#fef2f2", border: "1px solid #fecaca", borderRadius: R.md,
+          }}>
+            <AlertCircle size={18} color={C.bad} />
+            <span style={{ fontSize: 13, color: "#b42318" }}>{error}</span>
           </div>
         )}
 
-        {/* Header */}
-        <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:24, flexWrap:"wrap", gap:12 }}>
-          <div>
-            <h1 style={{ fontSize:30, margin:"0 0 6px", fontWeight:800, color:"#1d2939", letterSpacing:-0.5 }}>{getGreeting()}, {firstName} {isOnLeave?"🌴":"👋"}</h1>
-            <p style={{ fontSize:14, color:"#667085", margin:0 }}>{isOnLeave?"You're currently on leave. Enjoy your time off!":"Welcome back! Here's your work summary for today."}</p>
+        <GreetingHeader user={user} onLeave={onLeave} />
+
+        <div className="kg-row kg-row-hero">
+          <TodaysSessionCard
+            today={today}
+            onClockIn={clockIn}
+            onClockOut={clockOut}
+            location={typeof user?.department === "object" ? user?.department?.name : user?.department || "KagoHC HQ"}
+          />
+          <StreakCard rate={stats.rate || 92} />
+        </div>
+
+        <div style={{ marginBottom: 22 }}>
+          <StatsGrid balances={balances} today={today} stats={stats} teamOnLeaveCount={teamOnLeave.length} />
+        </div>
+
+        <div className="kg-row kg-row-pulse">
+          <ProductivityPulseCard todayHours={today.work_hours} />
+          <QuickActionsCard />
+        </div>
+
+        <div className="kg-row kg-row-trio">
+          <TimeOffCard
+            balances={balances}
+            recent={recentLeaves}
+            onApplyLeave={() => navigate("/employee/leave")}
+          />
+          <WhosAroundCard
+            roster={teammateRoster}
+            onViewAll={() => setModal("directory")}
+          />
+          <AIAssistantCard />
+        </div>
+
+        <div className="kg-row kg-row-pair">
+          <UpcomingEventsCard birthdays={birthdays} onViewAll={() => setModal("events")} />
+          <CompanyNoticesCard onViewAll={() => setModal("notices")} />
+        </div>
+
+        <SimpleModal open={modal === "events"} title="Upcoming events" onClose={() => setModal(null)}>
+          <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+            {buildAllEvents(birthdays).map((e, i) => (
+              <div key={`${e.title}-${e.when}-${i}`} style={{ display: "flex", alignItems: "center", gap: 12 }}>
+                <IconBubble bg={e.bg} color={e.color}>{e.icon}</IconBubble>
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div style={{ fontSize: 14, fontWeight: 700, color: C.ink }}>{e.title}</div>
+                  <div style={{ fontSize: 12.5, color: C.muted, marginTop: 2 }}>{e.when}</div>
+                </div>
+              </div>
+            ))}
           </div>
-          <div style={{ padding:"8px 18px", borderRadius:25, backgroundColor:"#1a1a1a", color:"white", fontSize:13, fontWeight:600 }}>{getMonthYear()}</div>
-        </div>
+        </SimpleModal>
 
-        {activeLeave && <OnLeaveBanner leave={activeLeave}/>}
+        <SimpleModal open={modal === "notices"} title="All company notices" onClose={() => setModal(null)}>
+          <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+            {ALL_NOTICES.map((n, i) => {
+              const s = NOTICE_STYLES[n.kind];
+              return (
+                <div
+                  key={`${n.title}-${i}`}
+                  style={{
+                    border: `1px solid ${C.line}`, borderRadius: R.lg,
+                    padding: 16, background: C.surfaceAlt,
+                  }}
+                >
+                  <StatusPill bg={s.bg} color={s.color}>{s.icon}{n.kind}</StatusPill>
+                  <div style={{ fontSize: 15, fontWeight: 800, color: C.ink, marginTop: 10 }}>{n.title}</div>
+                  <div style={{ fontSize: 13, color: C.muted, marginTop: 4, lineHeight: 1.5 }}>{n.body}</div>
+                </div>
+              );
+            })}
+          </div>
+        </SimpleModal>
 
-        <MetricsCards stats={attendanceStats} leaveBalance={leaveBalances} todayStatus={todayAttendance}/>
+        <SimpleModal open={modal === "directory"} title="Who’s around — full directory" onClose={() => setModal(null)}>
+          {teammateRoster.length === 0 ? (
+            <p style={{ margin: 0, color: C.faint, fontSize: 14 }}>No colleagues to show.</p>
+          ) : (
+            <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+              {teammateRoster.map(m => {
+                const s = PRESENCE_STYLES[m.state];
+                return (
+                  <div
+                    key={m.id}
+                    style={{
+                      display: "flex", alignItems: "center", gap: 12,
+                      padding: "10px 8px", borderBottom: `1px solid ${C.line}`,
+                    }}
+                  >
+                    <div style={{ position: "relative", flexShrink: 0 }}>
+                      <Avatar name={m.name} size={40} />
+                      <span style={{
+                        position: "absolute", right: -1, bottom: -1,
+                        width: 12, height: 12, borderRadius: "50%",
+                        background: s.dot, border: "2px solid #fff",
+                      }} />
+                    </div>
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <div style={{ fontSize: 14, fontWeight: 700, color: C.ink }}>{m.name}</div>
+                      <div style={{ fontSize: 12, color: C.faint }}>{m.department}</div>
+                    </div>
+                    <div style={{ fontSize: 12.5, fontWeight: 600, color: s.color }}>{s.label}</div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </SimpleModal>
 
-        {/* Profile + Attendance */}
-        <div style={{ display:"grid", gridTemplateColumns:"repeat(auto-fit,minmax(360px,1fr))", gap:20, marginBottom:20 }}>
-          {user && <ProfileSummaryCard user={user}/>}
-          <AttendanceTodayCard today={todayAttendance}/>
-        </div>
-
-        {/* ← NEW: Who's on leave + Birthdays */}
-        <div style={{ display:"grid", gridTemplateColumns:"repeat(auto-fit,minmax(320px,1fr))", gap:20, marginBottom:20 }}>
-          <TeamOnLeaveCard team={teamOnLeave}/>
-          <UpcomingBirthdaysCard birthdays={birthdays}/>
-        </div>
-
-        {/* Leave + Payroll + Performance */}
-        <div style={{ display:"grid", gridTemplateColumns:"repeat(auto-fit,minmax(280px,1fr))", gap:20, marginBottom:20 }}>
-          <LeaveOverviewCard balances={leaveBalances} activeLeave={activeLeave} recentLeaves={recentLeaves}/>
-          <PayrollSummaryCard/>
-          <PerformanceCard stats={attendanceStats}/>
-        </div>
+        <p style={{ textAlign: "center", color: C.faint, fontSize: 12.5, margin: "8px 0 24px" }}>
+          KagoHC · Crafted for happier teams
+        </p>
       </div>
     </SharedLayout>
   );
