@@ -1372,7 +1372,7 @@ function ManageEmployeesContent() {
       {/* Header */}
       <div style={{ background: "#fff", padding: "20px 28px", borderRadius: 16, display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 20, boxShadow: "0 1px 3px rgba(16,24,40,0.08)", border: "1px solid #e4e7ec" }}>
         <div>
-          <h1 style={{ fontSize: 22, fontWeight: 700, color: "#1d2939", marginBottom: 3 }}>Employee Management</h1>
+          <h1 style={{ fontSize: 22, fontWeight: 700, color: "#1d2939", marginBottom: 3 }}>Employee Onboarding</h1>
           <p style={{ color: "#667085", fontSize: 13 }}>Comprehensive employee management with UIF, ETI, SDL & OID compliance</p>
         </div>
         <div style={{ display: "flex", gap: 10 }}>
