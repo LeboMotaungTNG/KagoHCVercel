@@ -1,4 +1,4 @@
-﻿import { LeaveModel, ILeave, LeaveStatus, LeaveType } from '../models/leave.model';
+import { LeaveModel, ILeave, LeaveStatus, LeaveType } from '../models/leave.model';
 import { Employee } from '../../employee/models/employee.model';
 import { Types } from 'mongoose';
 
@@ -20,7 +20,30 @@ export interface LeaveStats {
   total: number;
 }
 
+export interface LeaveTypeMeta {
+  type: LeaveType;
+  name: string;
+  entitlementDays: number;
+}
+
+// Single source of truth for leave types, their display names and yearly entitlement.
+// Used for both the leave-type dropdown and the balance calculation so they stay in sync.
+export const LEAVE_TYPES: LeaveTypeMeta[] = [
+  { type: 'annual', name: 'Annual Leave', entitlementDays: 20 },
+  { type: 'sick', name: 'Sick Leave', entitlementDays: 10 },
+  { type: 'family', name: 'Family Responsibility', entitlementDays: 5 },
+  { type: 'maternity', name: 'Maternity Leave', entitlementDays: 120 },
+  { type: 'paternity', name: 'Paternity Leave', entitlementDays: 10 },
+  { type: 'study', name: 'Study Leave', entitlementDays: 15 },
+  { type: 'unpaid', name: 'Unpaid Leave', entitlementDays: 0 },
+  { type: 'other', name: 'Other', entitlementDays: 5 },
+];
+
 export class LeaveService {
+
+  getLeaveTypes(): LeaveTypeMeta[] {
+    return LEAVE_TYPES;
+  }
   
   async calculateTotalDays(startDate: Date, endDate: Date): Promise<number> {
     const start = new Date(startDate);
@@ -240,25 +263,14 @@ export class LeaveService {
       used[leave.leave_type] = (used[leave.leave_type] || 0) + leave.total_days;
     });
 
-    // Default allocations (adjust based on your company policy)
-    const allocations = {
-      annual: 20,
-      sick: 10,
-      maternity: 120,
-      paternity: 10,
-      study: 15,
-      unpaid: 0,
-      other: 5
-    };
-
     const balance: Record<string, { used: number; total: number; remaining: number }> = {};
-    
-    Object.keys(allocations).forEach(type => {
+
+    LEAVE_TYPES.forEach(({ type, entitlementDays }) => {
       const usedDays = used[type] || 0;
       balance[type] = {
         used: usedDays,
-        total: allocations[type as keyof typeof allocations],
-        remaining: Math.max(0, allocations[type as keyof typeof allocations] - usedDays)
+        total: entitlementDays,
+        remaining: Math.max(0, entitlementDays - usedDays)
       };
     });
 

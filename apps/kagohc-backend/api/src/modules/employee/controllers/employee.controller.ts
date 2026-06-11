@@ -1,4 +1,4 @@
-﻿import { Request, Response, NextFunction } from 'express';
+import { Request, Response, NextFunction } from 'express';
 import { EmployeeService } from '../services/employee.service';
 import { successResponse } from '../../../core/utils/response';
 import { AppError } from '../../../core/errors/AppError';
@@ -61,6 +61,12 @@ export class EmployeeController {
       
       if (req.query.department) {
         mongoFilter.department = req.query.department;
+      }
+      if (req.query.userId) {
+        mongoFilter.userId = req.query.userId;
+      }
+      if (req.query.email) {
+        mongoFilter.email = req.query.email;
       }
       if (req.query.status) {
         mongoFilter.status = req.query.status;

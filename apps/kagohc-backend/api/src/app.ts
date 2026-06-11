@@ -1,4 +1,4 @@
-﻿import express from 'express';
+import express from 'express';
 import cors from 'cors';
 import helmet from 'helmet';
 import morgan from 'morgan';
@@ -17,6 +17,7 @@ import disciplinaryRoutes from './modules/disciplinary/routes/disciplinary.route
 import kpiRoutes from './modules/kpi/routes/kpi.routes';
 import auditLogRoutes from './modules/audit/routes/adminRoutes';
 import onboardingRoutes from './modules/onboarding/routes/onboarding.routes';
+import ownerRoutes from './modules/owner/routes/owner.routes';
 
 dotenv.config();
 
@@ -44,6 +45,7 @@ app.use('/api/v1/disciplinary', disciplinaryRoutes);
 app.use('/api/v1/kpi', kpiRoutes);
 app.use('/api/v1/audit-logs', auditLogRoutes);
 app.use('/api/v1/onboarding', onboardingRoutes);
+app.use('/api/v1/owner', ownerRoutes);
 
 // Health check
 app.get('/health', (req, res) => {

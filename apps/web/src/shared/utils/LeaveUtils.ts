@@ -6,7 +6,7 @@ export const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:3000/a
 
 // Types
 export type LeaveStatus = "pending" | "approved" | "rejected" | "cancelled";
-export type LeaveType = "annual" | "sick" | "family" | "other" | "study" | "maternity" | "unpaid";
+export type LeaveType = "annual" | "sick" | "family" | "other" | "study" | "maternity" | "paternity" | "unpaid";
 
 export interface LeaveRequest {
   _id: string;
@@ -51,6 +51,7 @@ export const LEAVE_TYPE_LABELS: Record<LeaveType, string> = {
   other: "Other",
   study: "Study Leave",
   maternity: "Maternity Leave",
+  paternity: "Paternity Leave",
   unpaid: "Unpaid Leave",
 };
 
@@ -61,6 +62,7 @@ export const LEAVE_TYPE_STYLES: Record<LeaveType, React.CSSProperties> = {
   other: { background: "#f3e8ff", color: "#6b21a5" },
   study: { background: "#e0e7ff", color: "#3730a3" },
   maternity: { background: "#fce7f3", color: "#9d174d" },
+  paternity: { background: "#dbeafe", color: "#1e40af" },
   unpaid: { background: "#fef3c7", color: "#b45309" },
 };
 

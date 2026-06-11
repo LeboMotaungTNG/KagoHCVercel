@@ -22,17 +22,23 @@ async function seedAttendance() {
     const today = new Date();
     today.setHours(0, 0, 0, 0);
 
-    // Check if attendance records already exist for today
-    const existingCount = await Attendance.countDocuments({ 
-      date: { 
+    // Remove any existing attendance records for today so we can reseed cleanly
+    const deleted = await Attendance.deleteMany({
+      date: {
         $gte: today,
         $lt: new Date(today.getTime() + 24 * 60 * 60 * 1000)
       }
     });
-    if (existingCount > 0) {
-      console.log(`Attendance records already exist for today (${existingCount}). Skipping seed.`);
-      process.exit(0);
+    if (deleted.deletedCount) {
+      console.log(`Removed ${deleted.deletedCount} existing attendance records for today`);
     }
+
+    // attendance_id is auto-incremented by a pre('save') hook, but insertMany
+    // bypasses it, so assign sequential ids explicitly here.
+    const lastAttendance = await Attendance.findOne().sort({ attendance_id: -1 });
+    let nextAttendanceId = lastAttendance && lastAttendance.attendance_id
+      ? lastAttendance.attendance_id + 1
+      : 3001;
 
     // Create attendance records for each employee
     const attendanceRecords = employees.map((emp, idx) => {
@@ -41,6 +47,7 @@ async function seedAttendance() {
       const hoursWorked = (clockOutTime.getTime() - clockInTime.getTime()) / (1000 * 60 * 60);
 
       return {
+        attendance_id: nextAttendanceId++,
         employee_id: emp._id,
         employeeId: emp.employeeId,
         employee_name: `${emp.firstName} ${emp.lastName}`,

@@ -1,7 +1,7 @@
 import React, { useState } from "react";
 import { Link, useNavigate, Routes, Route, useLocation } from "react-router-dom";
 import {
-  Users, Building2, Home, PenTool, Menu, Bell, LogOut, Award, ChevronDown, ChevronRight
+  Users, Building2, Home, PenTool, Menu, Bell, LogOut, Award, ChevronDown, ChevronRight, CalendarDays
 } from "lucide-react";
 // @ts-ignore
 import logoKago from "../../assets/images/logo-black-white.png";
@@ -14,6 +14,7 @@ import { EmployeeReviewPage } from "./EmployeeReviewPage";
 import { OrganizationSettingsPage } from "./OrganizationSettingsPage";
 import { SubscriptionsPage } from "./SubscriptionsPage";
 import OnboardingPage from "./OnboardingPage";
+import OwnerLeave from "./OwnerLeave";
 
 // --- Owner Dashboard Layout ---
 
@@ -80,6 +81,12 @@ const OwnerSidebar = () => {
                   </Link>
                 </li>
               </ul>
+            </li>
+            <li>
+              <Link to="/owner/leave" className="waves-effect" style={{ color: "rgba(255, 255, 255, 0.75)", display: "flex", alignItems: "center", padding: "10px 20px" }}>
+                <CalendarDays size={20} style={{ marginRight: "10px" }} />
+                <span>Leave Management</span>
+              </Link>
             </li>
             <li>
               <Link to="/owner/employee-review" className="waves-effect" style={{ color: "rgba(255, 255, 255, 0.75)", display: "flex", alignItems: "center", padding: "10px 20px" }}>
@@ -209,6 +216,7 @@ const OwnerDashboard = () => {
               <Route path="/" element={<OwnerOverview />} />
               <Route path="managers" element={<ManagersPage />} />
               <Route path="employees" element={<EmployeesPage />} />
+              <Route path="leave" element={<OwnerLeave />} />
               <Route path="employee-review" element={<EmployeeReviewPage />} />
               <Route path="organization-settings" element={<OrganizationSettingsPage />} />
               <Route path="subscriptions" element={<SubscriptionsPage />} />

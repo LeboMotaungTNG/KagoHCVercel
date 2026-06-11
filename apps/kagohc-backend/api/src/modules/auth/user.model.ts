@@ -1,11 +1,11 @@
-﻿import mongoose, { Schema, Document } from 'mongoose';
+import mongoose, { Schema, Document } from 'mongoose';
 
 export interface IUser extends Document {
   email: string;
   password: string;
   firstName: string;
   lastName: string;
-  role: 'admin' | 'user' | 'manager' | 'hr';
+  role: 'admin' | 'user' | 'manager' | 'hr' | 'owner' | 'employee';
   isActive: boolean;
   refreshToken?: string;
   createdAt: Date;
@@ -17,7 +17,7 @@ const UserSchema = new Schema<IUser>({
   password: { type: String, required: true },
   firstName: { type: String, required: true },
   lastName: { type: String, required: true },
-  role: { type: String, enum: ['admin', 'user', 'manager', 'hr'], default: 'user' },
+  role: { type: String, enum: ['admin', 'user', 'manager', 'hr', 'owner', 'employee'], default: 'user' },
   isActive: { type: Boolean, default: true },
   refreshToken: { type: String }
 }, {

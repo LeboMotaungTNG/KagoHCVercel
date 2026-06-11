@@ -23,31 +23,34 @@ const seedKpiData = async () => {
     const templates = await KpiTemplate.insertMany([
       {
         name: 'Productivity KPI',
-        category: 'productivity',
+        category: 'individual',
         description: 'Measure work output and efficiency',
+        frequency: 'quarterly',
         metrics: [
-          { metricName: 'Tasks Completed', weight: 50, unit: 'count', target: 100 },
-          { metricName: 'Quality Score', weight: 50, unit: 'percentage', target: 95 }
+          { name: 'Tasks Completed', description: 'Number of tasks completed in the period', weight: 50, unit: 'count', target: 100, isRequired: true },
+          { name: 'Quality Score', description: 'Overall quality rating of delivered work', weight: 50, unit: 'percentage', target: 95, isRequired: true }
         ],
         isActive: true,
         createdBy: adminId
       },
       {
         name: 'Quality KPI',
-        category: 'quality',
+        category: 'individual',
         description: 'Quality of work output',
+        frequency: 'quarterly',
         metrics: [
-          { metricName: 'Error Rate', weight: 100, unit: 'percentage', target: 5 }
+          { name: 'Error Rate', description: 'Percentage of work requiring rework', weight: 100, unit: 'percentage', target: 5, isRequired: true }
         ],
         isActive: true,
         createdBy: adminId
       },
       {
         name: 'Attendance KPI',
-        category: 'attendance',
+        category: 'individual',
         description: 'Punctuality and attendance record',
+        frequency: 'monthly',
         metrics: [
-          { metricName: 'Present Days', weight: 100, unit: 'count', target: 22 }
+          { name: 'Present Days', description: 'Number of days present in the month', weight: 100, unit: 'count', target: 22, isRequired: true }
         ],
         isActive: true,
         createdBy: adminId

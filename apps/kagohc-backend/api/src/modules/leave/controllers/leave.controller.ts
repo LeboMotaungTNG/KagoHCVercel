@@ -1,13 +1,27 @@
-﻿import { Request, Response, NextFunction } from 'express';
+import { Request, Response, NextFunction } from 'express';
 import { LeaveService } from '../services/leave.service';
 import { successResponse } from '../../../core/utils/response';
 import { AppError } from '../../../core/errors/AppError';
 import { AuditHelper } from '../../../core/utils/audit.helper';
 import { Employee } from '../../employee/models/employee.model';
+import { DepartmentModel } from '../../employee/models/department.model';
 
 const leaveService = new LeaveService();
 
+// Roles allowed to approve / reject / review leave requests
+const REVIEWER_ROLES = ['manager', 'admin', 'owner', 'hr'];
+// Roles that should only ever see their own leave records
+const SELF_ONLY_ROLES = ['employee', 'user'];
+
 export class LeaveController {
+
+  async getTypes(req: Request, res: Response, next: NextFunction) {
+    try {
+      successResponse(res, 200, 'Leave types retrieved', leaveService.getLeaveTypes());
+    } catch (error) {
+      next(error);
+    }
+  }
   
   async create(req: Request, res: Response, next: NextFunction) {
     try {
@@ -20,13 +34,20 @@ export class LeaveController {
         throw new AppError('Employee record not found', 404);
       }
 
+      // Resolve a human-readable department name from the employee's departmentId
+      let departmentName = req.body.department;
+      if (employee?.departmentId) {
+        const dept = await DepartmentModel.findById(employee.departmentId).select('name');
+        if (dept?.name) departmentName = dept.name;
+      }
+
       const leaveData = {
         ...req.body,
         employee_id: employee?._id || req.body.employee_id,
         full_name: employee ? `${employee.firstName} ${employee.lastName}` : req.body.full_name,
         employee_code: employee?.employeeId || req.body.employee_code,
-        department: employee?.department || req.body.department,
-        position: employee?.position || req.body.position
+        department: departmentName || req.body.department || 'General',
+        position: employee?.position || req.body.position || 'Employee'
       };
 
       const leave = await leaveService.create(leaveData, userId);
@@ -84,12 +105,11 @@ export class LeaveController {
         limit: req.query.limit ? parseInt(req.query.limit as string) : 10
       };
 
-      // If employee, only show their own leave requests (unless admin/manager is explicitly requesting another employee's data)
-      if (userRole === 'employee' && !filters.employee_id) {
+      // Self-only roles (employee/user) can only ever see their own leave requests
+      if (SELF_ONLY_ROLES.includes(userRole)) {
         const employee = await Employee.findOne({ email: userEmail });
-        if (employee) {
-          filters.employee_id = employee._id.toString();
-        }
+        // If no employee record, force an empty result rather than leaking all records
+        filters.employee_id = employee ? employee._id.toString() : '000000000000000000000000';
       }
       
       console.log('Leave getAll filters:', filters);
@@ -153,8 +173,18 @@ export class LeaveController {
       if (oldLeave.status !== 'pending' && (req.user as any).role !== 'admin') {
         throw new AppError('Cannot update a leave request that is not pending', 400);
       }
-      
-      const updatedLeave = await leaveService.update(req.params.id, req.body, userId);
+
+      // Self-only roles cannot change approval status / reviewer fields via update
+      const updateData = { ...req.body };
+      if (SELF_ONLY_ROLES.includes((req.user as any).role)) {
+        delete updateData.status;
+        delete updateData.reviewed_by;
+        delete updateData.reviewer_name;
+        delete updateData.reviewed_at;
+        delete updateData.rejection_reason;
+      }
+
+      const updatedLeave = await leaveService.update(req.params.id, updateData, userId);
       
       await AuditHelper.log(
         req,
@@ -240,6 +270,11 @@ export class LeaveController {
   
   async approve(req: Request, res: Response, next: NextFunction) {
     try {
+      const userRole = (req.user as any).role;
+      if (!REVIEWER_ROLES.includes(userRole)) {
+        throw new AppError('You are not allowed to approve leave requests', 403);
+      }
+
       const reviewerId = (req.user as any)._id;
       const reviewerName = (req.user as any).firstName + ' ' + (req.user as any).lastName;
       
@@ -276,6 +311,11 @@ export class LeaveController {
   
   async reject(req: Request, res: Response, next: NextFunction) {
     try {
+      const userRole = (req.user as any).role;
+      if (!REVIEWER_ROLES.includes(userRole)) {
+        throw new AppError('You are not allowed to reject leave requests', 403);
+      }
+
       const { reason } = req.body;
       
       if (!reason) {
@@ -377,13 +417,12 @@ export class LeaveController {
   
   async getBalance(req: Request, res: Response, next: NextFunction) {
     try {
-      const userRole = (req.user as any).role;
       const userEmail = (req.user as any).email;
       
       let employeeId = req.params.employeeId;
       
-      // If employee requesting their own balance
-      if (userRole === 'employee' && !employeeId) {
+      // No id in the path → resolve the balance for the authenticated user
+      if (!employeeId) {
         const employee = await Employee.findOne({ email: userEmail });
         if (employee) {
           employeeId = employee._id.toString();
@@ -391,7 +430,7 @@ export class LeaveController {
       }
       
       if (!employeeId) {
-        throw new AppError('Employee ID is required', 400);
+        throw new AppError('Employee record not found for this user', 404);
       }
       
       const balance = await leaveService.getEmployeeLeaveBalance(employeeId);
