@@ -89,13 +89,13 @@ const EmployeeLeave: React.FC = () => {
   // ✅ Fetch available leave types from backend (employee endpoint)
   const fetchAvailableLeaveTypes = async (token: string) => {
     try {
-      // Use the employee-friendly endpoint (no "owner" in path)
-      const response = await fetch(`${API_URL}/leave/policies`, {
+      // Canonical leave types come straight from the backend (single source of truth)
+      const response = await fetch(`${API_URL}/leave/types`, {
         headers: { 'Authorization': `Bearer ${token}` }
       });
       const data = await response.json();
       
-      console.log('Leave policies response:', data);
+      console.log('Leave types response:', data);
       
       if (data.success && data.data) {
         const policies = data.data;
@@ -226,10 +226,16 @@ const EmployeeLeave: React.FC = () => {
       
       console.log('Leave requests response:', data);
       
-      let requests = [];
-      if (data.success && Array.isArray(data.data)) {
-        // ✅ Backend already filters by user - no client-side filter needed!
-        requests = data.data;
+      // Backend already filters by the authenticated user. Response shape is
+      // { success, data: { data: [...], pagination } } so unwrap accordingly.
+      let requests: any[] = [];
+      const payload = data?.data;
+      if (Array.isArray(payload?.data)) {
+        requests = payload.data;
+      } else if (Array.isArray(payload)) {
+        requests = payload;
+      } else if (Array.isArray(data)) {
+        requests = data;
       }
       
       // Map API response to expected format
@@ -339,14 +345,17 @@ const EmployeeLeave: React.FC = () => {
           // Fetch leave requests
           const requests = await fetchLeaveRequestsInternal(foundEmployee._id, token);
           setLeaveRequests(requests);
-          
-          // Calculate used days from approved/pending requests
-          if (leaveTypesData.length > 0) {
+
+          // Pull the authoritative balance from the backend (counts approved + pending)
+          const serverBalance = await fetchLeaveBalance(token);
+
+          // Fallback: if the server balance is unavailable, compute it client-side
+          if (!serverBalance && leaveTypesData.length > 0) {
             const updatedBalance: any = {};
             leaveTypesData.forEach((type: any) => {
               updatedBalance[type.type] = { used: 0, total: type.total, remaining: type.total };
             });
-            
+
             requests.forEach((request: LeaveRequest) => {
               if (request.status === 'approved' || request.status === 'pending') {
                 const type = request.leave_type;
@@ -356,7 +365,7 @@ const EmployeeLeave: React.FC = () => {
                 }
               }
             });
-            
+
             setLeaveBalance(updatedBalance);
           }
         } else {
