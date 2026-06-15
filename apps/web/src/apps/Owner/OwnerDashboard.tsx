@@ -1,7 +1,7 @@
 import React, { useState } from "react";
 import { Link, useNavigate, Routes, Route, useLocation } from "react-router-dom";
 import {
-  Users, Building2, Home, PenTool, Menu, Bell, LogOut, Award, ChevronDown, ChevronRight, CalendarDays
+  Users, Building2, Home, PenTool, Menu, Bell, LogOut, Award, ChevronDown, ChevronRight
 } from "lucide-react";
 // @ts-ignore
 import logoKago from "../../assets/images/logo-black-white.png";
@@ -81,12 +81,6 @@ const OwnerSidebar = () => {
                   </Link>
                 </li>
               </ul>
-            </li>
-            <li>
-              <Link to="/owner/leave" className="waves-effect" style={{ color: "rgba(255, 255, 255, 0.75)", display: "flex", alignItems: "center", padding: "10px 20px" }}>
-                <CalendarDays size={20} style={{ marginRight: "10px" }} />
-                <span>Leave Management</span>
-              </Link>
             </li>
             <li>
               <Link to="/owner/employee-review" className="waves-effect" style={{ color: "rgba(255, 255, 255, 0.75)", display: "flex", alignItems: "center", padding: "10px 20px" }}>

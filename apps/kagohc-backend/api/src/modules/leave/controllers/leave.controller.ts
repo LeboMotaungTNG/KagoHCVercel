@@ -17,7 +17,8 @@ export class LeaveController {
 
   async getTypes(req: Request, res: Response, next: NextFunction) {
     try {
-      successResponse(res, 200, 'Leave types retrieved', leaveService.getLeaveTypes());
+      const types = await leaveService.getLeaveTypes();
+      successResponse(res, 200, 'Leave types retrieved', types);
     } catch (error) {
       next(error);
     }

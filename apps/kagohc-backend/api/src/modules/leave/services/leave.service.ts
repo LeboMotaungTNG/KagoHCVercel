@@ -1,5 +1,6 @@
 import { LeaveModel, ILeave, LeaveStatus, LeaveType } from '../models/leave.model';
 import { Employee } from '../../employee/models/employee.model';
+import { LeavePolicyModel, BCEA_STATUTORY_DEFAULTS } from '../../owner/models/leave-policy.model';
 import { Types } from 'mongoose';
 
 export interface LeaveFilters {
@@ -21,28 +22,43 @@ export interface LeaveStats {
 }
 
 export interface LeaveTypeMeta {
-  type: LeaveType;
+  type: string;
   name: string;
   entitlementDays: number;
+  icon?: string;
+  color?: string;
+  isStatutory?: boolean;
+  enabled?: boolean;
 }
-
-// Single source of truth for leave types, their display names and yearly entitlement.
-// Used for both the leave-type dropdown and the balance calculation so they stay in sync.
-export const LEAVE_TYPES: LeaveTypeMeta[] = [
-  { type: 'annual', name: 'Annual Leave', entitlementDays: 20 },
-  { type: 'sick', name: 'Sick Leave', entitlementDays: 10 },
-  { type: 'family', name: 'Family Responsibility', entitlementDays: 5 },
-  { type: 'maternity', name: 'Maternity Leave', entitlementDays: 120 },
-  { type: 'paternity', name: 'Paternity Leave', entitlementDays: 10 },
-  { type: 'study', name: 'Study Leave', entitlementDays: 15 },
-  { type: 'unpaid', name: 'Unpaid Leave', entitlementDays: 0 },
-  { type: 'other', name: 'Other', entitlementDays: 5 },
-];
 
 export class LeaveService {
 
-  getLeaveTypes(): LeaveTypeMeta[] {
-    return LEAVE_TYPES;
+  // Pulls enabled leave types straight from the owner-managed LeavePolicyModel so
+  // that any change made on the Owner → Organization → Statutory Leave tab is
+  // reflected immediately for employees (entitlement days, toggled-off types, etc.).
+  async getLeaveTypes(): Promise<LeaveTypeMeta[]> {
+    // Seed BCEA statutory defaults the first time so employees always have the
+    // standard leave types available even before an owner opens the settings page.
+    const count = await LeavePolicyModel.countDocuments();
+    if (count === 0) {
+      await LeavePolicyModel.insertMany(BCEA_STATUTORY_DEFAULTS);
+    }
+
+    const policies = await LeavePolicyModel.find({ enabled: { $ne: false } })
+      .sort({ isStatutory: -1, createdAt: 1 })
+      .lean();
+
+    return policies.map((p: any) => ({
+      type: p.type,
+      name: p.name,
+      // Owner UI persists daysPerYear/daysTotal; fall back to entitlementDays
+      // for legacy records seeded directly from BCEA defaults.
+      entitlementDays: p.entitlementDays || p.daysPerYear || p.daysTotal || 0,
+      icon: p.icon,
+      color: p.color,
+      isStatutory: !!p.isStatutory,
+      enabled: p.enabled !== false,
+    }));
   }
   
   async calculateTotalDays(startDate: Date, endDate: Date): Promise<number> {
@@ -265,7 +281,10 @@ export class LeaveService {
 
     const balance: Record<string, { used: number; total: number; remaining: number }> = {};
 
-    LEAVE_TYPES.forEach(({ type, entitlementDays }) => {
+    // Only return balances for currently-enabled policies so that toggling a
+    // leave type off in Organization Settings hides it on the employee side.
+    const activeTypes = await this.getLeaveTypes();
+    activeTypes.forEach(({ type, entitlementDays }) => {
       const usedDays = used[type] || 0;
       balance[type] = {
         used: usedDays,

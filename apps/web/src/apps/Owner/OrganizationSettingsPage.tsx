@@ -1540,6 +1540,7 @@ const LeaveSettingsTab = () => {
             enabled: lt.enabled,
             carryOver: lt.carryOverAllowed,
             maxAccrual: lt.maxCarryOverDays,
+            entitlementDays: lt.entitlementDays,
             daysPerYear: lt.entitlementDays,
             daysTotal: lt.entitlementDays,
             cycleYears: Math.floor(lt.cycleLengthMonths / 12),
@@ -1672,6 +1673,30 @@ const LeaveSettingsTab = () => {
     }
   };
 
+  const handleDeleteCustomLeave = async (leave: CustomLeaveType) => {
+    if (!window.confirm(`Delete "${leave.name}"? This will remove it from employee leave balances.`)) return;
+    const token = localStorage.getItem("token");
+    // Optimistic UI: drop it locally so it disappears immediately
+    setCustomLeaveTypes(prev => prev.filter(l => l.id !== leave.id));
+    try {
+      // Custom leave types are loaded with id = Mongo _id, so this hits /owner/leave-policies/:id
+      const response = await fetch(`${API_URL}/owner/leave-policies/${leave.id}`, {
+        method: "DELETE",
+        headers: { "Authorization": `Bearer ${token}` }
+      });
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok || data?.success === false) {
+        alert("Failed to delete leave type on the server. Reloading list.");
+      }
+    } catch (err) {
+      console.error("Error deleting custom leave:", err);
+      alert("Network error while deleting leave type. Reloading list.");
+    } finally {
+      // Re-sync with server so UI matches DB regardless of outcome
+      await fetchLeavePolicy();
+    }
+  };
+
   const handleSave = () => { setSaveSuccess(true); setTimeout(() => setSaveSuccess(false), 3000); };
 
   const cardStyle: React.CSSProperties = { backgroundColor: "white", borderRadius: "12px", border: "1px solid #E2E8F0", boxShadow: "0 1px 4px rgba(0,0,0,0.06)", padding: "20px", marginBottom: "20px" };
@@ -1777,7 +1802,7 @@ const LeaveSettingsTab = () => {
             ) : (
               <>
                 {customLeaveTypes.map(leave => (
-                  <CustomLeaveRow key={leave.id} leave={leave} onEdit={() => { setEditingLeave(leave); setShowCustomModal(true); }} onDelete={() => setCustomLeaveTypes(prev => prev.filter(l => l.id !== leave.id))} />
+                  <CustomLeaveRow key={leave.id} leave={leave} onEdit={() => { setEditingLeave(leave); setShowCustomModal(true); }} onDelete={() => handleDeleteCustomLeave(leave)} />
                 ))}
 
                 {/* Summary Cards */}

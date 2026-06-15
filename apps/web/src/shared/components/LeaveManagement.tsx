@@ -75,13 +75,14 @@ function AlertBanner({ message, type, onClose }: { message: string; type: AlertT
 // ─── Leave Details Modal ──────────────────────────────────────────────────────
 
 function LeaveDetailsModal({
-  leave, onClose, onApprove, onReject, approving,
+  leave, onClose, onApprove, onReject, approving, getLabel,
 }: {
   leave: LeaveRequest;
   onClose: () => void;
   onApprove: (leave: LeaveRequest) => void;
   onReject: (leave: LeaveRequest) => void;
   approving: boolean;
+  getLabel: (t: string) => string;
 }) {
   useEffect(() => {
     document.body.style.overflow = "hidden";
@@ -127,7 +128,7 @@ function LeaveDetailsModal({
 
           <Section title="Leave Details">
             <InfoGrid>
-              <InfoCell label="Type"     value={LEAVE_TYPE_LABELS[leave.leave_type] || leave.leave_type}/>
+              <InfoCell label="Type"     value={getLabel(leave.leave_type)}/>
               <InfoCell label="Duration" value={`${leave.total_days} day(s)`}/>
               <InfoCell label="Dates"    value={`${formatDate(leave.start_date)} – ${formatDate(leave.end_date)}`} full/>
               <InfoCell label="Reason"   value={leave.reason} full/>
@@ -309,6 +310,12 @@ export function LeaveManagement({ accent = "#E6A79E", canReview = true, title = 
   const card: React.CSSProperties = { background: "#fff", borderRadius: 16, border: "1px solid #e4e7ec" };
 
   const [leaves, setLeaves]               = useState<LeaveRequest[]>([]);
+  // Dynamic label/style maps so custom owner-defined leave types render with
+  // their proper name + color on the manager/owner side instead of raw slugs.
+  const [dynamicLabels, setDynamicLabels] = useState<Record<string, string>>({});
+  const [dynamicStyles, setDynamicStyles] = useState<Record<string, React.CSSProperties>>({});
+  const labelFor = (t: string) => LEAVE_TYPE_LABELS[t as LeaveType] || dynamicLabels[t] || t;
+  const styleFor = (t: string) => LEAVE_TYPE_STYLES[t as LeaveType] || dynamicStyles[t] || { background: "#f3f4f6", color: "#374151" };
   const [loading, setLoading]             = useState(true);
   const [approving, setApproving]         = useState(false);
   const [alert, setAlert]                 = useState<{ message: string; type: AlertType } | null>(null);
@@ -363,6 +370,33 @@ export function LeaveManagement({ accent = "#E6A79E", canReview = true, title = 
   };
 
   useEffect(() => { fetchLeaves(); }, []);
+
+  // Pull the canonical leave types from the backend (LeavePolicyModel) so any
+  // custom company-defined types show up with proper names and colours here.
+  useEffect(() => {
+    const fetchTypes = async () => {
+      try {
+        const token = localStorage.getItem("token");
+        const res = await fetch(`${API_URL}/leave/types`, {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+        const data = await res.json();
+        if (data?.success && Array.isArray(data.data)) {
+          const labels: Record<string, string> = {};
+          const styles: Record<string, React.CSSProperties> = {};
+          data.data.forEach((t: any) => {
+            labels[t.type] = t.name || t.type;
+            if (t.color) styles[t.type] = { background: `${t.color}22`, color: t.color };
+          });
+          setDynamicLabels(labels);
+          setDynamicStyles(styles);
+        }
+      } catch (err) {
+        console.warn("Failed to load leave types for display:", err);
+      }
+    };
+    fetchTypes();
+  }, []);
 
   useEffect(() => {
     const handleVisibilityChange = () => { if (!document.hidden) fetchLeaves(true); };
@@ -505,7 +539,7 @@ export function LeaveManagement({ accent = "#E6A79E", canReview = true, title = 
 
             <select defaultValue="" onChange={e => setFilter("leave_type", e.target.value as LeaveType | "")} style={inputStyle}>
               <option value="">All Types</option>
-              {Object.entries(LEAVE_TYPE_LABELS).map(([v, label]) => <option key={v} value={v}>{label}</option>)}
+              {Object.entries({ ...LEAVE_TYPE_LABELS, ...dynamicLabels }).map(([v, label]) => <option key={v} value={v}>{label}</option>)}
             </select>
 
             <input type="date" onChange={e => setFilter("start_date", e.target.value)} style={inputStyle} title="From date"/>
@@ -569,7 +603,7 @@ export function LeaveManagement({ accent = "#E6A79E", canReview = true, title = 
                     </div>
                   </td>
                   <td style={{ padding: "12px 16px" }}>
-                    <Badge style={LEAVE_TYPE_STYLES[leave.leave_type]}>{LEAVE_TYPE_LABELS[leave.leave_type] || leave.leave_type}</Badge>
+                    <Badge style={styleFor(leave.leave_type)}>{labelFor(leave.leave_type)}</Badge>
                   </td>
                   <td style={{ padding: "12px 16px" }}>
                     <div style={{ fontSize: 14, color: "#1d2939" }}>{formatDate(leave.start_date)} – {formatDate(leave.end_date)}</div>
@@ -641,6 +675,7 @@ export function LeaveManagement({ accent = "#E6A79E", canReview = true, title = 
           onApprove={approveLeave}
           onReject={openRejectModal}
           approving={approving}
+          getLabel={labelFor}
         />
       )}
       {rejectTarget && (

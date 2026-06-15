@@ -4,6 +4,7 @@ import Login from "./apps/login/Login";
 import EmployeeDashboard from "./apps/employee/employee";
 import EmployeeLeave from "./apps/employee/leave";
 import EmployeeAttendance from "./apps/employee/attendance";
+import EmployeeProfilePage from "./apps/employee/EmployeeProfilePage";
 import OwnerDashboard from "./apps/Owner/OwnerDashboard";
 import ManagerDashboard from "./apps/Manager/ManagerDashboard";
 import EmployeeProfile from "./apps/Manager/EmployeeProfile";
@@ -36,8 +37,8 @@ const App: React.FC = () => (
     <Route path="/employee"            element={<EmployeeDashboard />} />
     <Route path="/employee/leave"      element={<EmployeeLeave />} />
     <Route path="/employee/attendance" element={<EmployeeAttendance />} />
+    <Route path="/employee/profile"     element={<EmployeeProfilePage />} />
     {/* stub routes so sidebar links don't 404 */}
-    <Route path="/employee/profile"     element={<EmployeeDashboard />} />
     <Route path="/employee/performance" element={<EmployeeDashboard />} />
     <Route path="/employee/documents"   element={<EmployeeDashboard />} />
     <Route path="/employee/settings"    element={<EmployeeDashboard />} />

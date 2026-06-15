@@ -1,7 +1,10 @@
 import mongoose, { Schema, Document } from 'mongoose';
 
 export type LeaveStatus = 'pending' | 'approved' | 'rejected' | 'cancelled';
-export type LeaveType = 'annual' | 'sick' | 'maternity' | 'paternity' | 'family' | 'study' | 'unpaid' | 'other';
+// Leave types are now defined dynamically by the owner in Organization Settings
+// (LeavePolicyModel). Keep this as an open string so custom company leave types
+// (bereavement, birthday, wellness, etc.) can be submitted and reviewed.
+export type LeaveType = string;
 
 export interface ILeave extends Document {
   leave_id: number;
@@ -37,7 +40,6 @@ const LeaveSchema = new Schema<ILeave>({
   position: { type: String, required: true },
   leave_type: { 
     type: String, 
-    enum: ['annual', 'sick', 'maternity', 'paternity', 'family', 'study', 'unpaid', 'other'],
     required: true 
   },
   start_date: { type: Date, required: true },
