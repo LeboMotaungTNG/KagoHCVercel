@@ -1811,10 +1811,15 @@ function EmployeeProfileContent() {
 }
 
 
-const EmployeeProfile: React.FC = () => (
-  <SharedLayout title="Employee Profile">
+// `embedded` lets the Owner dashboard render the page body without the
+// Manager SharedLayout (it provides its own shell).
+const EmployeeProfile: React.FC<{ embedded?: boolean }> = ({ embedded = false }) =>
+  embedded ? (
     <EmployeeProfileContent />
-  </SharedLayout>
-);
+  ) : (
+    <SharedLayout title="Employee Profile">
+      <EmployeeProfileContent />
+    </SharedLayout>
+  );
 
 export default EmployeeProfile;

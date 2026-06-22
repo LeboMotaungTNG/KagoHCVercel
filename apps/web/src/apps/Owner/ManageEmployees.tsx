@@ -1,272 +1,44 @@
-/**
- * ManageEmployees – full-featured employee management for managers.
- * Implements all 6 tabs, conditional fields, ETI/UIF/SDL/OID, benefits matrix,
- * table mode (20+ cols), upload mode, and full queue management.
- */
-import React, { useState, useEffect, useRef, useCallback } from "react";
+
+import React, { useState, useEffect, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import SharedLayout from "./SharedLayout";
+import {
+  BRAND,
+  PROVINCES as provinces,
+  DEPARTMENTS as departments,
+  COUNTRIES as countries,
+  ALLOWANCE_TYPES as allowanceTypes,
+  DEDUCTION_TYPES as deductionTypes,
+  ZAF_BANKS,
+  defaultForm,
+  generateRandomEmployeeCode,
+  validateSAIdNumber,
+  validateEmployee,
+  extractDobFromId,
+  calcAge,
+  calcETI,
+  getFullName,
+  uifRequired,
+  benefitsForType,
+  createEmployeeWithOnboarding,
+  extractEmployeeDocument,
+  saveQueueDraft,
+  toQueueItem,
+  queueItemFromTableRow,
+  type Employee,
+  type Allowance,
+  type Deduction,
+  type EmploymentType,
+  type IdentificationType,
+  type PaymentMethod,
+  type Mode,
+  type FormTab,
+  type QueueItem,
+  type TableRowData,
+} from "../../shared/utils/manageEmployees";
 
-// ─── Helpers ─────────────────────────────────────────────────────────────────
-function generateRandomEmployeeCode(): string {
-  const year = new Date().getFullYear();
-  const seq = Math.floor(Math.random() * 9000) + 1000;
-  return `EMP${year}${seq}`;
-}
-function validateEmail(email: string) { return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email); }
-function validateSAIdNumber(id: string): boolean {
-  if (!/^\d{13}$/.test(id)) return false;
-  let sum = 0;
-  for (let i = 0; i < 13; i++) {
-    let d = parseInt(id[i], 10);
-    if (i % 2 !== 0) d *= 2;
-    sum += d > 9 ? d - 9 : d;
-  }
-  return sum % 10 === 0;
-}
-function extractDobFromId(id: string): string {
-  if (id.length < 6) return "";
-  const yy = id.substring(0, 2);
-  const mm = id.substring(2, 4);
-  const dd = id.substring(4, 6);
-  const year = parseInt(yy) > parseInt(new Date().getFullYear().toString().substring(2)) ? `19${yy}` : `20${yy}`;
-  return `${year}-${mm}-${dd}`;
-}
-function calcAge(dob: string): number {
-  if (!dob) return 0;
-  const d = new Date(dob), now = new Date();
-  let age = now.getFullYear() - d.getFullYear();
-  if (now < new Date(now.getFullYear(), d.getMonth(), d.getDate())) age--;
-  return age;
-}
-function calcETI(monthlyWage: number, monthsEmployed: number): number {
-  if (monthlyWage > 8000 || monthsEmployed > 24) return 0;
-  const factor = monthsEmployed <= 12 ? 1500 : 1000;
-  if (monthlyWage <= 6000) return factor;
-  return Math.max(0, factor - (monthlyWage - 6000));
-}
-function zaf_banks() {
-  return ["ABSA","Capitec Bank","First National Bank","Investec","Nedbank","Standard Bank","African Bank","Bidvest Bank","Discovery Bank","Grindrod Bank","HBZ Bank","Mercantile Bank","Old Mutual","TymeBank","Ubank","VBS Mutual Bank"];
-}
-
-// ─── Types ───────────────────────────────────────────────────────────────────
-type EmploymentType = "Full Time"|"Part Time"|"Contract"|"Intern"|"Temporary"|"Casual"|"Probation";
-type IdentificationType = "RSA ID Number"|"Passport Number"|"Asylum Seeker Permit"|"Refugee Permit";
-type PaymentMethod = "Bank Transfer"|"Cash"|"Cheque";
-type Mode = "form"|"table"|"upload";
-type FormTab = 1|2|3|4|5|6;
-
-interface Allowance { type: string; taxable: boolean; calcMethod: "fixed"|"percent"; amount: number; }
-interface Deduction { type: string; mandatory: boolean; amount: number; }
-
-interface Employee {
-  // Tab 1 – Personal
-  employeeType: "Person"|"Personal Service Provider";
-  employee_code: string;
-  title: string;
-  initials: string;
-  first_name: string;
-  second_name: string;
-  surname: string;
-  known_as: string;
-  identification_type: IdentificationType;
-  id_number: string;
-  passport_number: string;
-  passport_country: string;
-  asylum_permit_number: string;
-  asylum_country: string;
-  asylum_expiry: string;
-  refugee_permit_number: string;
-  refugee_country: string;
-  refugee_expiry: string;
-  date_of_birth: string;
-  gender: string;
-  nationality: string;
-  marital_status: string;
-  // Tab 2 – Contact
-  phys_unit: string; phys_complex: string; phys_street_no: string; phys_street: string;
-  phys_suburb: string; phys_city: string; phys_province: string; phys_postal: string;
-  phys_country: string; phys_status: string; phys_years: string;
-  postal_same_as_phys: boolean; postal_type: string; postal_box_type: string;
-  postal_box_no: string; postal_agency: string; postal_other: string;
-  postal_branch: string; postal_suburb: string; postal_city: string;
-  postal_postal: string; postal_country: string; postal_care_of: string;
-  postal_delivery: string; postal_valid_from: string; postal_valid_to: string;
-  work_same_as_phys: boolean; work_same_as_company: boolean;
-  work_unit: string; work_complex: string; work_building: string;
-  work_street_no: string; work_street: string; work_suburb: string;
-  work_city: string; work_province: string; work_postal: string;
-  work_country: string; work_office_name: string;
-  home_number: string; work_number: string; cell_number: string;
-  alt_cell: string; fax_number: string;
-  email: string; alt_email: string; preferred_contact: string;
-  emergency_name: string; emergency_rel: string; emergency_phone1: string;
-  emergency_phone2: string; emergency_email: string; emergency_address: string;
-  emergency_medical: string;
-  // Tab 3 – Employment
-  employment_type: EmploymentType;
-  position: string; department: string;
-  benefits_package: string[];
-  leave_entitlement: string; sick_leave: string; family_leave: string;
-  maternity_leave: string; notice_period: string; probation_period: string;
-  pt_min_hours: string; pt_max_hours: string; pt_benefits: string; pt_shift: string;
-  contract_start: string; contract_end: string; contract_renewal: string;
-  contract_notice: string; contract_bonus: boolean; contract_bonus_amount: string;
-  intern_type: string; intern_stipend: string; intern_mentor: string;
-  intern_duration: string; intern_study_hours: string; intern_qualification: string;
-  intern_learning_signed: boolean;
-  temp_duration: string; temp_end: string; temp_agency: boolean; temp_agency_name: string;
-  casual_hourly: string; casual_max_hours: string; casual_oncall: boolean;
-  probation_duration: string; probation_convert: string; probation_kpis: string;
-  uif_required: boolean; uif_number: string; uif_contribution: string;
-  uif_declaration_date: string; uif_exemption: boolean; uif_exemption_reason: string;
-  sdl_number: string; sdl_contribution: string; sdl_exemption: boolean;
-  sdl_learnership: boolean; sdl_apprenticeship: boolean;
-  oid_classification: string; oid_exclude: boolean; oid_return_date: string;
-  oid_modified_duty: boolean; oid_disability_pct: string;
-  start_date: string;
-  // Tab 4 – Payment
-  payment_method: PaymentMethod;
-  payment_frequency: string; payment_day: string; payment_currency: string;
-  bank_name: string; bank_branch: string; bank_branch_code: string;
-  bank_account_holder: string; bank_account_number: string; bank_account_confirm: string;
-  bank_account_type: string; bank_swift: string;
-  annual_salary: string; monthly_salary: string;
-  allowances: Allowance[];
-  deductions: Deduction[];
-  // Tab 5 – ETI
-  eti_employed_after_2013: boolean; eti_valid_id: boolean; eti_not_connected: boolean;
-  eti_not_domestic: boolean; eti_not_broker: boolean; eti_not_contractor: boolean;
-  eti_hours_worked: string; eti_days_worked: string; eti_remuneration: string;
-  eti_declaration_date: string; eti_signed_by: string;
-  // Tab 6 – Hours
-  hours_per_day: string; days_per_week: string;
-  lunch_break: string; paid_break: string;
-  flexi_time: boolean; compressed_week: boolean;
-  ot_weekday_rate: string; ot_saturday_rate: string;
-  ot_max_per_week: string; ot_approval: boolean;
-  ot_meal_allowance: string; ot_transport: boolean;
-  // Misc
-  password: string; confirm_password: string;
-  create_account: boolean; send_email: boolean;
-  full_name: string; phone: string;
-}
-
-interface QueueItem extends Employee { tempId: string; }
-type ValidationResult = { valid: boolean; errors: string[] };
-
-// ─── Default form ─────────────────────────────────────────────────────────────
-const defaultForm = (): Employee => ({
-  employeeType: "Person", employee_code: generateRandomEmployeeCode(),
-  title: "", initials: "", first_name: "", second_name: "", surname: "", known_as: "",
-  identification_type: "RSA ID Number", id_number: "", passport_number: "", passport_country: "",
-  asylum_permit_number: "", asylum_country: "", asylum_expiry: "",
-  refugee_permit_number: "", refugee_country: "", refugee_expiry: "",
-  date_of_birth: "", gender: "", nationality: "", marital_status: "",
-  phys_unit: "", phys_complex: "", phys_street_no: "", phys_street: "",
-  phys_suburb: "", phys_city: "", phys_province: "", phys_postal: "2000",
-  phys_country: "South Africa", phys_status: "", phys_years: "",
-  postal_same_as_phys: true, postal_type: "Post Box", postal_box_type: "PO Box",
-  postal_box_no: "", postal_agency: "", postal_other: "", postal_branch: "",
-  postal_suburb: "", postal_city: "", postal_postal: "", postal_country: "South Africa",
-  postal_care_of: "", postal_delivery: "", postal_valid_from: "", postal_valid_to: "",
-  work_same_as_phys: false, work_same_as_company: true,
-  work_unit: "", work_complex: "", work_building: "", work_street_no: "", work_street: "",
-  work_suburb: "", work_city: "", work_province: "", work_postal: "", work_country: "South Africa",
-  work_office_name: "",
-  home_number: "", work_number: "", cell_number: "", alt_cell: "", fax_number: "",
-  email: "", alt_email: "", preferred_contact: "Email",
-  emergency_name: "", emergency_rel: "", emergency_phone1: "", emergency_phone2: "",
-  emergency_email: "", emergency_address: "", emergency_medical: "",
-  employment_type: "Full Time", position: "", department: "",
-  benefits_package: [], leave_entitlement: "20 days", sick_leave: "Standard",
-  family_leave: "3 days per year", maternity_leave: "Standard", notice_period: "1 month",
-  probation_period: "3 months",
-  pt_min_hours: "", pt_max_hours: "", pt_benefits: "", pt_shift: "",
-  contract_start: "", contract_end: "", contract_renewal: "Fixed term no renewal",
-  contract_notice: "1 month", contract_bonus: false, contract_bonus_amount: "",
-  intern_type: "Graduate", intern_stipend: "", intern_mentor: "", intern_duration: "12 months",
-  intern_study_hours: "", intern_qualification: "", intern_learning_signed: false,
-  temp_duration: "", temp_end: "", temp_agency: false, temp_agency_name: "",
-  casual_hourly: "", casual_max_hours: "", casual_oncall: false,
-  probation_duration: "3 months", probation_convert: "Full Time", probation_kpis: "",
-  uif_required: true, uif_number: "", uif_contribution: "1%",
-  uif_declaration_date: "", uif_exemption: false, uif_exemption_reason: "",
-  sdl_number: "", sdl_contribution: "1%", sdl_exemption: false,
-  sdl_learnership: false, sdl_apprenticeship: false,
-  oid_classification: "", oid_exclude: false, oid_return_date: "",
-  oid_modified_duty: false, oid_disability_pct: "",
-  start_date: new Date().toISOString().split("T")[0],
-  payment_method: "Bank Transfer", payment_frequency: "Monthly", payment_day: "Friday",
-  payment_currency: "ZAR",
-  bank_name: "", bank_branch: "", bank_branch_code: "", bank_account_holder: "",
-  bank_account_number: "", bank_account_confirm: "", bank_account_type: "Cheque", bank_swift: "",
-  annual_salary: "", monthly_salary: "",
-  allowances: [], deductions: [],
-  eti_employed_after_2013: true, eti_valid_id: true, eti_not_connected: true,
-  eti_not_domestic: true, eti_not_broker: true, eti_not_contractor: true,
-  eti_hours_worked: "", eti_days_worked: "", eti_remuneration: "",
-  eti_declaration_date: "", eti_signed_by: "",
-  hours_per_day: "8", days_per_week: "5", lunch_break: "1", paid_break: "0",
-  flexi_time: false, compressed_week: false,
-  ot_weekday_rate: "1.5x", ot_saturday_rate: "1.5x", ot_max_per_week: "10",
-  ot_approval: true, ot_meal_allowance: "", ot_transport: false,
-  password: "", confirm_password: "", create_account: true, send_email: true,
-  full_name: "", phone: "",
-});
-
-function getFullName(f: Employee) {
-  return [f.first_name, f.surname].filter(Boolean).join(" ") || "New Employee";
-}
-
-// ─── UIF eligibility helper ──────────────────────────────────────────────────
-function uifRequired(et: EmploymentType): boolean {
-  return ["Full Time","Part Time","Contract","Probation","Temporary"].includes(et);
-}
-function benefitsForType(et: EmploymentType) {
-  const map: Record<EmploymentType, { medical: boolean; retirement: boolean; leave: boolean; uif: boolean; bonus: boolean }> = {
-    "Full Time":   { medical: true, retirement: true, leave: true, uif: true,  bonus: true },
-    "Part Time":   { medical: true, retirement: true, leave: true, uif: true,  bonus: true },
-    "Contract":    { medical: false, retirement: false, leave: false, uif: true,  bonus: false },
-    "Intern":      { medical: false, retirement: false, leave: false, uif: false, bonus: false },
-    "Temporary":   { medical: false, retirement: false, leave: true, uif: true,  bonus: false },
-    "Casual":      { medical: false, retirement: false, leave: false, uif: false, bonus: false },
-    "Probation":   { medical: true, retirement: true, leave: true, uif: true,  bonus: false },
-  };
-  return map[et];
-}
-
-// ─── Validation ──────────────────────────────────────────────────────────────
-function validateEmployee(data: Partial<Employee>): ValidationResult {
-  const errors: string[] = [];
-  if (!data.first_name) errors.push("First name is required");
-  if (!data.surname) errors.push("Surname is required");
-  if (!data.email) errors.push("Email is required");
-  else if (!validateEmail(data.email)) errors.push("Valid email is required");
-  if (!data.cell_number) errors.push("Cell number is required");
-  if (data.identification_type === "RSA ID Number") {
-    if (!data.id_number) errors.push("RSA ID Number is required");
-    else if (!validateSAIdNumber(data.id_number)) errors.push("Invalid SA ID number");
-  } else if (data.identification_type === "Passport Number") {
-    if (!data.passport_number) errors.push("Passport number is required");
-  }
-  if (!data.phys_street) errors.push("Street address is required");
-  if (!data.phys_city) errors.push("City is required");
-  if (!data.phys_province) errors.push("Province is required");
-  if (!data.phys_postal) errors.push("Postal code is required");
-  if (!data.department) errors.push("Department is required");
-  if (!data.position) errors.push("Position is required");
-  if (!data.start_date) errors.push("Start date is required");
-  if (data.payment_method === "Bank Transfer") {
-    if (!data.bank_name) errors.push("Bank name is required");
-    if (!data.bank_account_number) errors.push("Account number is required");
-    if (data.bank_account_number !== data.bank_account_confirm) errors.push("Account numbers do not match");
-  }
-  if (data.create_account && !data.password) errors.push("Password is required");
-  if (data.password && data.password !== data.confirm_password) errors.push("Passwords do not match");
-  if (data.password && data.password.length < 6) errors.push("Password must be at least 6 characters");
-  return { valid: errors.length === 0, errors };
-}
+// All Employee/QueueItem/Allowance/Deduction types, defaults, helpers, validation,
+// reference lists, brand tokens and API calls live in shared/utils/manageEmployees.
 
 // ─── Icons ────────────────────────────────────────────────────────────────────
 const Ic = {
@@ -314,38 +86,63 @@ const Ic = {
 // ─── Field components ──────────────────────────────────────────────────────────
 const S = {
   inputWrap: { position: "relative" as const },
-  iconLeft: { position: "absolute" as const, left: 10, top: "50%", transform: "translateY(-50%)", color: "#98a2b3", display: "flex" as const, alignItems: "center" as const, pointerEvents: "none" as const },
+  iconLeft: { position: "absolute" as const, left: 12, top: "50%", transform: "translateY(-50%)", color: "#98a2b3", display: "flex" as const, alignItems: "center" as const, pointerEvents: "none" as const },
   input: (hasIcon = true): React.CSSProperties => ({
-    width: "100%", padding: hasIcon ? "9px 12px 9px 34px" : "9px 12px",
-    border: "1px solid #d0d5dd", borderRadius: 8, fontSize: 13, outline: "none",
-    background: "#fff", boxSizing: "border-box",
+    width: "100%", padding: hasIcon ? "10px 12px 10px 38px" : "10px 13px",
+    border: "1px solid #e4e7ec", borderRadius: 10, fontSize: 13.5, outline: "none",
+    color: BRAND.ink, background: "#fff", boxSizing: "border-box",
+    transition: "border-color .15s ease, box-shadow .15s ease, background .15s ease",
   }),
   select: (hasIcon = true): React.CSSProperties => ({
-    width: "100%", padding: hasIcon ? "9px 12px 9px 34px" : "9px 12px",
-    border: "1px solid #d0d5dd", borderRadius: 8, fontSize: 13, outline: "none",
-    background: "#fff", boxSizing: "border-box", appearance: "none" as const,
+    width: "100%", padding: hasIcon ? "10px 32px 10px 38px" : "10px 32px 10px 13px",
+    border: "1px solid #e4e7ec", borderRadius: 10, fontSize: 13.5, outline: "none",
+    color: BRAND.ink, background: "#fff", boxSizing: "border-box",
+    appearance: "none" as const,
+    backgroundImage: "url(\"data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='14' height='14' viewBox='0 0 24 24' fill='none' stroke='%23667085' stroke-width='2.5'><polyline points='6 9 12 15 18 9'/></svg>\")",
+    backgroundRepeat: "no-repeat", backgroundPosition: "right 12px center",
+    transition: "border-color .15s ease, box-shadow .15s ease",
   }),
-  label: { display: "block" as const, marginBottom: 5, color: "#344054", fontWeight: 500 as const, fontSize: 13 },
-  fieldGroup: { marginBottom: 16 },
-  row2: { display: "grid" as const, gridTemplateColumns: "1fr 1fr", gap: 12, marginBottom: 16 },
-  row3: { display: "grid" as const, gridTemplateColumns: "1fr 1fr 1fr", gap: 12, marginBottom: 16 },
-  sectionTitle: { fontSize: 14, fontWeight: 700 as const, color: "#1d2939", marginBottom: 12, paddingBottom: 8, borderBottom: "1px solid #f2f4f7", display: "flex" as const, alignItems: "center" as const, gap: 8 },
-  badge: (color = "#E6A79E"): React.CSSProperties => ({
-    background: color + "22", color, padding: "2px 8px", borderRadius: 6,
+  label: { display: "block" as const, marginBottom: 6, color: BRAND.text, fontWeight: 600 as const, fontSize: 12.5, letterSpacing: 0.1 },
+  fieldGroup: { marginBottom: 14 },
+  row2: { display: "grid" as const, gridTemplateColumns: "1fr 1fr", gap: 14, marginBottom: 14 },
+  row3: { display: "grid" as const, gridTemplateColumns: "1fr 1fr 1fr", gap: 14, marginBottom: 14 },
+  // Soft banner-style section title — also styles its inline leading svg as a chip
+  sectionTitle: {
+    display: "flex" as const, alignItems: "center" as const, gap: 10,
+    fontSize: 13.5, fontWeight: 700 as const, color: BRAND.primaryDeep,
+    margin: "4px 0 16px",
+    padding: "10px 14px",
+    borderRadius: 10,
+    background: `linear-gradient(90deg, ${BRAND.tint100} 0%, ${BRAND.tint50} 100%)`,
+    border: `1px solid ${BRAND.tint200}`,
+    borderLeft: `3px solid ${BRAND.primary}`,
+    letterSpacing: -0.1,
+  } as React.CSSProperties,
+  badge: (color: string = BRAND.primary): React.CSSProperties => ({
+    background: color + "1f", color, padding: "2px 8px", borderRadius: 6,
     fontSize: 11, fontWeight: 600,
   }),
   notice: (type: "info"|"warn"|"success" = "info"): React.CSSProperties => ({
-    background: type === "info" ? "#eff8ff" : type === "warn" ? "#fffaeb" : "#ecfdf3",
-    border: `1px solid ${type === "info" ? "#b2d4f5" : type === "warn" ? "#fedf89" : "#abefc6"}`,
-    color: type === "info" ? "#0c4a6e" : type === "warn" ? "#92400e" : "#166534",
-    padding: "10px 14px", borderRadius: 8, fontSize: 12, marginBottom: 16, display: "flex" as const, gap: 8, alignItems: "flex-start" as const,
+    background: type === "info" ? BRAND.tint50 : type === "warn" ? "#fffaeb" : "#ecfdf3",
+    border: `1px solid ${type === "info" ? BRAND.tint200 : type === "warn" ? "#fedf89" : "#abefc6"}`,
+    color: type === "info" ? BRAND.primaryDeep : type === "warn" ? "#92400e" : "#166534",
+    padding: "10px 14px", borderRadius: 8, fontSize: 12, marginBottom: 16,
+    display: "flex" as const, gap: 8, alignItems: "flex-start" as const,
   }),
   btn: (variant: "primary"|"secondary"|"danger"|"success" = "primary"): React.CSSProperties => ({
-    display: "inline-flex", alignItems: "center", gap: 6, padding: "8px 14px",
-    borderRadius: 8, fontSize: 13, fontWeight: 500, cursor: "pointer", border: "none",
-    background: variant === "primary" ? "#E6A79E" : variant === "secondary" ? "#fff" : variant === "danger" ? "#f04438" : "#12b76a",
-    color: variant === "secondary" ? "#344054" : "#fff",
-    ...(variant === "secondary" ? { border: "1px solid #d0d5dd" } : {}),
+    display: "inline-flex", alignItems: "center", gap: 6, padding: "9px 16px",
+    borderRadius: 8, fontSize: 13, fontWeight: 600, cursor: "pointer", border: "none",
+    background: variant === "primary" ? BRAND.primary
+              : variant === "secondary" ? "#fff"
+              : variant === "danger" ? BRAND.danger
+              : BRAND.success,
+    color: variant === "secondary" ? BRAND.text : "#fff",
+    boxShadow: variant === "primary" ? `0 1px 2px rgba(15,107,142,0.18), 0 2px 8px rgba(51,166,205,0.22)`
+             : variant === "success" ? "0 1px 2px rgba(0,0,0,0.06)"
+             : variant === "danger" ? "0 1px 2px rgba(240,68,56,0.18)"
+             : "none",
+    transition: "transform .12s ease, box-shadow .12s ease, background .12s ease",
+    ...(variant === "secondary" ? { border: `1px solid ${BRAND.border}` } : {}),
   }),
 };
 
@@ -394,8 +191,8 @@ function Checkbox({ checked, onChange, label, sub }: { checked: boolean; onChang
   return (
     <label style={{ display: "flex", alignItems: "flex-start", gap: 10, cursor: "pointer", marginBottom: 8 }}>
       <div style={{
-        width: 18, height: 18, borderRadius: 4, border: `2px solid ${checked ? "#E6A79E" : "#d0d5dd"}`,
-        background: checked ? "#E6A79E" : "#fff", display: "flex", alignItems: "center",
+        width: 18, height: 18, borderRadius: 4, border: `2px solid ${checked ? "#33a6cd" : "#d0d5dd"}`,
+        background: checked ? "#33a6cd" : "#fff", display: "flex", alignItems: "center",
         justifyContent: "center", flexShrink: 0, marginTop: 1, transition: "all 0.15s",
       }}>
         {checked && <Ic.Check />}
@@ -418,8 +215,8 @@ function RadioGroup({ value, onChange, options, horizontal }: {
         <label key={o} style={{ display: "flex", alignItems: "center", gap: 8, cursor: "pointer" }}>
           <div style={{
             width: 16, height: 16, borderRadius: "50%",
-            border: `2px solid ${value === o ? "#E6A79E" : "#d0d5dd"}`,
-            background: value === o ? "#E6A79E" : "#fff", transition: "all 0.15s",
+            border: `2px solid ${value === o ? "#33a6cd" : "#d0d5dd"}`,
+            background: value === o ? "#33a6cd" : "#fff", transition: "all 0.15s",
             display: "flex", alignItems: "center", justifyContent: "center",
           }}>
             {value === o && <div style={{ width: 6, height: 6, borderRadius: "50%", background: "#fff" }} />}
@@ -432,11 +229,8 @@ function RadioGroup({ value, onChange, options, horizontal }: {
   );
 }
 
-const provinces = ["Gauteng","Western Cape","KwaZulu-Natal","Eastern Cape","Free State","Limpopo","Mpumalanga","Northern Cape","North West"];
-const departments = ["Sales","IT","HR","Finance","Operations","Marketing","Legal","Procurement","Customer Service","Research & Development"];
-const countries = ["South Africa","Zimbabwe","Nigeria","Kenya","United Kingdom","United States","Germany","India","China","Other"];
-const allowanceTypes = ["Housing Allowance","Transport Allowance","Cell Phone Allowance","Data Allowance","Meal Allowance","Travel Allowance","Entertainment Allowance","Uniform Allowance","Tool Allowance","Risk Allowance","Shift Allowance","Standby Allowance","Call-out Allowance","CPD Allowance"];
-const deductionTypes = ["PAYE (Income Tax)","UIF","SDL","Pension/Provident Fund","Medical Aid","Group Life Insurance","Disability Insurance","Funeral Cover","Union Fees","Garnishee Order","Loan Repayment","Study Loan","Staff Purchase"];
+// Reference data (provinces, departments, countries, allowanceTypes, deductionTypes,
+// ZAF_BANKS) is imported at the top of the file from shared/utils/manageEmployees.
 
 // ─── TAB COMPONENTS ──────────────────────────────────────────────────────────
 
@@ -690,10 +484,10 @@ function Tab3Employment({ f, upd }: { f: Employee; upd: (k: keyof Employee, v: a
               {["Medical Aid","Retirement Fund","Disability Cover","Life Insurance","Funeral Cover"].map(b => (
                 <label key={b} style={{
                   display: "flex", alignItems: "center", gap: 6, padding: "6px 12px",
-                  border: `1px solid ${f.benefits_package.includes(b) ? "#E6A79E" : "#d0d5dd"}`,
+                  border: `1px solid ${f.benefits_package.includes(b) ? "#33a6cd" : "#d0d5dd"}`,
                   borderRadius: 20, cursor: "pointer", fontSize: 12,
-                  background: f.benefits_package.includes(b) ? "#E6A79E22" : "#fff",
-                  color: f.benefits_package.includes(b) ? "#c47b72" : "#344054",
+                  background: f.benefits_package.includes(b) ? "#33a6cd1f" : "#fff",
+                  color: f.benefits_package.includes(b) ? "#0f6b8e" : "#344054",
                 }}>
                   <input type="checkbox" checked={f.benefits_package.includes(b)}
                     onChange={() => toggleBenefit(b)} style={{ display: "none" }} />
@@ -880,7 +674,7 @@ function Tab4Payment({ f, upd }: { f: Employee; upd: (k: keyof Employee, v: any)
         <>
           <div style={S.sectionTitle}><Ic.CreditCard /> Bank Details</div>
           <div style={S.row2}>
-            <FI label="Bank Name" required icon={<Ic.CreditCard />}><SelectInput value={f.bank_name} onChange={v => upd("bank_name", v)}><option value="">Select Bank</option>{zaf_banks().map(b => <option key={b}>{b}</option>)}</SelectInput></FI>
+            <FI label="Bank Name" required icon={<Ic.CreditCard />}><SelectInput value={f.bank_name} onChange={v => upd("bank_name", v)}><option value="">Select Bank</option>{ZAF_BANKS.map(b => <option key={b}>{b}</option>)}</SelectInput></FI>
             <FI label="Branch Name" icon={<Ic.MapPin />}><TextInput value={f.bank_branch} onChange={v => upd("bank_branch", v)} /></FI>
           </div>
           <div style={S.row2}>
@@ -1157,81 +951,113 @@ function Tab6Hours({ f, upd }: { f: Employee; upd: (k: keyof Employee, v: any) =
 function QueueCard({ item, index, onRemove }: { item: QueueItem; index: number; onRemove: () => void }) {
   const age = calcAge(item.date_of_birth);
   const benefits = benefitsForType(item.employment_type);
+  const fullName = getFullName(item);
+  const initials = fullName
+    ? fullName.split(/\s+/).filter(Boolean).slice(0, 2).map(s => s[0]?.toUpperCase()).join("")
+    : "—";
   return (
-    <div style={{ background: "#f9fafb", border: "1px solid #e4e7ec", borderRadius: 12, marginBottom: 10, overflow: "hidden" }}>
-      <div style={{ padding: "12px 14px", display: "flex", justifyContent: "space-between", alignItems: "center", background: "#fff", borderBottom: "1px solid #f2f4f7" }}>
-        <div>
-          <div style={{ fontWeight: 600, color: "#1d2939", fontSize: 13 }}>{getFullName(item)}</div>
-          <div style={{ fontSize: 11, color: "#667085" }}>{item.email || "No email"}</div>
+    <div className="me-queue-card" style={{
+      background: "#fff", border: `1px solid ${BRAND.border}`, borderRadius: 12,
+      marginBottom: 10, overflow: "hidden",
+      boxShadow: "0 1px 2px rgba(16,24,40,0.04)",
+    }}>
+      <div style={{
+        padding: "5px 7px", display: "flex", alignItems: "center", gap: 10,
+        borderBottom: `1px solid ${BRAND.borderSoft}`,
+        background: `linear-gradient(180deg, ${BRAND.tint50} 0%, #ffffff 100%)`,
+      }}>
+        <span style={{
+          width: 34, height: 34, borderRadius: "50%", flexShrink: 0,
+          background: `linear-gradient(135deg, ${BRAND.primary} 0%, ${BRAND.primaryDark} 100%)`,
+          color: "#fff", display: "flex", alignItems: "center", justifyContent: "center",
+          fontSize: 12, fontWeight: 800, letterSpacing: 0.4,
+        }}>{initials}</span>
+        <div style={{ flex: 1, minWidth: 0 }}>
+          <div style={{ fontWeight: 700, color: BRAND.ink, fontSize: 13, lineHeight: 1.15, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+            {fullName || "Untitled employee"}
+          </div>
+          <div style={{ fontSize: 11, color: BRAND.textMuted, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+            {item.email || "No email"}
+          </div>
         </div>
-        <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
-          <span style={S.badge("#E6A79E")}>#{index + 1}</span>
-          <button onClick={onRemove} style={{ ...S.btn("danger"), padding: "5px 8px" }}><Ic.Trash /></button>
-        </div>
+        <span style={S.badge(BRAND.primary)}>#{index + 1}</span>
+        <button className="me-btn" onClick={onRemove} title="Remove from queue" style={{
+          background: "transparent", border: "none", padding: 6, borderRadius: 8,
+          color: BRAND.danger, cursor: "pointer", display: "flex",
+        }}><Ic.Trash /></button>
       </div>
-      <div style={{ padding: "10px 14px", fontSize: 11, color: "#667085", display: "grid", gridTemplateColumns: "1fr 1fr", gap: 4 }}>
-        <div><strong>Dept:</strong> {item.department || "—"}</div>
-        <div><strong>Position:</strong> {item.position || "—"}</div>
-        <div><strong>Type:</strong> <span style={S.badge(item.employment_type === "Intern" ? "#f79009" : "#12b76a")}>{item.employment_type}</span></div>
-        <div><strong>Start:</strong> {item.start_date || "—"}</div>
-        {age > 0 && <div><strong>Age:</strong> {age} {age < 30 ? "⚡ ETI eligible" : ""}</div>}
-        <div><strong>UIF:</strong> {uifRequired(item.employment_type) ? "Required" : "N/A"}</div>
-        <div><strong>Medical:</strong> {benefits.medical ? "✓" : "✗"}</div>
-        <div><strong>Payment:</strong> {item.payment_method}</div>
+      <div style={{
+        padding: "10px 14px", fontSize: 11.5, color: BRAND.textMuted,
+        display: "grid", gridTemplateColumns: "1fr 1fr", gap: "4px 12px",
+      }}>
+        <div><span style={{ color: BRAND.textFaint }}>Dept</span> · {item.department || "—"}</div>
+        <div><span style={{ color: BRAND.textFaint }}>Position</span> · {item.position || "—"}</div>
+        <div style={{ gridColumn: "1 / -1", display: "flex", gap: 6, flexWrap: "wrap", marginTop: 4 }}>
+          <span style={S.badge(item.employment_type === "Intern" ? "#f79009" : BRAND.success)}>{item.employment_type}</span>
+          {age > 0 && <span style={S.badge(age < 30 ? "#f59e0b" : BRAND.textMuted)}>Age {age}{age < 30 ? " · ETI" : ""}</span>}
+          {uifRequired(item.employment_type) && <span style={S.badge(BRAND.primary)}>UIF</span>}
+          {benefits.medical && <span style={S.badge("#7c3aed")}>Medical</span>}
+          <span style={S.badge(BRAND.textMuted)}>{item.payment_method}</span>
+        </div>
+        {item.start_date && (
+          <div style={{ gridColumn: "1 / -1", marginTop: 4, color: BRAND.textFaint }}>
+            Start · {item.start_date}
+          </div>
+        )}
       </div>
     </div>
   );
 }
 
 // ─── Table Mode ───────────────────────────────────────────────────────────────
-interface TableRowData { full_name: string; email: string; id_number: string; phone: string; passport_number: string; address_street: string; address_city: string; address_province: string; address_postal_code: string; department: string; position: string; start_date: string; employment_type: string; annual_salary: string; payment_method: string; nationality: string; gender: string; date_of_birth: string; work_location: string; identification_type: string; }
+// TableRowData type is imported from shared/utils/manageEmployees.
 
 function TableModeRow({ data, index, onChange, onRemove }: { data: Partial<TableRowData>; index: number; onChange: (k: keyof TableRowData, v: string) => void; onRemove: () => void }) {
-  const inp: React.CSSProperties = { padding: "12px 14px", border: "1px solid #d0d5dd", borderRadius: 8, fontSize: 15, outline: "none", width: "100%", boxSizing: "border-box", minWidth: 100 };
+  const inp: React.CSSProperties = { padding: "6px 8px", border: "1px solid #d0d5dd", borderRadius: 6, fontSize: 12.5, outline: "none", width: "100%", boxSizing: "border-box", minWidth: 90 };
   const sel: React.CSSProperties = { ...inp, appearance: "none" as const };
   return (
     <tr style={{ background: index % 2 === 0 ? "#fff" : "#f9fafb", height: "auto" }}>
-      <td style={{ padding: "12px 14px", textAlign: "center", color: "#667085", fontSize: 15, fontWeight: 500 }}>{index}</td>
-      <td style={{ padding: "12px 14px" }}><input style={{ ...inp, minWidth: 150 }} placeholder="First name" value={data.full_name || ""} onChange={e => onChange("full_name", e.target.value)} /></td>
-      <td style={{ padding: "12px 14px" }}><input style={{ ...inp, minWidth: 80 }} placeholder="Surname" value={data.phone || ""} onChange={e => onChange("phone", e.target.value)} /></td>
-      <td style={{ padding: "12px 14px" }}><input style={{ ...inp, minWidth: 160 }} type="email" placeholder="email@company.com" value={data.email || ""} onChange={e => onChange("email", e.target.value)} /></td>
-      <td style={{ padding: "12px 14px" }}>
+      <td style={{ padding: "6px 8px", textAlign: "center", color: "#667085", fontSize: 12, fontWeight: 600 }}>{index}</td>
+      <td style={{ padding: "5px 7px" }}><input style={{ ...inp, minWidth: 150 }} placeholder="First name" value={data.full_name || ""} onChange={e => onChange("full_name", e.target.value)} /></td>
+      <td style={{ padding: "5px 7px" }}><input style={{ ...inp, minWidth: 80 }} placeholder="Surname" value={data.phone || ""} onChange={e => onChange("phone", e.target.value)} /></td>
+      <td style={{ padding: "5px 7px" }}><input style={{ ...inp, minWidth: 160 }} type="email" placeholder="email@company.com" value={data.email || ""} onChange={e => onChange("email", e.target.value)} /></td>
+      <td style={{ padding: "5px 7px" }}>
         <select style={{ ...sel, minWidth: 100 }} value={data.identification_type || "RSA ID Number"} onChange={e => onChange("identification_type", e.target.value)}>
           {["RSA ID Number","Passport Number","Asylum Seeker Permit","Refugee Permit"].map(t => <option key={t} value={t}>{t === "RSA ID Number" ? "RSA ID" : t === "Passport Number" ? "Passport" : t}</option>)}
         </select>
       </td>
-      <td style={{ padding: "12px 14px" }}><input style={{ ...inp, minWidth: 120 }} placeholder="ID/Passport" value={data.id_number || ""} onChange={e => onChange("id_number", e.target.value)} /></td>
-      <td style={{ padding: "12px 14px" }}><input style={{ ...inp, minWidth: 110 }} placeholder="0821234567" value={data.phone || ""} onChange={e => onChange("phone", e.target.value)} /></td>
-      <td style={{ padding: "12px 14px" }}><input style={{ ...inp, minWidth: 120 }} placeholder="Gender" value={data.gender || ""} onChange={e => onChange("gender", e.target.value)} /></td>
-      <td style={{ padding: "12px 14px" }}><input style={{ ...inp, minWidth: 120 }} type="date" value={data.date_of_birth || ""} onChange={e => onChange("date_of_birth", e.target.value)} /></td>
-      <td style={{ padding: "12px 14px" }}><input style={{ ...inp, minWidth: 160 }} placeholder="Street address" value={data.address_street || ""} onChange={e => onChange("address_street", e.target.value)} /></td>
-      <td style={{ padding: "12px 14px" }}><input style={{ ...inp, minWidth: 100 }} placeholder="City" value={data.address_city || ""} onChange={e => onChange("address_city", e.target.value)} /></td>
-      <td style={{ padding: "12px 14px" }}>
+      <td style={{ padding: "5px 7px" }}><input style={{ ...inp, minWidth: 120 }} placeholder="ID/Passport" value={data.id_number || ""} onChange={e => onChange("id_number", e.target.value)} /></td>
+      <td style={{ padding: "5px 7px" }}><input style={{ ...inp, minWidth: 110 }} placeholder="0821234567" value={data.phone || ""} onChange={e => onChange("phone", e.target.value)} /></td>
+      <td style={{ padding: "5px 7px" }}><input style={{ ...inp, minWidth: 120 }} placeholder="Gender" value={data.gender || ""} onChange={e => onChange("gender", e.target.value)} /></td>
+      <td style={{ padding: "5px 7px" }}><input style={{ ...inp, minWidth: 120 }} type="date" value={data.date_of_birth || ""} onChange={e => onChange("date_of_birth", e.target.value)} /></td>
+      <td style={{ padding: "5px 7px" }}><input style={{ ...inp, minWidth: 160 }} placeholder="Street address" value={data.address_street || ""} onChange={e => onChange("address_street", e.target.value)} /></td>
+      <td style={{ padding: "5px 7px" }}><input style={{ ...inp, minWidth: 100 }} placeholder="City" value={data.address_city || ""} onChange={e => onChange("address_city", e.target.value)} /></td>
+      <td style={{ padding: "5px 7px" }}>
         <select style={{ ...sel, minWidth: 110 }} value={data.address_province || ""} onChange={e => onChange("address_province", e.target.value)}>
           <option value="">Province</option>{provinces.map(p => <option key={p} value={p}>{p}</option>)}
         </select>
       </td>
-      <td style={{ padding: "12px 14px" }}><input style={{ ...inp, minWidth: 70 }} placeholder="2000" maxLength={4} value={data.address_postal_code || ""} onChange={e => onChange("address_postal_code", e.target.value)} /></td>
-      <td style={{ padding: "12px 14px" }}>
+      <td style={{ padding: "5px 7px" }}><input style={{ ...inp, minWidth: 70 }} placeholder="2000" maxLength={4} value={data.address_postal_code || ""} onChange={e => onChange("address_postal_code", e.target.value)} /></td>
+      <td style={{ padding: "5px 7px" }}>
         <select style={{ ...sel, minWidth: 120 }} value={data.department || ""} onChange={e => onChange("department", e.target.value)}>
           <option value="">Dept</option>{departments.map(d => <option key={d}>{d}</option>)}
         </select>
       </td>
-      <td style={{ padding: "12px 14px" }}><input style={{ ...inp, minWidth: 130 }} placeholder="Position" value={data.position || ""} onChange={e => onChange("position", e.target.value)} /></td>
-      <td style={{ padding: "12px 14px" }}>
+      <td style={{ padding: "5px 7px" }}><input style={{ ...inp, minWidth: 130 }} placeholder="Position" value={data.position || ""} onChange={e => onChange("position", e.target.value)} /></td>
+      <td style={{ padding: "5px 7px" }}>
         <select style={{ ...sel, minWidth: 110 }} value={data.employment_type || ""} onChange={e => onChange("employment_type", e.target.value)}>
           <option value="">Type</option>{(["Full Time","Part Time","Contract","Intern","Temporary","Casual","Probation"] as EmploymentType[]).map(t => <option key={t}>{t}</option>)}
         </select>
       </td>
-      <td style={{ padding: "12px 14px" }}><input style={{ ...inp, minWidth: 120 }} type="date" value={data.start_date || ""} onChange={e => onChange("start_date", e.target.value)} /></td>
-      <td style={{ padding: "12px 14px" }}><input style={{ ...inp, minWidth: 100 }} type="number" placeholder="Annual salary" value={data.annual_salary || ""} onChange={e => onChange("annual_salary", e.target.value)} /></td>
-      <td style={{ padding: "12px 14px" }}>
+      <td style={{ padding: "5px 7px" }}><input style={{ ...inp, minWidth: 120 }} type="date" value={data.start_date || ""} onChange={e => onChange("start_date", e.target.value)} /></td>
+      <td style={{ padding: "5px 7px" }}><input style={{ ...inp, minWidth: 100 }} type="number" placeholder="Annual salary" value={data.annual_salary || ""} onChange={e => onChange("annual_salary", e.target.value)} /></td>
+      <td style={{ padding: "5px 7px" }}>
         <select style={{ ...sel, minWidth: 100 }} value={data.payment_method || "Bank Transfer"} onChange={e => onChange("payment_method", e.target.value)}>
           {["Bank Transfer","Cash","Cheque"].map(m => <option key={m}>{m}</option>)}
         </select>
       </td>
-      <td style={{ padding: "12px 14px", textAlign: "center" }}>
-        <button type="button" onClick={onRemove} style={{ ...S.btn("danger"), padding: "6px 10px" }}><Ic.Trash /></button>
+      <td style={{ padding: "6px 8px", textAlign: "center" }}>
+        <button type="button" onClick={onRemove} style={{ ...S.btn("danger"), padding: "4px 8px" }}><Ic.Trash /></button>
       </td>
     </tr>
   );
@@ -1269,13 +1095,7 @@ function ManageEmployeesContent() {
   const addToQueue = (continueAdding = false) => {
     const result = validateEmployee(form);
     if (!result.valid) { alert(result.errors.join("\n")); return; }
-    const item: QueueItem = {
-      ...form,
-      full_name: getFullName(form),
-      phone: form.cell_number,
-      tempId: Date.now().toString() + Math.random().toString(36).substr(2, 9),
-    };
-    setQueue(prev => [...prev, item]);
+    setQueue(prev => [...prev, toQueueItem(form)]);
     showToast(`${getFullName(form)} added to queue!`);
     if (continueAdding) clearForm();
   };
@@ -1289,51 +1109,20 @@ function ManageEmployeesContent() {
     setProcessing(true);
     let successCount = 0;
     let failCount = 0;
-
     for (const emp of queue) {
-      try {
-        const API_URL = import.meta.env.VITE_API_URL || "http://localhost:3000/api/v1";
-        
-        // STEP 1: Create employee with onboarding
-        const employeeData = {
-          firstName: emp.first_name,
-          lastName: emp.surname,
-          email: emp.email,
-          department: emp.department,
-          position: emp.position,
-          start_date: emp.start_date,
-          annual_salary: emp.annual_salary,
-          phone: emp.cell_number,
-          employment_type: emp.employment_type,
-          create_account: true,  // IMPORTANT: Tell backend to create user account
-          password: emp.password || "Welcome123!",
-          send_email: false
-        };
-
-        const empResponse = await fetch(`${API_URL}/employees/create-with-onboarding`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json", "Authorization": `Bearer ${token}` },
-          body: JSON.stringify(employeeData),
-        });
-
-        const empData = await empResponse.json();
-        
-        if (empResponse.ok && empData.success) {
-          successCount++;
-          console.log(`✅ Created: ${emp.first_name} ${emp.surname} (${emp.email})`);
-        } else {
-          failCount++;
-          console.error(`❌ Failed: ${emp.email} - ${empData.message}`);
-        }
-        
-      } catch (err) {
+      const result = await createEmployeeWithOnboarding(emp, token);
+      if (result.ok) {
+        successCount++;
+      } else {
         failCount++;
-        console.error(`❌ Error creating ${emp.email}:`, err);
+        console.error(`Failed to create ${emp.email}: ${result.message || "unknown error"}`);
       }
     }
 
-    showToast(`✓ ${successCount} employee(s) added! ${failCount > 0 ? `${failCount} failed.` : ''}`, 
-      failCount > 0 ? "error" : "success");
+    showToast(
+      `${successCount} employee(s) added${failCount > 0 ? ` · ${failCount} failed` : ""}.`,
+      failCount > 0 ? "error" : "success",
+    );
     setQueue([]);
     clearForm();
     setProcessing(false);
@@ -1341,8 +1130,8 @@ function ManageEmployeesContent() {
 
   const saveDraft = () => {
     if (queue.length === 0) { alert("No employees in queue"); return; }
-    localStorage.setItem("employeeDraft", JSON.stringify({ queue, timestamp: new Date().toISOString() }));
-    showToast("Draft saved locally!");
+    saveQueueDraft(queue);
+    showToast("Draft saved locally.");
   };
 
   const tabs: { label: string; icon: React.ReactNode }[] = [
@@ -1354,82 +1143,267 @@ function ManageEmployeesContent() {
     { label: "Hours", icon: <Ic.Clock /> },
   ];
 
+  const MODE_OPTIONS: { id: Mode; label: string; blurb: string; icon: React.ReactNode }[] = [
+    { id: "form",   label: "Form Mode",       blurb: "Capture one employee in detail",   icon: <Ic.Edit />   },
+    { id: "table",  label: "Table Mode",      blurb: "Bulk-enter rows in a spreadsheet", icon: <Ic.Grid />   },
+    { id: "upload", label: "Upload Document", blurb: "Auto-extract from PDF / Excel",    icon: <Ic.Upload /> },
+  ];
+
+  // Sibling-page card styling (matches ManagersPage / EmployeesPage exactly)
+  const siblingCard: React.CSSProperties = {
+    borderRadius: 10,
+    padding: 5,
+    borderWidth: 2, borderStyle: "solid", borderColor: BRAND.cardBorder,
+    boxShadow: BRAND.cardShadow,
+    background: "#fff",
+  };
+  const siblingCardTitle: React.CSSProperties = {
+    width: "100%", display: "flex", padding: 5,
+    justifyContent: "center", alignItems: "center",
+    fontSize: 16, fontWeight: 800, color: BRAND.ink,
+  };
+  // Pill button (mirrors ButtonBtn / SearchInput pill radius 20)
+  const pillBtn = (variant: "primary" | "secondary" | "ghost" = "primary"): React.CSSProperties => ({
+    display: "inline-flex", alignItems: "center", gap: 6,
+    padding: "9px 18px", borderRadius: 20,
+    fontWeight: 600, fontSize: 13, cursor: "pointer",
+    borderWidth: 2, borderStyle: "solid",
+    background:    variant === "primary" ? BRAND.primary : "#fff",
+    color:         variant === "primary" ? "#fff"        : BRAND.text,
+    borderColor:   variant === "primary" ? BRAND.primary : BRAND.cardBorder,
+    boxShadow:     variant === "primary" ? BRAND.primaryGlow : "none",
+    transition: "transform .12s ease, box-shadow .12s ease",
+    opacity: variant === "ghost" ? 0.85 : 1,
+  });
+
   return (
-    <div style={{ padding: 24, background: "#f9f7f5", minHeight: "100vh" }}>
+    <div className="container-fluid mt-3 mb-5 w-100" style={{ padding: "0 12px" }}>
+      {/* Scoped CSS for interactive states that cannot be expressed inline */}
+      <style>{`
+        .me-page input:not([type=checkbox]):not([type=radio]):focus,
+        .me-page select:focus,
+        .me-page textarea:focus {
+          border-color: ${BRAND.primary} !important;
+          box-shadow: 0 0 0 4px ${BRAND.primary}1f !important;
+        }
+        .me-page input:hover:not(:focus):not([readonly]),
+        .me-page select:hover:not(:focus),
+        .me-page textarea:hover:not(:focus) {
+          border-color: ${BRAND.tint300} !important;
+        }
+        .me-btn { transition: transform .12s ease, box-shadow .15s ease, background .15s ease, border-color .15s ease; }
+        .me-btn:hover { transform: translateY(-1px); }
+        .me-btn:active { transform: translateY(0); }
+        .me-tile { transition: transform .15s ease, border-color .15s ease, background .15s ease, box-shadow .15s ease; }
+        .me-tile:hover { transform: translateY(-2px); box-shadow: 0 6px 18px rgba(15,23,42,0.06); border-color: ${BRAND.tint300} !important; }
+        .me-step { transition: color .18s ease, background .18s ease; }
+        .me-step:hover .me-step-num { box-shadow: 0 0 0 4px ${BRAND.primary}1a; }
+        .me-queue-card { transition: transform .15s ease, box-shadow .15s ease, border-color .15s ease; }
+        .me-queue-card:hover { transform: translateY(-1px); box-shadow: 0 6px 14px rgba(15,23,42,0.06); }
+        .me-scroll::-webkit-scrollbar { width: 8px; height: 8px; }
+        .me-scroll::-webkit-scrollbar-track { background: transparent; }
+        .me-scroll::-webkit-scrollbar-thumb { background: ${BRAND.tint200}; border-radius: 999px; }
+        .me-scroll::-webkit-scrollbar-thumb:hover { background: ${BRAND.tint300}; }
+        @keyframes meFadeIn { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: translateY(0); } }
+        .me-fade { animation: meFadeIn .25s ease both; }
+      `}</style>
       {/* Toast */}
       {toast && (
         <div style={{
-          position: "fixed", top: 80, right: 20, zIndex: 99999,
-          padding: "14px 20px", background: toast.type === "success" ? "#10b981" : "#f04438",
-          color: "#fff", borderRadius: 8, boxShadow: "0 4px 12px rgba(0,0,0,0.15)",
-          display: "flex", alignItems: "center", gap: 10, fontSize: 13, fontWeight: 500,
+          position: "fixed", top: 84, right: 24, zIndex: 9999,
+          padding: "12px 18px", borderRadius: 12,
+          background: toast.type === "success" ? BRAND.successBg : "#fef2f2",
+          color:      toast.type === "success" ? "#027a48"        : "#b42318",
+          border: `1px solid ${toast.type === "success" ? BRAND.successLine : "#fecaca"}`,
+          display: "flex", alignItems: "center", gap: 10, fontSize: 14, fontWeight: 500,
+          boxShadow: "0 12px 28px rgba(16,24,40,0.12)",
         }}>
           {toast.type === "success" ? <Ic.CheckCircle /> : <Ic.AlertCircle />}
           {toast.msg}
         </div>
       )}
 
-      {/* Header */}
-      <div style={{ background: "#fff", padding: "20px 28px", borderRadius: 16, display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 20, boxShadow: "0 1px 3px rgba(16,24,40,0.08)", border: "1px solid #e4e7ec" }}>
-        <div>
-          <h1 style={{ fontSize: 22, fontWeight: 700, color: "#1d2939", marginBottom: 3 }}>Employee Management</h1>
-          <p style={{ color: "#667085", fontSize: 13 }}>Comprehensive employee management with UIF, ETI, SDL & OID compliance</p>
-        </div>
-        <div style={{ display: "flex", gap: 10 }}>
-          <button onClick={saveDraft} style={S.btn("secondary")}><Ic.Save /> Save Draft</button>
-          <button onClick={() => window.history.back()} style={S.btn("secondary")}><Ic.X /></button>
-        </div>
-      </div>
+      <div className="me-page" style={{ width: "100%" }}>
+        {/* ── Top action row — mirrors sibling pages exactly ──────────────── */}
+        <div className="mt-3 mb-3" style={{
+          width: "100%",
+          display: "flex", justifyContent: "space-between", alignItems: "center",
+          gap: 16, flexWrap: "wrap",
+        }}>
+          {/* Title pill — same dimensions as sibling SearchInput */}
+          <div style={{
+            width: 300, height: "3em",
+            display: "flex", alignItems: "center",
+            background: "#ffffff",
+            paddingTop: ".58rem", paddingBottom: ".5rem",
+            paddingLeft: "1rem", paddingRight: "1rem",
+            marginRight: 32,
+            border: "solid", borderWidth: 0.1,
+            borderRadius: 20,
+            gap: 10,
+          }}>
+            <span style={{
+              width: 28, height: 28, borderRadius: "50%",
+              background: BRAND.primary, color: "#fff",
+              display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0,
+            }}><Ic.Users /></span>
+            <div style={{ minWidth: 0 }}>
+              <div style={{ fontSize: 14, fontWeight: 700, color: BRAND.ink, lineHeight: 1.15 }}>
+                Manage Employees
+              </div>
+              <div style={{ fontSize: 11, color: BRAND.textMuted, lineHeight: 1.2 }}>
+                UIF · ETI · SDL · OID compliance
+              </div>
+            </div>
+          </div>
 
-      {/* Mode Selector */}
-      <div style={{ background: "#fff", padding: "16px 20px", borderRadius: 16, marginBottom: 20, boxShadow: "0 1px 3px rgba(16,24,40,0.08)", border: "1px solid #e4e7ec" }}>
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 10 }}>
-          {([["form","Form Mode",<Ic.Edit />],["table","Table Mode",<Ic.Grid />],["upload","Upload Document",<Ic.Upload />]] as [Mode, string, React.ReactNode][]).map(([m, label, icon]) => (
-            <button key={m} type="button" onClick={() => setMode(m)} style={{
-              display: "flex", flexDirection: "column", alignItems: "center", gap: 6, padding: 14,
-              border: `1.5px solid ${mode === m ? "#E6A79E" : "#e4e7ec"}`,
-              borderRadius: 10, cursor: "pointer", background: mode === m ? "#E6A79E11" : "#fff",
-              color: mode === m ? "#c47b72" : "#667085", fontWeight: mode === m ? 600 : 400,
-              fontSize: 13, transition: "all 0.15s",
+          {/* Right actions — pill buttons mirroring sibling ButtonBtn */}
+          <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap", fontSize: 18, fontWeight: "bolder" }}>
+            <span style={{
+              display: "inline-flex", alignItems: "center", gap: 6,
+              padding: "8px 14px", borderRadius: 20,
+              background: BRAND.tint100, color: BRAND.primaryDeep,
+              border: `2px solid ${BRAND.tint200}`,
+              fontSize: 13, fontWeight: 700,
             }}>
-              {icon} {label}
-            </button>
-          ))}
+              <Ic.Inbox /> {queue.length} in queue
+            </span>
+            <button className="me-btn" onClick={saveDraft} style={pillBtn("secondary")}><Ic.Save /> Save Draft</button>
+            <button className="me-btn" onClick={() => window.history.back()} aria-label="Close" title="Close"
+              style={{ ...pillBtn("secondary"), padding: "9px 12px" }}><Ic.X /></button>
+          </div>
         </div>
-      </div>
+
+        {/* ── Mode Selector — sibling-style bordered Card ─────────────────── */}
+        <div style={{ ...siblingCard, padding: "12px 14px", marginBottom: 14 }}>
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(3, minmax(0, 1fr))", gap: 10 }}>
+            {MODE_OPTIONS.map(opt => {
+              const active = mode === opt.id;
+              return (
+                <button key={opt.id} type="button" className="me-tile" onClick={() => setMode(opt.id)} style={{
+                  textAlign: "left", cursor: "pointer",
+                  display: "flex", alignItems: "center", gap: 12,
+                  padding: "10px 14px", borderRadius: 10,
+                  background: active ? BRAND.tint100 : "#fff",
+                  border: `2px solid ${active ? BRAND.primary : BRAND.cardBorder}`,
+                  position: "relative",
+                }}>
+                  <span style={{
+                    width: 38, height: 38, borderRadius: "50%", flexShrink: 0,
+                    background: active ? BRAND.primary : `${BRAND.primary}1a`,
+                    color: active ? "#fff" : BRAND.primary,
+                    display: "flex", alignItems: "center", justifyContent: "center",
+                  }}>{opt.icon}</span>
+                  <span style={{ minWidth: 0, flex: 1 }}>
+                    <span style={{
+                      display: "block", fontSize: 14, fontWeight: 700,
+                      color: active ? BRAND.primaryDeep : BRAND.ink,
+                    }}>{opt.label}</span>
+                    <span style={{ display: "block", fontSize: 12, color: BRAND.textMuted, marginTop: 2 }}>
+                      {opt.blurb}
+                    </span>
+                  </span>
+                  {active && (
+                    <span aria-hidden style={{
+                      width: 20, height: 20, borderRadius: "50%",
+                      background: BRAND.primary, color: "#fff",
+                      display: "flex", alignItems: "center", justifyContent: "center",
+                      flexShrink: 0,
+                    }}><Ic.Check /></span>
+                  )}
+                </button>
+              );
+            })}
+          </div>
+        </div>
 
       {/* Main Grid */}
-      <div style={{ display: "grid", gridTemplateColumns: "1fr 340px", gap: 20 }}>
-        {/* Left Panel */}
-        <div style={{ background: "#fff", borderRadius: 16, boxShadow: "0 1px 3px rgba(16,24,40,0.08)", border: "1px solid #e4e7ec", overflow: "hidden" }}>
+      <div style={{ display: "grid", gridTemplateColumns: "1fr 340px", gap: 16 }}>
+        {/* Left Panel — sibling-style bordered Card with centered title */}
+        <div style={{ ...siblingCard, padding: 0, overflow: "hidden", display: "flex", flexDirection: "column" }}>
+          <div style={{ ...siblingCardTitle, padding: "14px 5px 6px" }}>
+            {mode === "form" ? "Employee Form" : mode === "table" ? "Bulk Entry Table" : "Document Upload"}
+          </div>
+          <div style={{
+            textAlign: "center", fontSize: 12, color: BRAND.textMuted,
+            padding: "0 16px 12px", borderBottom: `1px solid ${BRAND.borderSoft}`,
+          }}>
+            {mode === "form"
+              ? (getFullName(form) ? <>Editing: <strong style={{ color: BRAND.text }}>{getFullName(form)}</strong> · Section <strong style={{ color: BRAND.primaryDeep }}>{activeTab}</strong> of 6</> : <>Fill in all 6 sections, then add to the queue</>)
+              : mode === "table"
+                ? <>{tableRows.length} draft row{tableRows.length === 1 ? "" : "s"}</>
+                : <>Drop a PDF, DOCX, or spreadsheet — we&apos;ll extract the fields</>}
+          </div>
 
           {/* FORM MODE */}
           {mode === "form" && (
             <>
-              {/* Tab Navigation */}
-              <div style={{ display: "flex", borderBottom: "1px solid #f2f4f7", overflowX: "auto" }}>
-                {tabs.map((tab, i) => {
-                  const tabNum = (i + 1) as FormTab;
-                  const active = activeTab === tabNum;
-                  return (
-                    <button key={i} type="button" onClick={() => setActiveTab(tabNum)} style={{
-                      display: "flex", flexDirection: "column", alignItems: "center", gap: 4,
-                      padding: "14px 16px", border: "none", cursor: "pointer",
-                      background: active ? "#fff" : "transparent",
-                      color: active ? "#E6A79E" : "#667085",
-                      borderBottom: active ? "2px solid #E6A79E" : "2px solid transparent",
-                      fontWeight: active ? 600 : 400, fontSize: 11, whiteSpace: "nowrap",
-                      transition: "all 0.15s", minWidth: 80,
-                    }}>
-                      {tab.icon}
-                      <span>Tab {tabNum}: {tab.label}</span>
-                    </button>
-                  );
-                })}
+              {/* Numbered stepper */}
+              <div style={{ padding: "18px 24px 8px", background: "#fff" }}>
+                <div className="me-scroll" style={{ overflowX: "auto", paddingBottom: 4 }}>
+                  <div style={{ display: "flex", alignItems: "center", gap: 4, minWidth: "max-content" }}>
+                    {tabs.map((tab, i) => {
+                      const tabNum = (i + 1) as FormTab;
+                      const active = activeTab === tabNum;
+                      const completed = tabNum < activeTab;
+                      return (
+                        <React.Fragment key={i}>
+                          <button type="button" className="me-step" onClick={() => setActiveTab(tabNum)} style={{
+                            display: "flex", alignItems: "center", gap: 10,
+                            padding: "8px 14px 8px 8px", border: "none", borderRadius: 999,
+                            background: active ? BRAND.tint100 : "transparent",
+                            cursor: "pointer", whiteSpace: "nowrap",
+                            color: active ? BRAND.primaryDeep : completed ? BRAND.ink : BRAND.textMuted,
+                          }}>
+                            <span className="me-step-num" style={{
+                              width: 28, height: 28, borderRadius: "50%", flexShrink: 0,
+                              display: "flex", alignItems: "center", justifyContent: "center",
+                              fontSize: 12, fontWeight: 800,
+                              background: active
+                                ? `linear-gradient(135deg, ${BRAND.primary} 0%, ${BRAND.primaryDark} 100%)`
+                                : completed ? BRAND.success : "#fff",
+                              color: active || completed ? "#fff" : BRAND.textMuted,
+                              border: active ? "none" : `1.5px solid ${completed ? BRAND.success : BRAND.border}`,
+                              boxShadow: active ? BRAND.primaryGlow : "none",
+                              transition: "background .2s ease, box-shadow .2s ease",
+                            }}>
+                              {completed ? <Ic.Check /> : tabNum}
+                            </span>
+                            <span style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 12.5, fontWeight: active ? 700 : 600 }}>
+                              <span style={{ opacity: 0.85 }}>{tab.icon}</span>
+                              <span>{tab.label}</span>
+                            </span>
+                          </button>
+                          {i < tabs.length - 1 && (
+                            <span aria-hidden style={{
+                              flex: "0 0 18px", height: 2, borderRadius: 2,
+                              background: tabNum < activeTab ? BRAND.success : BRAND.border,
+                            }} />
+                          )}
+                        </React.Fragment>
+                      );
+                    })}
+                  </div>
+                </div>
+                {/* Live progress bar */}
+                <div style={{
+                  marginTop: 12, height: 4, borderRadius: 999,
+                  background: BRAND.tint100, overflow: "hidden",
+                }}>
+                  <div style={{
+                    width: `${(activeTab / 6) * 100}%`, height: "100%",
+                    background: `linear-gradient(90deg, ${BRAND.primary} 0%, ${BRAND.primaryDark} 100%)`,
+                    borderRadius: 999,
+                    transition: "width .3s ease",
+                  }} />
+                </div>
               </div>
 
               {/* Tab Content */}
-              <div style={{ padding: "24px 28px", overflowY: "auto", maxHeight: "calc(100vh - 380px)" }}>
+              <div key={activeTab} className="me-scroll me-fade" style={{
+                padding: "20px 28px 28px", overflowY: "auto",
+                maxHeight: "calc(100vh - 420px)",
+              }}>
                 {activeTab === 1 && <Tab1Personal f={form} upd={upd} />}
                 {activeTab === 2 && <Tab2Contact f={form} upd={upd} />}
                 {activeTab === 3 && <Tab3Employment f={form} upd={upd} />}
@@ -1439,15 +1413,20 @@ function ManageEmployeesContent() {
               </div>
 
               {/* Tab Footer */}
-              <div style={{ padding: "16px 28px", borderTop: "1px solid #f2f4f7", display: "flex", gap: 10, justifyContent: "space-between", background: "#fafafa" }}>
+              <div style={{
+                padding: "14px 24px",
+                borderTop: `1px solid ${BRAND.border}`,
+                background: `linear-gradient(180deg, ${BRAND.tint50} 0%, #ffffff 100%)`,
+                display: "flex", gap: 10, justifyContent: "space-between", flexWrap: "wrap",
+              }}>
                 <div style={{ display: "flex", gap: 8 }}>
-                  {activeTab > 1 && <button type="button" onClick={() => setActiveTab(prev => (prev - 1) as FormTab)} style={S.btn("secondary")}><Ic.ChevronLeft /> Back</button>}
-                  {activeTab < 6 && <button type="button" onClick={() => setActiveTab(prev => (prev + 1) as FormTab)} style={S.btn("primary")}>Next <Ic.ChevronRight /></button>}
+                  {activeTab > 1 && <button type="button" className="me-btn" onClick={() => setActiveTab(prev => (prev - 1) as FormTab)} style={S.btn("secondary")}><Ic.ChevronLeft /> Back</button>}
+                  {activeTab < 6 && <button type="button" className="me-btn" onClick={() => setActiveTab(prev => (prev + 1) as FormTab)} style={S.btn("primary")}>Next <Ic.ChevronRight /></button>}
                 </div>
-                <div style={{ display: "flex", gap: 8 }}>
-                  <button type="button" onClick={clearForm} style={S.btn("secondary")}><Ic.X /> Clear</button>
-                  <button type="button" onClick={() => addToQueue(true)} style={S.btn("primary")}><Ic.Plus /> Add & Continue</button>
-                  <button type="button" onClick={() => addToQueue(false)} style={{ ...S.btn("success") }}><Ic.CheckCircle /> Add to Queue</button>
+                <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+                  <button type="button" className="me-btn" onClick={clearForm} style={S.btn("secondary")}><Ic.X /> Clear</button>
+                  <button type="button" className="me-btn" onClick={() => addToQueue(true)} style={S.btn("primary")}><Ic.Plus /> Add &amp; Continue</button>
+                  <button type="button" className="me-btn" onClick={() => addToQueue(false)} style={{ ...S.btn("success") }}><Ic.CheckCircle /> Add to Queue</button>
                 </div>
               </div>
             </>
@@ -1472,7 +1451,7 @@ function ManageEmployeesContent() {
 
               {/* Bulk Actions */}
               <div style={{ padding: "0 20px 12px" }}>
-                <div style={{ background: "#f9fafb", border: "1px solid #e4e7ec", borderRadius: 8, padding: "12px 14px" }}>
+                <div style={{ background: "#f9fafb", border: "1px solid #e4e7ec", borderRadius: 8, padding: "5px 7px" }}>
                   <div style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 12, fontWeight: 600, color: "#344054", marginBottom: 8 }}><Ic.Sliders /> Bulk Actions — Apply to empty cells:</div>
                   <div style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center" }}>
                     <select value={bulkDept} onChange={e => setBulkDept(e.target.value)} style={{ padding: "6px 10px", border: "1px solid #d0d5dd", borderRadius: 6, fontSize: 12, background: "#fff" }}>
@@ -1495,12 +1474,18 @@ function ManageEmployeesContent() {
                 </div>
               </div>
 
-              <div style={{ overflowX: "auto", overflowY: "auto", padding: "0 20px 20px", minHeight: "650px", maxHeight: "800px", border: "1px solid #e4e7ec", borderRadius: 8, background: "#fafafa" }}>
-                <table style={{ minWidth: 2800, borderCollapse: "collapse", fontSize: 15 }}>
+              <div className="me-scroll" style={{
+                overflowX: "auto", overflowY: "auto",
+                margin: "0 20px",
+                maxHeight: 420,
+                border: `1px solid ${BRAND.border}`, borderRadius: 8,
+                background: "#fafafa",
+              }}>
+                <table style={{ minWidth: 2200, borderCollapse: "collapse", fontSize: 12.5 }}>
                   <thead>
-                    <tr style={{ background: "#f9fafb", position: "sticky", top: 0 }}>
+                    <tr style={{ background: "#f9fafb", position: "sticky", top: 0, zIndex: 1 }}>
                       {["#","First Name","Surname","Email","ID Type","ID/Passport","Phone","Gender","DOB","Street Address","City","Province","Postal","Department","Position","Emp. Type","Start Date","Annual Salary","Payment Method","Actions"].map(h => (
-                        <th key={h} style={{ padding: "14px 12px", border: "1px solid #e4e7ec", textAlign: "left", fontSize: 14, fontWeight: 700, color: "#344054", whiteSpace: "nowrap", background: "#f9fafb" }}>{h}</th>
+                        <th key={h} style={{ padding: "8px 8px", border: `1px solid ${BRAND.border}`, textAlign: "left", fontSize: 11.5, fontWeight: 700, color: "#344054", whiteSpace: "nowrap", background: "#f9fafb", letterSpacing: 0.2, textTransform: "uppercase" }}>{h}</th>
                       ))}
                     </tr>
                   </thead>
@@ -1512,9 +1497,9 @@ function ManageEmployeesContent() {
                       />
                     ))}
                     {tableRows.length === 0 && (
-                      <tr><td colSpan={20} style={{ padding: 60, textAlign: "center", color: "#98a2b3", fontSize: 15 }}>
-                        <div style={{ marginBottom: 12, fontSize: 40 }}><Ic.Inbox /></div>
-                        No rows yet. Click "Add Row" to start entering employees.
+                      <tr><td colSpan={20} style={{ padding: "32px 20px", textAlign: "center", color: BRAND.textFaint, fontSize: 13 }}>
+                        <div style={{ marginBottom: 8, display: "flex", justifyContent: "center", color: BRAND.tint300 }}><Ic.Inbox /></div>
+                        No rows yet. Click <strong style={{ color: BRAND.text }}>Add Row</strong> to start entering employees.
                       </td></tr>
                     )}
                   </tbody>
@@ -1524,31 +1509,7 @@ function ManageEmployeesContent() {
               <div style={{ padding: "16px 20px", borderTop: "1px solid #f2f4f7", display: "flex", gap: 10 }}>
                 <button type="button" onClick={() => {
                   if (tableRows.length === 0) { alert("No rows to add"); return; }
-                  const items: QueueItem[] = tableRows.map(row => ({
-                    ...defaultForm(),
-                    full_name: row.full_name || "",
-                    first_name: (row.full_name || "").split(" ")[0] || "",
-                    surname: (row.full_name || "").split(" ").slice(1).join(" ") || "",
-                    email: row.email || "",
-                    cell_number: row.phone || "",
-                    phone: row.phone || "",
-                    id_number: row.id_number || "",
-                    identification_type: (row.identification_type || "RSA ID Number") as IdentificationType,
-                    phys_street: row.address_street || "",
-                    phys_city: row.address_city || "",
-                    phys_province: row.address_province || "",
-                    phys_postal: row.address_postal_code || "",
-                    department: row.department || "",
-                    position: row.position || "",
-                    employment_type: (row.employment_type || "Full Time") as EmploymentType,
-                    start_date: row.start_date || "",
-                    annual_salary: row.annual_salary || "",
-                    monthly_salary: row.annual_salary ? (parseFloat(row.annual_salary) / 12).toFixed(2) : "",
-                    payment_method: (row.payment_method || "Bank Transfer") as PaymentMethod,
-                    password: `Temp${Math.random().toString(36).substring(2, 10)}!`,
-                    employee_code: generateRandomEmployeeCode(),
-                    tempId: Date.now().toString() + Math.random().toString(36).substr(2, 9),
-                  }));
+                  const items = tableRows.map(queueItemFromTableRow);
                   setQueue(prev => [...prev, ...items]);
                   setTableRows([]);
                   showToast(`${items.length} employee(s) added to queue!`);
@@ -1589,19 +1550,20 @@ function ManageEmployeesContent() {
                   <p style={{ color: "#98a2b3", fontSize: 12, marginBottom: 20 }}>Supports: PDF, Excel (.xlsx, .xls), CSV, Word (.docx)</p>
                   <input id="fileInput" type="file" accept=".pdf,.xlsx,.xls,.csv,.docx" onChange={async e => {
                     const file = e.target.files?.[0]; if (!file) return;
+                    const token = localStorage.getItem("token");
+                    if (!token) { showToast("Session expired. Please login again.", "error"); return; }
                     setUploading(true);
-                    try {
-                      const token = localStorage.getItem("token");
-                      const formPayload = new FormData(); formPayload.append("document", file);
-                      const res = await fetch("http://localhost:3000/api/v1/onboarding/extract-document", { method: "POST", headers: { "Authorization": `Bearer ${token}` }, body: formPayload });
-                      const data = await res.json();
-                      if (data.success && data.employees?.length) {
-                        const extracted: QueueItem[] = data.employees.map((emp: any) => ({ ...defaultForm(), ...emp, employee_code: generateRandomEmployeeCode(), tempId: Date.now().toString() + Math.random().toString(36).substr(2, 9) }));
-                        setQueue(prev => [...prev, ...extracted]);
-                        showToast(`${extracted.length} employee(s) extracted and added to queue!`);
-                        setMode("form");
-                      } else alert(data.message || "No employee data could be extracted.");
-                    } catch { showToast("Extraction API not available — use Form or Table mode instead.", "error"); }
+                    const result = await extractEmployeeDocument(file, token);
+                    if (result.ok && result.employees?.length) {
+                      const extracted: QueueItem[] = result.employees.map(emp =>
+                        toQueueItem({ ...defaultForm(), ...emp, employee_code: generateRandomEmployeeCode() } as Employee),
+                      );
+                      setQueue(prev => [...prev, ...extracted]);
+                      showToast(`${extracted.length} employee(s) extracted and added to queue!`);
+                      setMode("form");
+                    } else {
+                      showToast(result.message || "Extraction API not available — use Form or Table mode instead.", "error");
+                    }
                     setUploading(false);
                   }} style={{ display: "none" }} />
                   <button type="button" onClick={e => { e.stopPropagation(); document.getElementById("fileInput")?.click(); }} style={S.btn("primary")}><Ic.Upload /> Choose File</button>
@@ -1622,15 +1584,35 @@ function ManageEmployeesContent() {
           )}
         </div>
 
-        {/* Right Panel – Queue */}
-        <div style={{ background: "#fff", borderRadius: 16, boxShadow: "0 1px 3px rgba(16,24,40,0.08)", border: "1px solid #e4e7ec", display: "flex", flexDirection: "column", position: "sticky", top: 20, maxHeight: "calc(100vh - 44px)" }}>
-          <div style={{ padding: "16px 20px", borderBottom: "1px solid #f2f4f7", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-            <h3 style={{ fontSize: 15, fontWeight: 600, color: "#1d2939" }}>Onboarding Queue</h3>
-            <span style={{ background: "#E6A79E", color: "#fff", padding: "3px 10px", borderRadius: 10, fontSize: 12, fontWeight: 700 }}>{queue.length}</span>
+        {/* Right Panel – Queue (sibling-style bordered Card with centered title) */}
+        <div style={{
+          ...siblingCard, padding: 0,
+          display: "flex", flexDirection: "column",
+          position: "sticky", top: 20, maxHeight: "calc(100vh - 44px)",
+          overflow: "hidden",
+        }}>
+          <div style={{ ...siblingCardTitle, padding: "14px 5px 10px", gap: 10 }}>
+            <span>Onboarding Queue</span>
+            <span style={{
+              background: BRAND.primary, color: "#fff",
+              padding: "2px 10px", borderRadius: 999,
+              fontSize: 12, fontWeight: 700, minWidth: 26, textAlign: "center",
+              marginLeft: 8,
+            }}>{queue.length}</span>
           </div>
 
           {/* Summary card */}
-          <div style={{ background: "linear-gradient(135deg, #E6A79E, #d07b71)", margin: "16px 16px 0", borderRadius: 12, padding: "14px 16px", color: "#fff" }}>
+          <div style={{
+            background: `linear-gradient(135deg, ${BRAND.primary} 0%, ${BRAND.primaryDark} 100%)`,
+            margin: "16px 16px 0", borderRadius: 12, padding: "16px 18px", color: "#fff",
+            boxShadow: "0 6px 18px rgba(15,107,142,0.20)",
+            position: "relative", overflow: "hidden",
+          }}>
+            <div aria-hidden style={{
+              position: "absolute", inset: 0,
+              background: "radial-gradient(circle at 85% 0%, rgba(255,255,255,0.20) 0%, transparent 60%)",
+              pointerEvents: "none",
+            }} />
             <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
               <Ic.Users />
               <div>
@@ -1648,12 +1630,23 @@ function ManageEmployeesContent() {
             )}
           </div>
 
-          <div style={{ flex: 1, overflowY: "auto", padding: "12px 16px" }}>
+          <div className="me-scroll" style={{ flex: 1, overflowY: "auto", padding: "12px 16px" }}>
             {queue.length === 0 ? (
-              <div style={{ textAlign: "center", padding: "40px 20px", color: "#98a2b3" }}>
-                <div style={{ marginBottom: 10 }}><Ic.Inbox /></div>
-                <div style={{ fontWeight: 600, color: "#344054", fontSize: 13, marginBottom: 6 }}>Queue is empty</div>
-                <div style={{ fontSize: 12 }}>Add employees using the form, table, or upload mode</div>
+              <div style={{ textAlign: "center", padding: "48px 16px" }}>
+                <div style={{
+                  width: 64, height: 64, margin: "0 auto 14px",
+                  borderRadius: "50%",
+                  background: `linear-gradient(135deg, ${BRAND.tint100} 0%, ${BRAND.tint200} 100%)`,
+                  border: `1px solid ${BRAND.tint200}`,
+                  color: BRAND.primary,
+                  display: "flex", alignItems: "center", justifyContent: "center",
+                }}><Ic.Inbox /></div>
+                <div style={{ fontWeight: 700, color: BRAND.ink, fontSize: 14, marginBottom: 4 }}>
+                  Your queue is empty
+                </div>
+                <div style={{ fontSize: 12, color: BRAND.textMuted, maxWidth: 220, margin: "0 auto" }}>
+                  Add employees using <strong>Form</strong>, <strong>Table</strong>, or <strong>Upload</strong> mode to begin onboarding.
+                </div>
               </div>
             ) : (
               queue.map((item, i) => (
@@ -1662,32 +1655,55 @@ function ManageEmployeesContent() {
             )}
           </div>
 
-          <div style={{ padding: "14px 16px", borderTop: "1px solid #f2f4f7", display: "flex", flexDirection: "column", gap: 8 }}>
+          <div style={{
+            padding: "14px 16px",
+            borderTop: `1px solid ${BRAND.border}`,
+            background: `linear-gradient(180deg, ${BRAND.tint50} 0%, #ffffff 100%)`,
+            display: "flex", flexDirection: "column", gap: 8,
+          }}>
             {queue.length > 0 && (
-              <button type="button" onClick={() => { if (window.confirm("Clear all employees from queue?")) setQueue([]); }} style={S.btn("secondary")}><Ic.Trash /> Clear All</button>
+              <button type="button" className="me-btn" onClick={() => { if (window.confirm("Clear all employees from queue?")) setQueue([]); }} style={S.btn("secondary")}><Ic.Trash /> Clear All</button>
             )}
-            <button type="button" onClick={processQueue} disabled={queue.length === 0 || processing}
-              style={{ ...S.btn(queue.length === 0 ? "secondary" : "success"), opacity: queue.length === 0 ? 0.5 : 1, cursor: queue.length === 0 ? "not-allowed" : "pointer" }}>
+            <button type="button" className="me-btn" onClick={processQueue} disabled={queue.length === 0 || processing}
+              style={{ ...S.btn(queue.length === 0 ? "secondary" : "success"), opacity: queue.length === 0 ? 0.55 : 1, cursor: queue.length === 0 ? "not-allowed" : "pointer" }}>
               {processing ? "Processing..." : <><Ic.ArrowRight /> Process All ({queue.length})</>}
             </button>
           </div>
         </div>
       </div>
 
-      {/* Footer tip */}
-      <div style={{ marginTop: 20, background: "linear-gradient(135deg, #ecf3ff, #dde9ff)", padding: "14px 20px", borderRadius: 12, display: "flex", alignItems: "center", gap: 8, color: "#3641f5", fontSize: 13, fontWeight: 500, border: "1px solid #9cb9ff" }}>
-        <Ic.Lightbulb />
-        <span>Complete all 6 tabs for full compliance data including UIF, ETI (for under-30 employees), SDL, and OID classification</span>
+        {/* Footer tip — sibling-style bordered Card */}
+        <div className="mt-3" style={{
+          ...siblingCard, padding: "12px 16px",
+          display: "flex", alignItems: "center", gap: 12,
+          color: BRAND.text, fontSize: 12.5,
+        }}>
+          <span style={{
+            width: 30, height: 30, borderRadius: "50%", flexShrink: 0,
+            background: `${BRAND.primary}1a`,
+            color: BRAND.primary,
+            display: "flex", alignItems: "center", justifyContent: "center",
+          }}><Ic.Lightbulb /></span>
+          <span>
+            <strong style={{ color: BRAND.ink }}>Pro tip:</strong> complete all 6 sections per employee for full compliance coverage — UIF, ETI (under-30), SDL and OID classification are all derived from the data you capture here.
+          </span>
+        </div>
       </div>
     </div>
   );
 }
 
 // ─── Export ───────────────────────────────────────────────────────────────────
-const ManageEmployees: React.FC = () => (
-  <SharedLayout title="Manage Employees">
+// `embedded` skips the SharedLayout wrapper so this page can be rendered
+// inside another shell (e.g. when the Owner dashboard mounts it under one of
+// its own routes that already provides chrome).
+const ManageEmployees: React.FC<{ embedded?: boolean }> = ({ embedded = false }) =>
+  embedded ? (
     <ManageEmployeesContent />
-  </SharedLayout>
-);
+  ) : (
+    <SharedLayout title="Manage Employees">
+      <ManageEmployeesContent />
+    </SharedLayout>
+  );
 
 export default ManageEmployees;

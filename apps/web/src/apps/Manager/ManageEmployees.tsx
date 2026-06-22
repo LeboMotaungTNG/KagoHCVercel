@@ -2082,11 +2082,16 @@ function ManageEmployeesContent() {
 }
 
 // ==================== MAIN EXPORT ====================
-const ManageEmployees: React.FC = () => (
-  <SharedLayout title="Manage Employees">
+// `embedded` lets the Owner dashboard render the page body without the
+// Manager SharedLayout (it provides its own shell).
+const ManageEmployees: React.FC<{ embedded?: boolean }> = ({ embedded = false }) =>
+  embedded ? (
     <ManageEmployeesContent />
-  </SharedLayout>
-);
+  ) : (
+    <SharedLayout title="Manage Employees">
+      <ManageEmployeesContent />
+    </SharedLayout>
+  );
 
 export default ManageEmployees;
 

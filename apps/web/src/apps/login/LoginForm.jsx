@@ -3,6 +3,7 @@ import { Link, useNavigate } from "react-router-dom";
 import { Row, Col, Form, Input, FormFeedback, Label } from "reactstrap";
 import { useFormik } from "formik";
 import * as Yup from "yup";
+import { AiOutlineEye, AiOutlineEyeInvisible } from "react-icons/ai";
 
 import logoKago from "../../assets/images/kago-logo.png";
 import ButtonSubmit from "./ButtonSubmit";
@@ -21,6 +22,7 @@ const LoginForm = () => {
   const navigate = useNavigate();
   const [loginError, setLoginError] = useState("");
   const [pending, setPending] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
 
   const validation = useFormik({
     enableReinitialize: true,
@@ -139,20 +141,48 @@ const LoginForm = () => {
               
               <div className="mb-3">
                 <Label className="form-label">Password</Label>
-                <Input
-                  name="password"
-                  type="password"
-                  placeholder="Enter Password"
-                  onChange={validation.handleChange}
-                  onBlur={validation.handleBlur}
-                  value={validation.values.password}
-                  disabled={pending}
-                  invalid={
-                    validation.touched.password && validation.errors.password
-                      ? true
-                      : false
-                  }
-                />
+                <div style={{ position: "relative" }}>
+                  <Input
+                    name="password"
+                    type={showPassword ? "text" : "password"}
+                    placeholder="Enter Password"
+                    onChange={validation.handleChange}
+                    onBlur={validation.handleBlur}
+                    value={validation.values.password}
+                    disabled={pending}
+                    style={{ paddingRight: 44 }}
+                    invalid={
+                      validation.touched.password && validation.errors.password
+                        ? true
+                        : false
+                    }
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowPassword((v) => !v)}
+                    aria-label={showPassword ? "Hide password" : "Show password"}
+                    title={showPassword ? "Hide password" : "Show password"}
+                    tabIndex={-1}
+                    style={{
+                      position: "absolute",
+                      right: 8,
+                      top: "50%",
+                      transform: "translateY(-50%)",
+                      background: "transparent",
+                      border: "none",
+                      padding: 6,
+                      borderRadius: 6,
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                      color: "#667085",
+                      cursor: "pointer",
+                      lineHeight: 0,
+                    }}
+                  >
+                    {showPassword ? <AiOutlineEyeInvisible size={20} /> : <AiOutlineEye size={20} />}
+                  </button>
+                </div>
                 {validation.touched.password && validation.errors.password ? (
                   <FormFeedback type="invalid">
                     <div> {validation.errors.password} </div>

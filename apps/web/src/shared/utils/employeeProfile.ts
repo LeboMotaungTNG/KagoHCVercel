@@ -1,6 +1,6 @@
 
 
-import { API_URL, C, safeJson, unwrapArray, getInitials, avatarBg } from "./employee";
+import { API_URL, C, safeJson, unwrapArray, unwrapSuccessData, getInitials, avatarBg } from "./employee";
 
 /* ─────────────────────────────────────────────────────────────────────────────
  * Types
@@ -256,7 +256,7 @@ export const profileCompletion = (p: EmployeeProfileData): number => {
  * Document helpers (pure client side)
  * ────────────────────────────────────────────────────────────────────────── */
 
-const readFileAsDataUrl = (file: File): Promise<string> =>
+export const readFileAsDataUrl = (file: File): Promise<string> =>
   new Promise((resolve, reject) => {
     const r = new FileReader();
     r.onload  = () => resolve(String(r.result || ""));
@@ -372,9 +372,25 @@ const dep = (d: any): string | undefined => {
   return undefined;
 };
 
+const EMPLOYMENT_TYPE_FROM_API: Record<string, EmploymentInfo["employmentType"]> = {
+  permanent: "Permanent",
+  contract: "Contract",
+  intern: "Internship",
+  temporary: "Contract",
+};
+
+const STATUS_FROM_API: Record<string, EmploymentInfo["employmentStatus"]> = {
+  active: "Active",
+  inactive: "Suspended",
+  terminated: "Terminated",
+  on_leave: "On leave",
+};
+
 export const mapApiEmployee = (api: any, user?: any): EmployeeProfileData => {
   if (!api && !user) return EMPTY_PROFILE;
   const a = api || {};
+  const addr = a.address || {};
+  const ec   = a.emergencyContact || {};
   const personal: PersonalInfo = {
     firstName:    a.firstName    || a.first_name   || a.personal_info?.first_name  || user?.firstName || "",
     lastName:     a.lastName     || a.last_name    || a.personal_info?.last_name   || user?.lastName  || "",
@@ -386,40 +402,42 @@ export const mapApiEmployee = (api: any, user?: any): EmployeeProfileData => {
     maritalStatus:a.maritalStatus|| a.marital_status,
     languages:    a.languages    || [],
   };
+  const rawType = (a.employmentType || a.employment_details?.employment_type || "") as string;
+  const rawStat = (a.status         || a.employment_details?.employment_status || "") as string;
   const employment: EmploymentInfo = {
     employeeCode:    a.employeeId || a.employee_code || a.employment_details?.employee_code,
-    position:        a.position   || a.employment_details?.position,
-    department:      dep(a.department) || dep(a.employment_details?.department),
+    position:        a.position   || a.jobTitle      || a.employment_details?.position,
+    department:      dep(a.department) || dep(a.departmentId) || dep(a.employment_details?.department),
     manager:         a.manager    || a.manager_name,
-    hireDate:        a.hireDate   || a.hire_date   || a.employment_details?.hire_date,
-    employmentType:  a.employmentType   || a.employment_details?.employment_type,
-    employmentStatus:a.status            || a.employment_details?.employment_status,
+    hireDate:        a.startDate  || a.hireDate     || a.hire_date || a.employment_details?.hire_date,
+    employmentType:  EMPLOYMENT_TYPE_FROM_API[String(rawType).toLowerCase()] || rawType || undefined,
+    employmentStatus:STATUS_FROM_API[String(rawStat).toLowerCase()] || rawStat || undefined,
     workLocation:    a.workLocation      || a.employment_details?.work_location,
     workSchedule:    a.workSchedule      || a.employment_details?.work_schedule,
-    contractEnd:     a.contractEnd       || a.employment_details?.contract_end,
+    contractEnd:     a.endDate     || a.contractEnd || a.employment_details?.contract_end,
   };
   const contact: ContactInfo = {
     personalEmail: a.personalEmail || a.contact_info?.personal_email,
     workEmail:     a.email         || a.contact_info?.work_email || user?.email,
     personalPhone: a.personalPhone || a.contact_info?.personal_phone || a.phone,
     workPhone:     a.workPhone     || a.contact_info?.work_phone,
-    address:       a.address       || a.contact_info?.address,
-    city:          a.city          || a.contact_info?.city,
-    province:      a.province      || a.contact_info?.state,
-    postalCode:    a.postalCode    || a.contact_info?.postal_code,
-    country:       a.country       || a.contact_info?.country || "South Africa",
+    address:       addr.street     || a.contact_info?.address,
+    city:          addr.city       || a.city          || a.contact_info?.city,
+    province:      addr.state      || a.province      || a.contact_info?.state,
+    postalCode:    addr.postalCode || a.postalCode    || a.contact_info?.postal_code,
+    country:       addr.country    || a.country       || a.contact_info?.country || "South Africa",
   };
   const emergency: EmergencyContact = {
-    name:         a.emergencyContactName  || a.contact_info?.emergency_contact_name,
-    relationship: a.emergencyContactRelation || a.contact_info?.emergency_contact_relation,
-    phone:        a.emergencyContactPhone || a.contact_info?.emergency_contact_phone,
+    name:         ec.name         || a.emergencyContactName    || a.contact_info?.emergency_contact_name,
+    relationship: ec.relationship || a.emergencyContactRelation || a.contact_info?.emergency_contact_relation,
+    phone:        ec.phone        || a.emergencyContactPhone   || a.contact_info?.emergency_contact_phone,
     email:        a.emergencyContactEmail || a.contact_info?.emergency_contact_email,
   };
   const banking: BankingInfo = {
     bankName:      a.bankName      || a.banking_details?.bank_name,
     accountHolder: a.accountHolder || a.banking_details?.account_holder_name,
-    accountNumber: a.accountNumber || a.banking_details?.account_number,
-    branchCode:    a.branchCode    || a.banking_details?.bank_branch,
+    accountNumber: a.bankAccount   || a.accountNumber || a.banking_details?.account_number,
+    branchCode:    a.bankBranch    || a.branchCode    || a.banking_details?.bank_branch,
     accountType:   a.accountType   || a.banking_details?.account_type,
     taxNumber:     a.taxNumber     || a.banking_details?.tax_id,
     uifNumber:     a.uifNumber     || a.banking_details?.uif_number,
@@ -434,7 +452,7 @@ export const mapApiEmployee = (api: any, user?: any): EmployeeProfileData => {
     documents: [],
     activity:  [],
     bio:       a.bio,
-    avatarDataUrl: a.profile_image || a.avatar,
+    avatarDataUrl: a.profileImage || a.profile_image || a.avatar,
   };
 };
 
@@ -442,22 +460,31 @@ export const mapApiEmployee = (api: any, user?: any): EmployeeProfileData => {
  * Loader: merges (cache → API → user) so the page always shows something
  * ────────────────────────────────────────────────────────────────────────── */
 
+export interface EmployeeMeta {
+  /** Mongo `_id` of the employee record – needed to PUT updates back. */
+  employeeId?: string;
+}
+
 export const loadEmployeeProfile = async (
   token?: string | null,
   user?: any,
-): Promise<EmployeeProfileData> => {
+): Promise<EmployeeProfileData & { _meta: EmployeeMeta }> => {
   const cached = loadProfileLocal(user?.email);
 
   let apiRow: any = null;
   if (token) {
     const auth = { headers: { Authorization: `Bearer ${token}` } } as RequestInit;
-    // Try by userId
-    if (user?._id) {
+    // Preferred: dedicated /employees/me endpoint
+    const me = await safeJson(`${API_URL}/employees/me`, auth);
+    const meData = unwrapSuccessData(me);
+    if (meData && typeof meData === "object") apiRow = meData;
+    // Fallback by userId
+    if (!apiRow && user?._id) {
       const byId = await safeJson(`${API_URL}/employees?userId=${user._id}`, auth);
       const arr  = unwrapArray(byId);
       if (arr.length) apiRow = arr[0];
     }
-    // Fallback: pull list and filter by email
+    // Last resort: filter the full list by email
     if (!apiRow && user?.email) {
       const all = await safeJson(`${API_URL}/employees`, auth);
       const arr = unwrapArray(all);
@@ -468,9 +495,86 @@ export const loadEmployeeProfile = async (
   }
 
   const fromApi = mapApiEmployee(apiRow, user);
+  const merged  = cached ? mergeProfiles(fromApi, cached) : fromApi;
+  return { ...merged, _meta: { employeeId: apiRow?._id || apiRow?.id } };
+};
 
-  if (!cached) return fromApi;
-  return mergeProfiles(fromApi, cached);
+/* ─────────────────────────────────────────────────────────────────────────────
+ * Persistence – pushes the editable parts of the profile back to the backend.
+ * Falls back to local cache only if no backend id is known.
+ * ────────────────────────────────────────────────────────────────────────── */
+
+const EMPLOYMENT_TYPE_TO_API: Record<string, string> = {
+  Permanent: "permanent",
+  Contract: "contract",
+  Probation: "permanent",
+  Internship: "intern",
+};
+
+const STATUS_TO_API: Record<string, string> = {
+  Active: "active",
+  "On leave": "on_leave",
+  Suspended: "inactive",
+  Terminated: "terminated",
+};
+
+export const mapProfileToApi = (profile: EmployeeProfileData): Record<string, any> => {
+  const p = profile.personal;
+  const e = profile.employment;
+  const c = profile.contact;
+  const em = profile.emergency;
+  const b = profile.banking;
+
+  const payload: Record<string, any> = {
+    firstName: p.firstName,
+    lastName:  p.lastName,
+    phone:     c.personalPhone || c.workPhone,
+    position:  e.position,
+    jobTitle:  e.position,
+    employmentType: e.employmentType ? EMPLOYMENT_TYPE_TO_API[e.employmentType] || String(e.employmentType).toLowerCase() : undefined,
+    startDate: e.hireDate,
+    endDate:   e.contractEnd,
+    status:    e.employmentStatus ? STATUS_TO_API[e.employmentStatus] || String(e.employmentStatus).toLowerCase() : undefined,
+    bankName:    b.bankName,
+    bankAccount: b.accountNumber,
+    bankBranch:  b.branchCode,
+    taxNumber:   b.taxNumber,
+    profileImage: profile.avatarDataUrl,
+    emergencyContact: (em.name || em.phone || em.relationship) ? {
+      name: em.name || "",
+      relationship: em.relationship || "",
+      phone: em.phone || "",
+    } : undefined,
+    address: (c.address || c.city || c.province || c.postalCode || c.country) ? {
+      street: c.address || "",
+      city: c.city || "",
+      state: c.province || "",
+      country: c.country || "",
+      postalCode: c.postalCode || "",
+    } : undefined,
+  };
+
+  Object.keys(payload).forEach(k => payload[k] === undefined && delete payload[k]);
+  return payload;
+};
+
+export const saveEmployeeProfileToApi = async (
+  employeeId: string,
+  profile: EmployeeProfileData,
+  token: string,
+): Promise<void> => {
+  const res = await fetch(`${API_URL}/employees/${employeeId}`, {
+    method: "PUT",
+    headers: {
+      Authorization: `Bearer ${token}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify(mapProfileToApi(profile)),
+  });
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok && data?.success !== true) {
+    throw new Error(data?.message || data?.error?.message || `Failed to save profile (${res.status})`);
+  }
 };
 
 const mergeShallow = <T extends Record<string, any>>(base: T, over: Partial<T>): T => {

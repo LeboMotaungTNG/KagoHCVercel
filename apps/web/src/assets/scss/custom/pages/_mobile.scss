@@ -1,0 +1,62 @@
+/* ──────────────────────────────────────────────────────────────────────────
+ * System-wide mobile responsiveness — small, surgical rules that target
+ * known layout pain points without touching individual page components.
+ * Applies on tablet (≤ 992 px) and phone (≤ 600 px) breakpoints.
+ * ─────────────────────────────────────────────────────────────────────── */
+
+/* Always keep box-sizing predictable on inputs / cards across the app */
+html, body { -webkit-text-size-adjust: 100%; }
+img, svg { max-width: 100%; height: auto; }
+
+/* ── Tablet & smaller ─────────────────────────────────────────────────── */
+@media (max-width: 992px) {
+  /* Convert any 2-column "form row" CSS grid in the app to 1 column.
+     Many of our pages use `grid-template-columns: 1fr 1fr` for two-up
+     fields — on tablets this becomes unreadable. */
+  .me-page [style*="1fr 1fr"][style*="grid"],
+  .me-page [style*="1fr 1fr 1fr"][style*="grid"] {
+    grid-template-columns: 1fr !important;
+  }
+
+  /* The Manage Employees main grid (form + 340 px queue rail) collapses */
+  .me-page > div[style*="340px"] {
+    grid-template-columns: 1fr !important;
+  }
+  .me-page [style*="position: sticky"] {
+    position: relative !important;
+    max-height: none !important;
+  }
+
+  /* Generic responsive padding on Container / Card surfaces */
+  .container, .container-fluid { padding-left: 12px; padding-right: 12px; }
+}
+
+/* ── Phones ───────────────────────────────────────────────────────────── */
+@media (max-width: 600px) {
+  /* Sidebar / left navigation panels — many of our dashboards use a
+     ~280–320 px fixed left column. Collapse to a single column. */
+  [style*="grid-template-columns: 280px"],
+  [style*="grid-template-columns:280px"],
+  [style*="grid-template-columns: 300px"],
+  [style*="grid-template-columns:300px"],
+  [style*="grid-template-columns: minmax(0, 280px)"],
+  [style*="grid-template-columns: minmax(0,280px)"] {
+    grid-template-columns: 1fr !important;
+  }
+
+  /* Owner dashboard sidebar */
+  .topnav, aside.left-side-menu, .side-menu {
+    display: none !important;
+  }
+  .content-page, .main-content { margin-left: 0 !important; }
+
+  /* Tables that overflow horizontally — always allow scroll */
+  table { display: block; overflow-x: auto; -webkit-overflow-scrolling: touch; }
+
+  /* Tap-targets — minimum 36 px touch height on inline buttons */
+  button, .btn { min-height: 36px; }
+
+  /* Page padding tightening */
+  .mt-3 { margin-top: 0.75rem !important; }
+  .mb-5 { margin-bottom: 1.5rem !important; }
+}

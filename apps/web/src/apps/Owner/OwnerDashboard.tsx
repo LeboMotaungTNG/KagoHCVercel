@@ -13,8 +13,10 @@ import { EmployeesPage } from "./EmployeesPage";
 import { EmployeeReviewPage } from "./EmployeeReviewPage";
 import { OrganizationSettingsPage } from "./OrganizationSettingsPage";
 import { SubscriptionsPage } from "./SubscriptionsPage";
-import OnboardingPage from "./OnboardingPage";
+import OnboardingPage from "../Manager/OnboardingPage";
 import OwnerLeave from "./OwnerLeave";
+import ManageEmployees from "./ManageEmployees";
+import EmployeeProfile from "../Manager/EmployeeProfile";
 
 // --- Owner Dashboard Layout ---
 
@@ -23,7 +25,11 @@ const OwnerSidebar = () => {
   const location = useLocation();
 
   React.useEffect(() => {
-    if (location.pathname.includes('/owner/managers') || location.pathname.includes('/owner/employees')) {
+    if (
+      location.pathname.includes('/owner/managers') ||
+      location.pathname.includes('/owner/employees') ||
+      location.pathname.includes('/owner/manage-employees')
+    ) {
       setIsHumanCapitalOpen(true);
     }
   }, [location.pathname]);
@@ -210,6 +216,8 @@ const OwnerDashboard = () => {
               <Route path="/" element={<OwnerOverview />} />
               <Route path="managers" element={<ManagersPage />} />
               <Route path="employees" element={<EmployeesPage />} />
+              <Route path="manage-employees" element={<ManageEmployees embedded />} />
+              <Route path="profile/:id" element={<EmployeeProfile embedded />} />
               <Route path="leave" element={<OwnerLeave />} />
               <Route path="employee-review" element={<EmployeeReviewPage />} />
               <Route path="organization-settings" element={<OrganizationSettingsPage />} />

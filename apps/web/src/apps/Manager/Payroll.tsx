@@ -1,16 +1,4 @@
-/**
- * Payroll – manager-facing payroll hub.
- *
- * Mirrors the legacy employer `payroll.html` screen at a high level:
- * - Summary cards for payroll metrics
- * - Tabs for Employees, Payroll Run, and Reports
- * - Inline table of employees with basic/net salary
- * - Guided 4-step payroll run flow (setup, select, review, approve)
- *
- * The implementation here is React-only and uses mock data, but the
- * layout and content structure follow the HTML page closely so that
- * it can be wired to real APIs later.
- */
+
 
 import React, { useMemo, useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
@@ -314,7 +302,7 @@ Net Pay: ${formatCurrency(employee.netSalary || employee.basicSalary * 0.81)}
       }),
     });
     if (!response.ok) throw new Error('Failed to update payroll information');
-    // Update local state immediately — no need to re-fetch
+    // Update local state immediately ï¿½ no need to re-fetch
     setEmployees(prev => prev.map(e =>
       e.id === updatedEmployee.id ? updatedEmployee : e
     ));
@@ -718,15 +706,15 @@ Net Pay: ${formatCurrency(employee.netSalary || employee.basicSalary * 0.81)}
                       <td style={{ padding: "12px 16px", fontSize: 14, color: "#344054" }}>
                         <div>
                           <div>
-                            Basic: {emp.onPayroll ? formatCurrency(emp.basicSalary) : "—"}
+                            Basic: {emp.onPayroll ? formatCurrency(emp.basicSalary) : "ï¿½"}
                           </div>
                           <div>
-                            Net: {emp.onPayroll ? formatCurrency(emp.netSalary) : "—"}
+                            Net: {emp.onPayroll ? formatCurrency(emp.netSalary) : "ï¿½"}
                           </div>
                           <div style={{ fontSize: 12, color: "#98a2b3" }}>
                             {emp.onPayroll ? (
                               <>
-                                {emp.paymentFrequency} • {emp.employmentType}
+                                {emp.paymentFrequency} ï¿½ {emp.employmentType}
                               </>
                             ) : (
                               <span style={{ color: "#b45309" }}>Not on payroll</span>
@@ -1215,7 +1203,7 @@ Net Pay: ${formatCurrency(employee.netSalary || employee.basicSalary * 0.81)}
                     {selectedEmployees.length} of {employees.filter((e) => e.onPayroll).length} employees selected
                   </span>
                   <div style={{ color: "#1d4ed8", marginTop: 2 }}>
-                    Est. Gross: {formatCurrency(totalGrossSelected)} • Est. Net:{" "}
+                    Est. Gross: {formatCurrency(totalGrossSelected)} ï¿½ Est. Net:{" "}
                     {formatCurrency(totalNetSelected)}
                   </div>
                 </div>
@@ -1302,7 +1290,7 @@ Net Pay: ${formatCurrency(employee.netSalary || employee.basicSalary * 0.81)}
                                   color: "#98a2b3",
                                 }}
                               >
-                                {emp.department} • {emp.position}
+                                {emp.department} ï¿½ {emp.position}
                               </div>
                             </div>
                           </div>
@@ -1743,7 +1731,7 @@ Net Pay: ${formatCurrency(employee.netSalary || employee.basicSalary * 0.81)}
               }}
             >
               <h5 style={{ margin: "0 0 4px", fontSize: 14, fontWeight: 700, color: "#312e81" }}>
-                EMP201 – Monthly SARS
+                EMP201 ï¿½ Monthly SARS
               </h5>
               <p style={{ margin: "0 0 12px", fontSize: 12, color: "#4f46e5" }}>
                 Employer declaration for PAYE, UIF and SDL.
@@ -1793,7 +1781,7 @@ Net Pay: ${formatCurrency(employee.netSalary || employee.basicSalary * 0.81)}
               }}
             >
               <h5 style={{ margin: "0 0 4px", fontSize: 14, fontWeight: 700, color: "#7f1d1d" }}>
-                EMP501 – Annual Reconciliation
+                EMP501 ï¿½ Annual Reconciliation
               </h5>
               <p style={{ margin: "0 0 12px", fontSize: 12, color: "#b91c1c" }}>
                 Annual employer reconciliation declaration for SARS.
