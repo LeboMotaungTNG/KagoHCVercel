@@ -3,7 +3,7 @@ import { Helmet } from "react-helmet-async";
 import { Calendar, Plus, Clock, CheckCircle, XCircle } from "lucide-react";
 import SharedLayout from "./SharedLayout";
 
-const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000/api/v1';
+const API_URL = import.meta.env.VITE_API_URL || 'https://employee-evaluation-kago-e63baae4d822.herokuapp.com/api/v1';
 
 interface LeaveRequest {
   _id: string;

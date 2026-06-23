@@ -51,7 +51,7 @@ const PromoteToManagerModal: React.FC<PromoteToManagerModalProps> = ({
           setLoading(true);
           setError('');
           const token = localStorage.getItem('token');
-          const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:5000/api/v1';
+          const API_URL = (import.meta as any).env?.VITE_API_URL || 'https://employee-evaluation-kago-e63baae4d822.herokuapp.com/api/v1';
           
           const response = await fetch(`${API_URL}/employees?isManager=false`, {
             headers: { 'Authorization': `Bearer ${token}` }

@@ -2,7 +2,7 @@ import React from "react";
 
 // Constants
 export const PAGE_SIZE = 10;
-export const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:3000/api/v1/leave';
+export const API_BASE = import.meta.env.VITE_API_URL || 'https://employee-evaluation-kago-e63baae4d822.herokuapp.com/api/v1';
 
 // Types
 export type LeaveStatus = "pending" | "approved" | "rejected" | "cancelled";

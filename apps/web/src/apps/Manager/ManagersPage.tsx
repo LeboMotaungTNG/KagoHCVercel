@@ -37,7 +37,7 @@ const ManagersPage: React.FC = () => {
       setLoading(true);
       setError('');
       const token = localStorage.getItem('token');
-      const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000/api/v1';
+      const API_URL = import.meta.env.VITE_API_URL || 'https://employee-evaluation-kago-e63baae4d822.herokuapp.com/api/v1';
 
       const response = await fetch(`${API_URL}/employees?isManager=true`, {
         headers: { 'Authorization': `Bearer ${token}` }
@@ -60,7 +60,7 @@ const ManagersPage: React.FC = () => {
   const handlePromote = async (employeeId: string, managerLevel: string, reason?: string) => {
     try {
       const token = localStorage.getItem('token');
-      const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000/api/v1';
+      const API_URL = import.meta.env.VITE_API_URL || 'https://employee-evaluation-kago-e63baae4d822.herokuapp.com/api/v1';
 
       const response = await fetch(`${API_URL}/employees/${employeeId}/promote-to-manager`, {
         method: 'POST',
@@ -102,7 +102,7 @@ const ManagersPage: React.FC = () => {
     try {
       setLoading(true);
       const token = localStorage.getItem('token');
-      const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000/api/v1';
+      const API_URL = import.meta.env.VITE_API_URL || 'https://employee-evaluation-kago-e63baae4d822.herokuapp.com/api/v1';
 
       const response = await fetch(`${API_URL}/employees/${managerId}/demote-from-manager`, {
         method: 'POST',

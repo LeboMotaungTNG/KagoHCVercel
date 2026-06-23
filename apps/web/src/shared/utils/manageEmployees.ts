@@ -429,7 +429,7 @@ export function validateEmployee(data: Partial<Employee>): ValidationResult {
  * Backend API
  * ────────────────────────────────────────────────────────────────────── */
 
-const API_URL = (import.meta as any).env?.VITE_API_URL || "http://localhost:4000/api/v1";
+const API_URL = (import.meta as any).env?.VITE_API_URL || "https://employee-evaluation-kago-e63baae4d822.herokuapp.com/api/v1";
 
 const authHeaders = (token: string): HeadersInit => ({
   "Content-Type": "application/json",
