@@ -17,6 +17,10 @@ import {
   Bell,
   LogOut,
 } from "lucide-react";
+import {
+  sidebarItemStyle,
+  SidebarHoverStyle,
+} from "../../shared/components/sidebarStyles";
 // @ts-ignore
 import logoKago from "../../assets/images/logo-black-white.png";
 
@@ -27,13 +31,24 @@ export interface SharedLayoutProps {
 
 const ManagerSidebar: React.FC = () => {
   const location = useLocation();
-  const isActive = (path: string) => location.pathname === path;
+  const isActive = (path: string) => location.pathname === path || location.pathname.startsWith(path + "/");
+
+  const items: { to: string; label: string; icon: React.ReactNode }[] = [
+    { to: "/manager",                  label: "Dashboard",          icon: <Home size={20} style={{ marginRight: 10 }} /> },
+    { to: "/manager/profile",          label: "Employee Profile",   icon: <Users size={20} style={{ marginRight: 10 }} /> },
+    { to: "/manager/manage-employees", label: "Manage Employees",   icon: <ListChecks size={20} style={{ marginRight: 10 }} /> },
+    { to: "/manager/employees",        label: "All Employees",      icon: <Users size={20} style={{ marginRight: 10 }} /> },
+    { to: "/manager/attendance",       label: "Attendance",         icon: <Calendar size={20} style={{ marginRight: 10 }} /> },
+    { to: "/manager/leave-requests",   label: "Leave Requests",     icon: <ClipboardList size={20} style={{ marginRight: 10 }} /> },
+    { to: "/manager/payroll",          label: "Payroll Management", icon: <ClipboardList size={20} style={{ marginRight: 10 }} /> },
+  ];
 
   return (
     <div
-      className="vertical-menu"
+      className="vertical-menu kago-sidebar"
       style={{ backgroundColor: "#000", top: 0, zIndex: 1005, paddingTop: "20px" }}
     >
+      <SidebarHoverStyle />
       <div className="h-100" style={{ overflowY: "auto", overflowX: "hidden" }}>
         <div id="sidebar-menu">
           <div className="d-flex mb-5" style={{ padding: "0 20px" }}>
@@ -60,117 +75,23 @@ const ManagerSidebar: React.FC = () => {
               Menu
             </li>
 
-            <li className={isActive("/manager") ? "mm-active" : ""}>
-              <Link
-                to="/manager"
-                className="waves-effect"
-                style={{
-                  color: "rgba(255, 255, 255, 0.75)",
-                  display: "flex",
-                  alignItems: "center",
-                  padding: "10px 20px",
-                }}
-              >
-                <Home size={20} style={{ marginRight: "10px" }} />
-                <span>Dashboard</span>
-              </Link>
-            </li>
-
-            <li className={isActive("/manager/profile") ? "mm-active" : ""}>
-              <Link
-                to="/manager/profile"
-                className="waves-effect"
-                style={{
-                  color: "rgba(255, 255, 255, 0.75)",
-                  display: "flex",
-                  alignItems: "center",
-                  padding: "10px 20px",
-                }}
-              >
-                <Users size={20} style={{ marginRight: "10px" }} />
-                <span>Employee Profile</span>
-              </Link>
-            </li>
-
-            <li className={isActive("/manager/manage-employees") ? "mm-active" : ""}>
-              <Link
-                to="/manager/manage-employees"
-                className="waves-effect"
-                style={{
-                  color: "rgba(255, 255, 255, 0.75)",
-                  display: "flex",
-                  alignItems: "center",
-                  padding: "10px 20px",
-                }}
-              >
-                <ListChecks size={20} style={{ marginRight: "10px" }} />
-                <span>Manage Employees</span>
-              </Link>
-            </li>
-
-            <li className={isActive("/manager/employees") ? "mm-active" : ""}>
-              <Link
-                to="/manager/employees"
-                className="waves-effect"
-                style={{
-                  color: "rgba(255, 255, 255, 0.75)",
-                  display: "flex",
-                  alignItems: "center",
-                  padding: "10px 20px",
-                }}
-              >
-                <Users size={20} style={{ marginRight: "10px" }} />
-                <span>All Employees</span>
-              </Link>
-            </li>
-
-            <li className={isActive("/manager/attendance") ? "mm-active" : ""}>
-              <Link
-                to="/manager/attendance"
-                className="waves-effect"
-                style={{
-                  color: "rgba(255, 255, 255, 0.75)",
-                  display: "flex",
-                  alignItems: "center",
-                  padding: "10px 20px",
-                }}
-              >
-                <Calendar size={20} style={{ marginRight: "10px" }} />
-                <span>Attendance</span>
-              </Link>
-            </li>
-
-            <li className={isActive("/manager/leave-requests") ? "mm-active" : ""}>
-              <Link
-                to="/manager/leave-requests"
-                className="waves-effect"
-                style={{
-                  color: "rgba(255, 255, 255, 0.75)",
-                  display: "flex",
-                  alignItems: "center",
-                  padding: "10px 20px",
-                }}
-              >
-                <ClipboardList size={20} style={{ marginRight: "10px" }} />
-                <span>Leave Requests</span>
-              </Link>
-            </li>
-
-            <li className={isActive("/manager/payroll") ? "mm-active" : ""}>
-              <Link
-                to="/manager/payroll"
-                className="waves-effect"
-                style={{
-                  color: "rgba(255, 255, 255, 0.75)",
-                  display: "flex",
-                  alignItems: "center",
-                  padding: "10px 20px",
-                }}
-              >
-                <ClipboardList size={20} style={{ marginRight: "10px" }} />
-                <span>Payroll Management</span>
-              </Link>
-            </li>
+            {items.map(item => {
+              const active = item.to === "/manager"
+                ? location.pathname === "/manager" || location.pathname === "/manager/"
+                : isActive(item.to);
+              return (
+                <li key={item.to}>
+                  <Link
+                    to={item.to}
+                    className={active ? "sb-active" : ""}
+                    style={sidebarItemStyle(active)}
+                  >
+                    {item.icon}
+                    <span>{item.label}</span>
+                  </Link>
+                </li>
+              );
+            })}
           </ul>
         </div>
       </div>

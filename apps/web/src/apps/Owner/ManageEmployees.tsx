@@ -2,6 +2,7 @@
 import React, { useState, useEffect, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import SharedLayout from "./SharedLayout";
+import PhoneInput from "../../shared/components/PhoneInput";
 import {
   BRAND,
   PROVINCES as provinces,
@@ -164,6 +165,11 @@ function TextInput({ icon, value, onChange, placeholder, type = "text", maxLengt
   icon?: React.ReactNode; value: string; onChange: (v: string) => void;
   placeholder?: string; type?: string; maxLength?: number; readOnly?: boolean;
 }) {
+  // Phone fields are routed to the country-aware PhoneInput automatically
+  // so every phone capture across the form respects the active country.
+  if (type === "tel") {
+    return <PhoneInput value={value || ""} onChange={onChange} readOnly={readOnly} size="md" />;
+  }
   return (
     <div style={S.inputWrap}>
       {icon && <span style={S.iconLeft}>{icon}</span>}
@@ -402,7 +408,7 @@ function Tab2Contact({ f, upd }: { f: Employee; upd: (k: keyof Employee, v: any)
         <FI label="Work Number" icon={<Ic.Phone />}><TextInput value={f.work_number} onChange={v => upd("work_number", v)} placeholder="0111234567" /></FI>
       </div>
       <div style={S.row2}>
-        <FI label="Cell Number" required icon={<Ic.Phone />}><TextInput value={f.cell_number} onChange={v => upd("cell_number", v)} placeholder="0821234567" /></FI>
+        <FI label="Cell Number" required icon={<Ic.Phone />}><TextInput type="tel" value={f.cell_number} onChange={v => upd("cell_number", v)} /></FI>
         <FI label="Alternative Cell" icon={<Ic.Phone />}><TextInput value={f.alt_cell} onChange={v => upd("alt_cell", v)} placeholder="0831234567" /></FI>
       </div>
       <div style={S.row2}>
@@ -420,8 +426,8 @@ function Tab2Contact({ f, upd }: { f: Employee; upd: (k: keyof Employee, v: any)
         <FI label="Relationship" required><SelectInput value={f.emergency_rel} onChange={v => upd("emergency_rel", v)}><option value="">Select</option>{["Spouse","Parent","Sibling","Friend","Other"].map(r => <option key={r}>{r}</option>)}</SelectInput></FI>
       </div>
       <div style={S.row2}>
-        <FI label="Primary Phone" required icon={<Ic.Phone />}><TextInput value={f.emergency_phone1} onChange={v => upd("emergency_phone1", v)} /></FI>
-        <FI label="Secondary Phone" icon={<Ic.Phone />}><TextInput value={f.emergency_phone2} onChange={v => upd("emergency_phone2", v)} /></FI>
+        <FI label="Primary Phone" required icon={<Ic.Phone />}><TextInput type="tel" value={f.emergency_phone1} onChange={v => upd("emergency_phone1", v)} /></FI>
+        <FI label="Secondary Phone" icon={<Ic.Phone />}><TextInput type="tel" value={f.emergency_phone2} onChange={v => upd("emergency_phone2", v)} /></FI>
       </div>
       <FI label="Emergency Email" icon={<Ic.Mail />}><TextInput type="email" value={f.emergency_email} onChange={v => upd("emergency_email", v)} /></FI>
       <FI label="Medical Conditions / Alerts" icon={<Ic.Activity />}>

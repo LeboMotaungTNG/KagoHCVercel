@@ -4,6 +4,9 @@ import {
   Landmark, MapPin, Plus, Receipt, Save, Shield, Sparkles, Trash2,
   UserCog, UserPlus, Users, UserSquare2, X,
 } from "lucide-react";
+import { useCountry } from "../../shared/contexts/CountryContext";
+import PhoneInput from "../../shared/components/PhoneInput";
+import { getCountryProfile } from "../../shared/utils/country";
 import {
   type Administrator,
   type AdministratorDraft,
@@ -179,6 +182,10 @@ const Field: React.FC<FieldProps> = ({ label, value, editing, type = "text", pla
           <option value="">Select…</option>
           {options.map(opt => <option key={opt} value={opt}>{opt}</option>)}
         </select>
+      ) : type === "tel" ? (
+        // Smart phone field tied to the active country (locked dial code,
+        // local placeholder, local-only validation).
+        <PhoneInput value={value || ""} onChange={v => onChange?.(v)} />
       ) : (
         <input
           style={inputStyle}
@@ -222,7 +229,18 @@ const OnboardingPage: React.FC = () => {
   // Wizard state
   const [currentStep, setCurrentStep] = useState<StepId>(1);
   const [completedSteps, setCompletedSteps] = useState<number[]>([]);
-  const [country, setCountry] = useState<string>("South Africa");
+
+  // Country lives in a global context so it can influence phone inputs,
+  // compliance rules, etc. across the whole app. The local component
+  // mirror keeps the existing render code unchanged.
+  const { country, setCountry: setActiveCountry } = useCountry();
+  const setCountry = (next: string) => {
+    setActiveCountry(next);
+    // Mirror onto the company drafts so the field is included in the
+    // very next save (whether triggered by Continue or by Edit Details).
+    setCompany(c => ({ ...c, country: next, address: { ...c.address, country: next } }));
+    setCompanyDraft(c => ({ ...c, country: next, address: { ...c.address, country: next } }));
+  };
 
   // Company
   const [company, setCompany] = useState<CompanyData>(EMPTY_COMPANY);
@@ -252,7 +270,7 @@ const OnboardingPage: React.FC = () => {
   useEffect(() => {
     const cached = loadCache();
     if (cached) {
-      setCountry(cached.country || "South Africa");
+      if (cached.country) setActiveCountry(cached.country);
       setCompany(cached.company || EMPTY_COMPANY);
       setCompanyDraft(cached.company || EMPTY_COMPANY);
       setAdministrators(cached.administrators || []);
@@ -265,6 +283,12 @@ const OnboardingPage: React.FC = () => {
           const merged = { ...EMPTY_COMPANY, ...(cached?.company || {}), ...remote } as CompanyData;
           setCompany(merged);
           setCompanyDraft(merged);
+          // Backend is the source of truth — if it has a country, sync the
+          // global context so phone inputs across the system pick it up.
+          const remoteCountry =
+            (remote as any)?.country ||
+            (remote as any)?.address?.country;
+          if (remoteCountry) setActiveCountry(remoteCountry);
         }
       } catch (err) { console.warn("Could not load company settings:", err); }
     })();
@@ -280,6 +304,20 @@ const OnboardingPage: React.FC = () => {
   const advanceFromStep = (id: StepId) => {
     setCompletedSteps(prev => Array.from(new Set([...prev, id])));
     if (id < 4) setCurrentStep((id + 1) as StepId);
+
+    // When leaving the Country step, persist the country to the backend
+    // so it becomes the system-wide default immediately. We fire and
+    // forget — UI doesn't block on this.
+    if (id === 1) {
+      const next: CompanyData = {
+        ...company,
+        country,
+        address: { ...company.address, country },
+      };
+      saveCompanySettings(next)
+        .then(() => setCompany(next))
+        .catch(() => { /* silent — cached locally regardless */ });
+    }
   };
 
   const handleCompleteOnboarding = async () => {
@@ -635,44 +673,81 @@ const CountryStep: React.FC<{
   country: string;
   onChange: (c: string) => void;
   onContinue: () => void;
-}> = ({ country, onChange, onContinue }) => (
-  <Section
-    icon={<Globe2 size={20} />} iconColor={OC.blue}
-    title="Country Selection"
-    subtitle="Auto-loads SADC compliance defaults for the rest of the wizard."
-  >
-    <div style={{ display: "grid", gridTemplateColumns: "minmax(0, 1fr)", gap: 16 }}>
-      <div>
-        <label style={labelStyle}>SADC Country</label>
-        <select
-          value={country}
-          onChange={e => onChange(e.target.value)}
-          style={{ ...inputStyle, cursor: "pointer" }}
-        >
-          {SADC_COUNTRIES.map(c => <option key={c} value={c}>{c}</option>)}
-        </select>
-      </div>
+}> = ({ country, onChange, onContinue }) => {
+  const profile = getCountryProfile(country);
+  return (
+    <Section
+      icon={<Globe2 size={20} />} iconColor={OC.blue}
+      title="Country Selection"
+      subtitle="Auto-loads SADC compliance defaults and locks phone inputs to local numbers."
+    >
+      <div style={{ display: "grid", gridTemplateColumns: "minmax(0, 1fr)", gap: 16 }}>
+        <div>
+          <label style={labelStyle}>SADC Country</label>
+          <select
+            value={country}
+            onChange={e => onChange(e.target.value)}
+            style={{ ...inputStyle, cursor: "pointer" }}
+          >
+            {SADC_COUNTRIES.map(c => <option key={c} value={c}>{c}</option>)}
+          </select>
+        </div>
 
-      <div style={{
-        padding: 14, borderRadius: OR.md,
-        background: OC.blueBg, color: "#1e40af",
-        display: "flex", alignItems: "flex-start", gap: 10, fontSize: 13,
-      }}>
-        <Sparkles size={16} style={{ marginTop: 2 }} />
-        <span>
-          Compliance rules, public holidays and statutory leave defaults will be
-          tailored to <strong>{country}</strong> once you continue.
-        </span>
-      </div>
+        {/* Live country card — shows the dial code & local format */}
+        <div style={{
+          display: "grid", gridTemplateColumns: "minmax(0, 1fr) minmax(0, 1fr)", gap: 12,
+        }}>
+          <div style={{
+            padding: 14, borderRadius: OR.md,
+            background: "#fff", border: `1px solid ${OC.line}`,
+            display: "flex", alignItems: "center", gap: 12,
+          }}>
+            <span style={{ fontSize: 28, lineHeight: 1 }}>{profile.flag}</span>
+            <div>
+              <p style={{ ...subtle, margin: 0, fontSize: 11, fontWeight: 700, textTransform: "uppercase", letterSpacing: 0.4 }}>
+                Active country
+              </p>
+              <p style={{ margin: "2px 0 0", fontSize: 15, fontWeight: 700, color: OC.ink }}>
+                {profile.name}
+              </p>
+            </div>
+          </div>
+          <div style={{
+            padding: 14, borderRadius: OR.md,
+            background: "#fff", border: `1px solid ${OC.line}`,
+          }}>
+            <p style={{ ...subtle, margin: 0, fontSize: 11, fontWeight: 700, textTransform: "uppercase", letterSpacing: 0.4 }}>
+              Phone format
+            </p>
+            <p style={{ margin: "2px 0 0", fontSize: 15, fontWeight: 700, color: OC.ink, fontFamily: "monospace" }}>
+              +{profile.dialCode} <span style={{ color: OC.muted }}>{profile.placeholderLocal}</span>
+            </p>
+          </div>
+        </div>
 
-      <div style={{ display: "flex", justifyContent: "flex-end" }}>
-        <button onClick={onContinue} style={primaryBtn}>
-          Continue to Company <ChevronRight size={14} />
-        </button>
+        <div style={{
+          padding: 14, borderRadius: OR.md,
+          background: OC.blueBg, color: "#1e40af",
+          display: "flex", alignItems: "flex-start", gap: 10, fontSize: 13,
+        }}>
+          <Sparkles size={16} style={{ marginTop: 2 }} />
+          <span>
+            Compliance rules, public holidays, statutory leave defaults and{" "}
+            <strong>every phone field across the system</strong> will be tailored to{" "}
+            <strong>{profile.name}</strong> once you continue. Only{" "}
+            <strong>+{profile.dialCode}</strong> numbers will be accepted.
+          </span>
+        </div>
+
+        <div style={{ display: "flex", justifyContent: "flex-end" }}>
+          <button onClick={onContinue} style={primaryBtn}>
+            Continue to Company <ChevronRight size={14} />
+          </button>
+        </div>
       </div>
-    </div>
-  </Section>
-);
+    </Section>
+  );
+};
 
 /* ──────────────────────────────────────────────────────────────────────────
  * Step 2 – Company
@@ -1139,7 +1214,7 @@ const AdministratorModal: React.FC<{
           </div>
           <div>
             <label style={labelStyle}>Phone</label>
-            <input style={inputStyle} type="tel" value={form.phone} onChange={setField("phone")} placeholder="+27 11 123 4567" />
+            <PhoneInput value={form.phone} onChange={v => setForm(f => ({ ...f, phone: v }))} />
           </div>
           <div>
             <label style={labelStyle}>Password *</label>

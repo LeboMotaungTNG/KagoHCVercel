@@ -3,6 +3,7 @@ import { Container, Card, CardBody, Spinner } from "reactstrap";
 import DataTable from "react-data-table-component";
 import { AiFillEye, AiOutlineSearch, AiOutlineUser, AiOutlineClose } from "react-icons/ai";
 import SharedLayout from "./SharedLayout";
+import PhoneInput from "../../shared/components/PhoneInput";
 
 const API_URL = import.meta.env.VITE_API_URL || "https://employee-evaluation-kago-e63baae4d822.herokuapp.com/api/v1";
 
@@ -151,7 +152,7 @@ function AddEmployeeModal({ onClose, onSuccess }: { onClose: () => void; onSucce
             </div>
             <div>
               <label style={labelStyle}>Phone Number</label>
-              <input style={inputStyle} placeholder="+27 11 123 4567" value={form.phone} onChange={setField("phone")} />
+              <PhoneInput value={form.phone} onChange={v => setForm(f => ({ ...f, phone: v }))} />
             </div>
           </div>
 

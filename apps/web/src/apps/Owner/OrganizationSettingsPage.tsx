@@ -4,6 +4,7 @@ import {
   FormGroup, Table, Spinner, Badge, Alert, Modal, ModalHeader,
   ModalBody, ModalFooter
 } from "reactstrap";
+import PhoneInput from "../../shared/components/PhoneInput";
 import {
   FaSave, FaEdit, FaPlus, FaTrash, FaChevronDown, FaChevronRight,
   FaBuilding, FaMoneyBillWave, FaCalendarAlt, FaCloudUploadAlt,
@@ -78,6 +79,8 @@ const FieldRenderer = ({
                   {!f.required && <option value="">— Select —</option>}
                   {f.options?.map((o) => <option key={o} value={o}>{o}</option>)}
                 </select>
+              ) : f.type === "tel" ? (
+                <PhoneInput value={val} onChange={(v) => onChange(f.key, v)} />
               ) : (
                 <input type={f.type ?? "text"} value={val} placeholder={f.placeholder} onChange={(e) => onChange(f.key, f.type === "number" ? (parseFloat(e.target.value) || 0) : e.target.value)} style={co_input} />
               )

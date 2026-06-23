@@ -2,7 +2,7 @@ import React, { useMemo, useState } from "react";
 import { Helmet } from "react-helmet-async";
 import { useNavigate } from "react-router-dom";
 import {
-  AlertCircle, ArrowUp, Award, Calendar, Clock, Coffee, FileText,
+  AlertCircle, ArrowUp, Award, Calendar, Clock, FileText,
   GraduationCap, Heart, MapPin, Megaphone, MessageCircle, Palmtree, Pin,
   Plane, Plus, Receipt, Search, Sparkles, Star, Target, TrendingUp, Users,
   Video, Zap,
@@ -19,6 +19,8 @@ import {
   sortLeaveBalances, buildTeammateRoster,
   useLiveTick,
 } from "../../shared/utils/employee";
+import BreakControls from "../../shared/components/BreakControls";
+import { useBreakSession, fmtBreakShort, totalBreakMs } from "../../shared/utils/breaks";
 
 
 type DashboardMode = "employee" | "manager" | "owner";
@@ -169,16 +171,6 @@ const btnDisabled: React.CSSProperties = {
   ...btnPrimary, background: "rgba(255,255,255,0.4)", color: "rgba(255,255,255,0.8)",
   cursor: "not-allowed", boxShadow: "none",
 };
-const btnGhost: React.CSSProperties = {
-  display: "inline-flex", alignItems: "center", justifyContent: "center",
-  padding: "12px 22px", borderRadius: 999,
-  border: "1px solid rgba(255,255,255,0.5)",
-  background: "transparent", color: "#fff",
-  fontSize: 14, fontWeight: 700, cursor: "pointer",
-};
-const btnGhostActive: React.CSSProperties = { ...btnGhost, background: "rgba(255,255,255,0.18)" };
-const btnGhostDisabled: React.CSSProperties = { ...btnGhost, opacity: 0.45, cursor: "not-allowed" };
-
 const TodaysSessionCard: React.FC<{
   today: TodayAttendance;
   canClock: boolean;
@@ -186,21 +178,26 @@ const TodaysSessionCard: React.FC<{
   onClockOut?: () => void;
   location?: string;
 }> = ({ today, canClock, onClockIn, onClockOut, location = "KagoHC HQ" }) => {
-  const [onBreak, setOnBreak] = useState(false);
   const active = !!today.clock_in && !today.clock_out;
   const tick = useLiveTick(canClock && active);
+  const { breaks, isOnBreak, totalMs: breakMs } = useBreakSession();
+  const clockedOut = !active && !!today.clock_out;
 
   const elapsedSec = useMemo(() => {
     if (!today.clock_in) return 0;
     const [h, m] = today.clock_in.split(":").map(Number);
     const start = new Date(); start.setHours(h, m, 0, 0);
-    return Math.max(0, Math.floor((tick.getTime() - start.getTime()) / 1000));
-  }, [today.clock_in, tick]);
+    const grossMs = Math.max(0, tick.getTime() - start.getTime());
+    const workMs = Math.max(0, grossMs - totalBreakMs(breaks, tick.getTime()));
+    return Math.floor(workMs / 1000);
+  }, [today.clock_in, tick, breaks]);
 
   const goalSec = 8 * 3600;
   const progress = Math.min(100, (elapsedSec / goalSec) * 100);
 
-  const statusPill = active
+  const statusPill = isOnBreak
+    ? { label: "On break", bg: "rgba(255,255,255,0.22)", color: "#fff", dot: true }
+    : active
     ? { label: "Active",   bg: "rgba(255,255,255,0.18)", color: "#fff", dot: true }
     : today.clock_out
       ? { label: "Wrapped", bg: "rgba(255,255,255,0.18)", color: "#fff", dot: false }
@@ -257,7 +254,7 @@ const TodaysSessionCard: React.FC<{
       </div>
 
       {canClock ? (
-        <div style={{ position: "relative", display: "flex", gap: 12, marginTop: 18, flexWrap: "wrap" }}>
+        <div style={{ position: "relative", display: "flex", gap: 12, marginTop: 18, flexWrap: "wrap", alignItems: "center" }}>
           {!today.clock_in ? (
             <button onClick={onClockIn} style={btnPrimary}>
               <Clock size={16} style={{ marginRight: 8 }} />Clock in
@@ -265,21 +262,19 @@ const TodaysSessionCard: React.FC<{
           ) : (
             <button
               onClick={onClockOut}
-              disabled={!!today.clock_out}
-              style={today.clock_out ? btnDisabled : btnPrimary}
+              disabled={!!today.clock_out || isOnBreak}
+              style={(!!today.clock_out || isOnBreak) ? btnDisabled : btnPrimary}
+              title={isOnBreak ? "End your break before clocking out" : undefined}
             >
               <Clock size={16} style={{ marginRight: 8 }} />
               {today.clock_out ? "Clocked out" : "Clock out"}
             </button>
           )}
-          <button
-            onClick={() => setOnBreak(b => !b)}
-            disabled={!active}
-            style={active ? (onBreak ? btnGhostActive : btnGhost) : btnGhostDisabled}
-          >
-            <Coffee size={16} style={{ marginRight: 8 }} />
-            {onBreak ? "End break" : "Break"}
-          </button>
+          <BreakControls
+            clockedIn={active}
+            clockedOut={clockedOut}
+            variant="inline"
+          />
         </div>
       ) : (
         <div style={{ position: "relative", marginTop: 18, color: "rgba(255,255,255,0.85)", fontSize: 13, fontWeight: 700 }}>
@@ -289,9 +284,9 @@ const TodaysSessionCard: React.FC<{
 
       <div style={{ position: "relative", display: "flex", gap: 28, marginTop: 22, paddingTop: 18, borderTop: "1px solid rgba(255,255,255,0.18)", flexWrap: "wrap" }}>
         <FooterStat label="Clock in"   value={fmtTime(today.clock_in)} />
-        <FooterStat label="Break"      value={onBreak ? "On break" : "0 min"} />
+        <FooterStat label="On break"   value={breakMs > 0 ? fmtBreakShort(breakMs) : "0 min"} />
         <FooterStat label="This week"  value={`${weekHours}h`} />
-        <FooterStat label="Status"     value={today.clock_out ? "Wrapped" : active ? "Working" : "Idle"} />
+        <FooterStat label="Status"     value={today.clock_out ? "Wrapped" : isOnBreak ? "On break" : active ? "Working" : "Idle"} />
       </div>
     </section>
   );

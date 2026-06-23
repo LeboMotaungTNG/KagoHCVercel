@@ -1,8 +1,13 @@
 import React, { useState } from "react";
 import { Link, useNavigate, Routes, Route, useLocation } from "react-router-dom";
 import {
-  Users, Building2, Home, PenTool, Menu, Bell, LogOut, Award, ChevronDown, ChevronRight
+  Users, Building2, Home, PenTool, Menu, Bell, LogOut, Award, ChevronDown, ChevronRight, Rocket,
 } from "lucide-react";
+import {
+  sidebarItemStyle,
+  sidebarSubItemStyle,
+  SidebarHoverStyle,
+} from "../../shared/components/sidebarStyles";
 // @ts-ignore
 import logoKago from "../../assets/images/logo-black-white.png";
 
@@ -21,21 +26,27 @@ import EmployeeProfile from "../Manager/EmployeeProfile";
 // --- Owner Dashboard Layout ---
 
 const OwnerSidebar = () => {
-  const [isHumanCapitalOpen, setIsHumanCapitalOpen] = useState(false);
   const location = useLocation();
+  const path = location.pathname;
+
+  const isExact   = (p: string) => path === p || path === p + "/";
+  const isInGroup = (...paths: string[]) => paths.some(p => path === p || path.startsWith(p + "/"));
+
+  const hcSubPaths = ["/owner/managers", "/owner/employees", "/owner/manage-employees"];
+  const inHumanCapital = isInGroup(...hcSubPaths);
+
+  // Sub-menu is open whenever the user is on one of the HC pages OR they
+  // have manually expanded it.
+  const [isHumanCapitalOpen, setIsHumanCapitalOpen] = useState<boolean>(inHumanCapital);
 
   React.useEffect(() => {
-    if (
-      location.pathname.includes('/owner/managers') ||
-      location.pathname.includes('/owner/employees') ||
-      location.pathname.includes('/owner/manage-employees')
-    ) {
-      setIsHumanCapitalOpen(true);
-    }
-  }, [location.pathname]);
+    if (inHumanCapital) setIsHumanCapitalOpen(true);
+  }, [inHumanCapital]);
 
   return (
-    <div className="vertical-menu" style={{ backgroundColor: "#000", top: 0, zIndex: 1005, paddingTop: "20px" }}>
+    <div className="vertical-menu kago-sidebar" style={{ backgroundColor: "#000", top: 0, zIndex: 1005, paddingTop: "20px" }}>
+      <SidebarHoverStyle />
+
       <div className="h-100" style={{ overflowY: "auto", overflowX: "hidden" }}>
         <div id="sidebar-menu">
           <div className="d-flex mb-5" style={{ padding: "0 20px" }}>
@@ -52,17 +63,24 @@ const OwnerSidebar = () => {
             <li className="menu-title" style={{ color: "#fff", padding: "12px 20px", fontSize: "11px", textTransform: "uppercase", fontWeight: "600" }}>
               Menu
             </li>
-            <li className="mm-active">
-              <Link to="/owner" className="waves-effect mm-active" style={{ color: "rgba(255, 255, 255, 0.75)", display: "flex", alignItems: "center", padding: "10px 20px" }}>
+
+            {/* Dashboard */}
+            <li>
+              <Link to="/owner"
+                className={isExact("/owner") ? "sb-active" : ""}
+                style={sidebarItemStyle(isExact("/owner"))}
+              >
                 <Home size={20} style={{ marginRight: "10px" }} />
                 <span>Dashboard</span>
               </Link>
             </li>
+
+            {/* Human Capital (collapsible group) */}
             <li>
-              <div 
-                className="waves-effect" 
-                style={{ color: "rgba(255, 255, 255, 0.75)", padding: "10px 20px", display: "flex", alignItems: "center", cursor: "pointer", justifyContent: "space-between" }}
-                onClick={() => setIsHumanCapitalOpen(!isHumanCapitalOpen)}
+              <div
+                className={`sb-group-toggle ${inHumanCapital ? "sb-active" : ""}`}
+                style={{ ...sidebarItemStyle(inHumanCapital), justifyContent: "space-between" }}
+                onClick={() => setIsHumanCapitalOpen(o => !o)}
               >
                 <div style={{ display: "flex", alignItems: "center" }}>
                   <Users size={20} style={{ marginRight: "10px" }} />
@@ -70,45 +88,82 @@ const OwnerSidebar = () => {
                 </div>
                 {isHumanCapitalOpen ? <ChevronDown size={16} /> : <ChevronRight size={16} />}
               </div>
-              <ul className={`sub-menu ${isHumanCapitalOpen ? 'mm-show' : 'mm-collapse'}`} style={{ listStyle: "none", paddingLeft: "40px", margin: "5px 0", display: isHumanCapitalOpen ? "block" : "none" }}>
+              <ul
+                className={`sub-menu ${isHumanCapitalOpen ? "mm-show" : "mm-collapse"}`}
+                style={{
+                  listStyle: "none",
+                  padding: "4px 12px 6px 44px",
+                  margin: 0,
+                  display: isHumanCapitalOpen ? "block" : "none",
+                }}
+              >
                 <li>
-                  <Link to="/owner/managers" style={{ color: "rgba(255, 255, 255, 0.6)", padding: "8px 0", display: "block", fontSize: "14px" }}>
+                  <Link to="/owner/managers"
+                    className={isExact("/owner/managers") ? "sb-active" : ""}
+                    style={sidebarSubItemStyle(isExact("/owner/managers"))}
+                  >
                     Managers
                   </Link>
                 </li>
                 <li>
-                  <Link to="/owner/employees" style={{ color: "rgba(255, 255, 255, 0.6)", padding: "8px 0", display: "block", fontSize: "14px" }}>
+                  <Link to="/owner/employees"
+                    className={isExact("/owner/employees") ? "sb-active" : ""}
+                    style={sidebarSubItemStyle(isExact("/owner/employees"))}
+                  >
                     Employees
                   </Link>
                 </li>
                 <li>
-                  <Link to="/owner/manage-employees" style={{ color: "rgba(255, 255, 255, 0.6)", padding: "8px 0", display: "block", fontSize: "14px" }}>
+                  <Link to="/owner/manage-employees"
+                    className={isExact("/owner/manage-employees") ? "sb-active" : ""}
+                    style={sidebarSubItemStyle(isExact("/owner/manage-employees"))}
+                  >
                     Manage Employees
                   </Link>
                 </li>
               </ul>
             </li>
+
+            {/* Employee Review */}
             <li>
-              <Link to="/owner/employee-review" className="waves-effect" style={{ color: "rgba(255, 255, 255, 0.75)", display: "flex", alignItems: "center", padding: "10px 20px" }}>
+              <Link to="/owner/employee-review"
+                className={isExact("/owner/employee-review") ? "sb-active" : ""}
+                style={sidebarItemStyle(isExact("/owner/employee-review"))}
+              >
                 <PenTool size={20} style={{ marginRight: "10px" }} />
                 <span>Employee Review</span>
               </Link>
             </li>
+
+            {/* Organization Settings */}
             <li>
-              <Link to="/owner/organization-settings" className="waves-effect" style={{ color: "rgba(255, 255, 255, 0.75)", display: "flex", alignItems: "center", padding: "10px 20px" }}>
+              <Link to="/owner/organization-settings"
+                className={isExact("/owner/organization-settings") ? "sb-active" : ""}
+                style={sidebarItemStyle(isExact("/owner/organization-settings"))}
+              >
                 <Building2 size={20} style={{ marginRight: "10px" }} />
                 <span>Organization Settings</span>
               </Link>
             </li>
+
+            {/* Subscriptions */}
             <li>
-              <Link to="/owner/subscriptions" className="waves-effect" style={{ color: "rgba(255, 255, 255, 0.75)", display: "flex", alignItems: "center", padding: "10px 20px" }}>
+              <Link to="/owner/subscriptions"
+                className={isExact("/owner/subscriptions") ? "sb-active" : ""}
+                style={sidebarItemStyle(isExact("/owner/subscriptions"))}
+              >
                 <Award size={20} style={{ marginRight: "10px" }} />
                 <span>Subscriptions</span>
               </Link>
             </li>
+
+            {/* Onboarding — rocket icon (launch / get started) */}
             <li>
-              <Link to="/owner/onboarding" className="waves-effect" style={{ color: "rgba(255, 255, 255, 0.75)", display: "flex", alignItems: "center", padding: "10px 20px" }}>
-                <ChevronDown size={20} style={{ marginRight: "10px" }} />
+              <Link to="/owner/onboarding"
+                className={isExact("/owner/onboarding") ? "sb-active" : ""}
+                style={sidebarItemStyle(isExact("/owner/onboarding"))}
+              >
+                <Rocket size={20} style={{ marginRight: "10px" }} />
                 <span>Onboarding</span>
               </Link>
             </li>
