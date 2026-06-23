@@ -14,6 +14,8 @@ import {
   exportEmployeeCSV,
   useEmployeeAttendance,
 } from "../../shared/utils/attendance";
+import BreakControls from "../../shared/components/BreakControls";
+import { useBreakSession, fmtBreakShort } from "../../shared/utils/breaks";
 
 
 const CARD: React.CSSProperties = {
@@ -165,9 +167,11 @@ interface ClockPanelProps {
   onClockIn:  () => void;
   onClockOut: () => void;
   loading:    boolean;
+  onBreak?:   boolean;
+  breakTotalMs?: number;
 }
 
-const ClockPanel: React.FC<ClockPanelProps> = ({ state, onClockIn, onClockOut, loading }) => {
+const ClockPanel: React.FC<ClockPanelProps> = ({ state, onClockIn, onClockOut, loading, onBreak = false, breakTotalMs = 0 }) => {
   const [elapsed, setElapsed] = useState("00:00:00");
 
   useEffect(() => {
@@ -186,7 +190,7 @@ const ClockPanel: React.FC<ClockPanelProps> = ({ state, onClockIn, onClockOut, l
 
   const active    = state.clockedIn;
   const done      = !active && state.clockOutTime !== null;
-  const disabled  = loading || done;
+  const disabled  = loading || done || (active && onBreak);
 
   return (
     <div style={{
@@ -282,12 +286,23 @@ const ClockPanel: React.FC<ClockPanelProps> = ({ state, onClockIn, onClockOut, l
         )}
       </button>
 
+      {/* On-break notice */}
+      {active && onBreak && (
+        <div style={{ marginTop: 14, display: "flex", alignItems: "center", gap: 8, padding: "11px 14px", background: "#fff7ed", borderRadius: 10, border: "1px solid #fed7aa" }}>
+          <span style={{ color: "#c2410c", flexShrink: 0 }}><Icon.Info /></span>
+          <p style={{ margin: 0, fontSize: 13, color: "#9a3412" }}>
+            You're currently on a break. Resume work below before clocking out.
+          </p>
+        </div>
+      )}
+
       {/* Post-session summary */}
       {state.clockInTime && state.clockOutTime && (
         <div style={{ marginTop: 14, display: "flex", alignItems: "center", gap: 8, padding: "11px 14px", background: "#eff6ff", borderRadius: 10, border: "1px solid #bfdbfe" }}>
           <span style={{ color: "#1d4ed8", flexShrink: 0 }}><Icon.Info /></span>
           <p style={{ margin: 0, fontSize: 13, color: "#1e40af" }}>
-            Session complete ” <strong>{state.sessionHours?.toFixed(2) ?? ""}h</strong> logged today.
+            Session complete · <strong>{state.sessionHours?.toFixed(2) ?? ""}h</strong> logged today
+            {breakTotalMs > 0 && <> · <strong>{fmtBreakShort(breakTotalMs)}</strong> on breaks</>}.
           </p>
         </div>
       )}
@@ -635,6 +650,8 @@ const EmployeeAttendanceContent: React.FC = () => {
     toast, clearToast,
   } = useEmployeeAttendance();
 
+  const { isOnBreak, totalMs: breakTotalMs } = useBreakSession();
+
   return (
     <div style={{ maxWidth: 1280, margin: "0 auto" }}>
 
@@ -677,6 +694,13 @@ const EmployeeAttendanceContent: React.FC = () => {
             onClockIn={handleClockIn}
             onClockOut={handleClockOut}
             loading={clockLoading}
+            onBreak={isOnBreak}
+            breakTotalMs={breakTotalMs}
+          />
+          <BreakControls
+            clockedIn={clock.clockedIn}
+            clockedOut={!clock.clockedIn && clock.clockOutTime !== null}
+            variant="panel"
           />
           <HistoryTable records={records} onSelect={setSelectedRecord}/>
         </div>

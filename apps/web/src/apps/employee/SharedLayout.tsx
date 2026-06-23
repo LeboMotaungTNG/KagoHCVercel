@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from "react";
-import { Link, useNavigate } from "react-router-dom";
+import { Link, useLocation, useNavigate } from "react-router-dom";
 import {
   Home,
   Users,
@@ -12,6 +12,10 @@ import {
   Bell,
   LogOut,
 } from "lucide-react";
+import {
+  sidebarItemStyle,
+  SidebarHoverStyle,
+} from "../../shared/components/sidebarStyles";
 // @ts-ignore
 import logoKago from "../../assets/images/logo-black-white.png";
 
@@ -21,11 +25,37 @@ export interface SharedLayoutProps {
 }
 
 const EmployeeSidebar: React.FC = () => {
+  const location = useLocation();
+  const isActive = (path: string) => {
+    if (path === "/employee") {
+      return location.pathname === "/employee" || location.pathname === "/employee/";
+    }
+    return location.pathname === path || location.pathname.startsWith(path + "/");
+  };
+
+  const menuTitleStyle: React.CSSProperties = {
+    color: "#fff",
+    padding: "12px 20px",
+    fontSize: 11,
+    textTransform: "uppercase",
+    fontWeight: 600,
+  };
+
+  const main: { to: string; label: string; icon: React.ReactNode }[] = [
+    { to: "/employee",            label: "Dashboard",        icon: <Home size={20} style={{ marginRight: 10 }} /> },
+    { to: "/employee/profile",    label: "My Profile",       icon: <Users size={20} style={{ marginRight: 10 }} /> },
+    { to: "/employee/leave",      label: "Leave Management", icon: <Calendar size={20} style={{ marginRight: 10 }} /> },
+    { to: "/employee/attendance", label: "Attendance",       icon: <Clock size={20} style={{ marginRight: 10 }} /> },
+    { to: "/employee/performance",label: "Performance",      icon: <TrendingUp size={20} style={{ marginRight: 10 }} /> },
+    { to: "/employee/documents",  label: "Documents",        icon: <Folder size={20} style={{ marginRight: 10 }} /> },
+  ];
+
   return (
     <div
-      className="vertical-menu"
+      className="vertical-menu kago-sidebar"
       style={{ backgroundColor: "#000", top: 0, zIndex: 1005, paddingTop: "20px" }}
     >
+      <SidebarHoverStyle />
       <div className="h-100" style={{ overflowY: "auto", overflowX: "hidden" }}>
         <div id="sidebar-menu">
           <div className="d-flex mb-5" style={{ padding: "0 20px" }}>
@@ -39,133 +69,33 @@ const EmployeeSidebar: React.FC = () => {
             </div>
           </div>
           <ul className="metismenu list-unstyled mt-2" id="side-menu-item">
-            <li
-              className="menu-title"
-              style={{
-                color: "#fff",
-                padding: "12px 20px",
-                fontSize: "11px",
-                textTransform: "uppercase",
-                fontWeight: 600,
-              }}
-            >
-              Menu
-            </li>
-            <li className="mm-active">
-              <Link
-                to="/employee"
-                className="waves-effect mm-active"
-                style={{
-                  color: "rgba(255, 255, 255, 0.75)",
-                  display: "flex",
-                  alignItems: "center",
-                  padding: "10px 20px",
-                }}
-              >
-                <Home size={20} style={{ marginRight: "10px" }} />
-                <span>Dashboard</span>
-              </Link>
-            </li>
-            <li>
-              <Link
-                to="/employee/profile"
-                className="waves-effect"
-                style={{
-                  color: "rgba(255, 255, 255, 0.75)",
-                  display: "flex",
-                  alignItems: "center",
-                  padding: "10px 20px",
-                }}
-              >
-                <Users size={20} style={{ marginRight: "10px" }} />
-                <span>My Profile</span>
-              </Link>
-            </li>
-            <li>
-              <Link
-                to="/employee/leave"
-                className="waves-effect"
-                style={{
-                  color: "rgba(255, 255, 255, 0.75)",
-                  display: "flex",
-                  alignItems: "center",
-                  padding: "10px 20px",
-                }}
-              >
-                <Calendar size={20} style={{ marginRight: "10px" }} />
-                <span>Leave Management</span>
-              </Link>
-            </li>
-            <li>
-              <Link
-                to="/employee/attendance"
-                className="waves-effect"
-                style={{
-                  color: "rgba(255, 255, 255, 0.75)",
-                  display: "flex",
-                  alignItems: "center",
-                  padding: "10px 20px",
-                }}
-              >
-                <Clock size={20} style={{ marginRight: "10px" }} />
-                <span>Attendance</span>
-              </Link>
-            </li>
-            <li>
-              <Link
-                to="/employee/performance"
-                className="waves-effect"
-                style={{
-                  color: "rgba(255, 255, 255, 0.75)",
-                  display: "flex",
-                  alignItems: "center",
-                  padding: "10px 20px",
-                }}
-              >
-                <TrendingUp size={20} style={{ marginRight: "10px" }} />
-                <span>Performance</span>
-              </Link>
-            </li>
-            <li>
-              <Link
-                to="/employee/documents"
-                className="waves-effect"
-                style={{
-                  color: "rgba(255, 255, 255, 0.75)",
-                  display: "flex",
-                  alignItems: "center",
-                  padding: "10px 20px",
-                }}
-              >
-                <Folder size={20} style={{ marginRight: "10px" }} />
-                <span>Documents</span>
-              </Link>
-            </li>
-            <li
-              className="menu-title"
-              style={{
-                color: "#fff",
-                padding: "12px 20px",
-                fontSize: "11px",
-                textTransform: "uppercase",
-                fontWeight: 600,
-                marginTop: "16px",
-              }}
-            >
-              Others
-            </li>
+            <li className="menu-title" style={menuTitleStyle}>Menu</li>
+
+            {main.map(item => {
+              const active = isActive(item.to);
+              return (
+                <li key={item.to}>
+                  <Link
+                    to={item.to}
+                    className={active ? "sb-active" : ""}
+                    style={sidebarItemStyle(active)}
+                  >
+                    {item.icon}
+                    <span>{item.label}</span>
+                  </Link>
+                </li>
+              );
+            })}
+
+            <li className="menu-title" style={{ ...menuTitleStyle, marginTop: 16 }}>Others</li>
+
             <li>
               <Link
                 to="/employee/settings"
-                className="waves-effect"
-                style={{
-                  color: "rgba(255, 255, 255, 0.75)",
-                  display: "flex",
-                  alignItems: "center",
-                  padding: "10px 20px",
-                }}
+                className={isActive("/employee/settings") ? "sb-active" : ""}
+                style={sidebarItemStyle(isActive("/employee/settings"))}
               >
-                <Settings size={20} style={{ marginRight: "10px" }} />
+                <Settings size={20} style={{ marginRight: 10 }} />
                 <span>Settings</span>
               </Link>
             </li>

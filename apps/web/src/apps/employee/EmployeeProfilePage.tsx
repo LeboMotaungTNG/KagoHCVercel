@@ -16,6 +16,7 @@ import {
   MapPin, Phone, Plus, Save, Shield, Sparkles, Trash2, Upload, User as UserIcon, X,
 } from "lucide-react";
 import SharedLayout from "./SharedLayout";
+import PhoneInput from "../../shared/components/PhoneInput";
 import { C, FONT_NUM, R, SHADOW } from "../../shared/utils/employee";
 import {
   type DocumentCategory,
@@ -181,13 +182,17 @@ const Field: React.FC<{
   <div>
     <label style={labelStyle}>{label}</label>
     {editing ? (
-      <input
-        style={inputStyle}
-        type={type}
-        value={value || ""}
-        placeholder={placeholder || `Enter ${label.toLowerCase()}`}
-        onChange={e => onChange?.(e.target.value)}
-      />
+      type === "tel" ? (
+        <PhoneInput value={value || ""} onChange={v => onChange?.(v)} />
+      ) : (
+        <input
+          style={inputStyle}
+          type={type}
+          value={value || ""}
+          placeholder={placeholder || `Enter ${label.toLowerCase()}`}
+          onChange={e => onChange?.(e.target.value)}
+        />
+      )
     ) : (
       <p style={valueStyle}>{value || dash}</p>
     )}

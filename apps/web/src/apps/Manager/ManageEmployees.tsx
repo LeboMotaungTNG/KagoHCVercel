@@ -7,6 +7,7 @@
 import React, { useState, useEffect, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import SharedLayout from "./SharedLayout";
+import PhoneInput from "../../shared/components/PhoneInput";
 
 function generateRandomEmployeeCode(): string {
   const year = new Date().getFullYear();
@@ -1163,22 +1164,10 @@ function ManageEmployeesContent() {
                     <label style={{ display: "block", marginBottom: 6, color: "#344054", fontWeight: 500, fontSize: 14 }}>
                       Phone Number
                     </label>
-                    <div style={{ position: "relative" }}>
-                      <span style={{ position: "absolute", left: 12, top: "50%", transform: "translateY(-50%)", color: "#98a2b3" }}>
-                        <IconPhone />
-                      </span>
-                      <input
-                        type="tel"
-                        value={formData.phone}
-                        onChange={(e) => setFormData(prev => ({ ...prev, phone: e.target.value }))}
-                        placeholder="+27 11 123 4567"
-                        style={{
-                          width: "100%", padding: "10px 12px 10px 40px",
-                          border: "1px solid #d0d5dd", borderRadius: 8,
-                          fontSize: 14, outline: "none"
-                        }}
-                      />
-                    </div>
+                    <PhoneInput
+                      value={formData.phone}
+                      onChange={(v) => setFormData(prev => ({ ...prev, phone: v }))}
+                    />
                   </div>
 
                   <div style={{ marginBottom: 20 }}>

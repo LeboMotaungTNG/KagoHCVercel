@@ -1,5 +1,6 @@
 import React from "react";
 import { Routes, Route, Navigate } from "react-router-dom";
+import { CountryProvider } from "./shared/contexts/CountryContext";
 import Login from "./apps/login/Login";
 import EmployeeDashboard from "./apps/employee/employee";
 import EmployeeLeave from "./apps/employee/leave";
@@ -15,6 +16,7 @@ import LeavePage from "./apps/Manager/leave";
 import Payroll from "./apps/Manager/Payroll";
 
 const App: React.FC = () => (
+  <CountryProvider>
   <Routes>
     {/* Auth */}
     <Route path="/"       element={<Login />} />
@@ -46,6 +48,7 @@ const App: React.FC = () => (
     {/* catch-all */}
     <Route path="*" element={<Navigate to="/" replace />} />
   </Routes>
+  </CountryProvider>
 );
 
 export default App;

@@ -1,11 +1,3 @@
-/**
- * LeaveManagement – shared manager/owner-facing leave request management.
- *
- * Used by both the Manager dashboard and the Owner dashboard so the two stay
- * perfectly in sync. Approve/Reject use the dedicated backend endpoints
- * (PATCH /leave/:id/approve and /leave/:id/reject) which record the reviewer
- * and keep the employee's original reason intact.
- */
 
 import React, { useState, useEffect, useRef, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
