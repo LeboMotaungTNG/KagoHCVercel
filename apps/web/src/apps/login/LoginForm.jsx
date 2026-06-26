@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { Link, useNavigate } from "react-router-dom";
+import { Link, useNavigate, useLocation } from "react-router-dom";
 import { Row, Col, Form, Input, FormFeedback, Label } from "reactstrap";
 import { useFormik } from "formik";
 import * as Yup from "yup";
@@ -20,6 +20,8 @@ const loginSchema = Yup.object({
 
 const LoginForm = () => {
   const navigate = useNavigate();
+  const location = useLocation();
+  const passwordResetSuccess = location.state?.passwordReset === true;
   const [loginError, setLoginError] = useState("");
   const [pending, setPending] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
@@ -99,6 +101,12 @@ const LoginForm = () => {
       </div>
 
       <div className="w-100 mt-3">
+        {passwordResetSuccess && (
+          <div className="alert alert-success mb-3" role="alert">
+            Your password has been reset. You can now sign in with your new password.
+          </div>
+        )}
+        {/* Show error message if login fails */}
         {loginError && (
           <div className="alert alert-danger mb-3" role="alert">
             {loginError}

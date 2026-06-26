@@ -1,6 +1,7 @@
 import { Request, Response } from 'express';
 import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
+import crypto from 'crypto';
 import { User } from './user.model';
 import Company from '../company/models/Company';
 import CompanyInvite from '../platform/models/CompanyInvite';
@@ -23,6 +24,14 @@ const signToken = (user: {
     process.env.JWT_SECRET || 'secret',
     { expiresIn: '7d' }
   );
+
+const GENERIC_RESET_MESSAGE =
+  'If an account exists for that email, we have sent password reset instructions.';
+
+const buildResetUrl = (token: string) => {
+  const base = process.env.FRONTEND_URL || 'http://localhost:5173';
+  return `${base.replace(/\/$/, '')}/reset-password/${token}`;
+};
 
 export const authController = {
   // ── POST /auth/login ────────────────────────────────────────────────────────
@@ -295,5 +304,128 @@ export const authController = {
   // ── POST /auth/logout ───────────────────────────────────────────────────────
   logout: async (req: Request, res: Response) => {
     res.json({ success: true, message: 'Logged out' });
+  },
+
+  forgotPassword: async (req: Request, res: Response) => {
+    try {
+      const email = String(req.body?.email || '').toLowerCase().trim();
+      if (!email) {
+        return res.status(400).json({ success: false, message: 'Email is required' });
+      }
+
+      const user = await User.findOne({ email });
+      let resetUrl: string | undefined;
+
+      if (user) {
+        const resetToken = crypto.randomBytes(32).toString('hex');
+        const hashedToken = crypto.createHash('sha256').update(resetToken).digest('hex');
+
+        user.resetPasswordToken = hashedToken;
+        user.resetPasswordExpires = new Date(Date.now() + 60 * 60 * 1000);
+        await user.save();
+
+        resetUrl = buildResetUrl(resetToken);
+        console.log(`[password-reset] Reset link for ${email}: ${resetUrl}`);
+      }
+
+      const payload: Record<string, unknown> = {
+        success: true,
+        message: GENERIC_RESET_MESSAGE,
+      };
+
+      if (process.env.NODE_ENV !== 'production' && resetUrl) {
+        payload.resetUrl = resetUrl;
+      }
+
+      res.json(payload);
+    } catch (error: any) {
+      console.error('Forgot password error:', error);
+      res.status(500).json({ success: false, message: error.message });
+    }
+  },
+
+  resetPassword: async (req: Request, res: Response) => {
+    try {
+      const { token, newPassword } = req.body;
+
+      if (!token || !newPassword) {
+        return res.status(400).json({
+          success: false,
+          message: 'Reset token and new password are required',
+        });
+      }
+
+      if (String(newPassword).length < 6) {
+        return res.status(400).json({
+          success: false,
+          message: 'Password must be at least 6 characters',
+        });
+      }
+
+      const hashedToken = crypto.createHash('sha256').update(String(token)).digest('hex');
+      const user = await User.findOne({
+        resetPasswordToken: hashedToken,
+        resetPasswordExpires: { $gt: new Date() },
+      }).select('+password');
+
+      if (!user) {
+        return res.status(400).json({
+          success: false,
+          message: 'Reset link is invalid or has expired',
+        });
+      }
+
+      user.password = newPassword;
+      user.resetPasswordToken = undefined;
+      user.resetPasswordExpires = undefined;
+      await user.save();
+
+      res.json({ success: true, message: 'Password reset successfully' });
+    } catch (error: any) {
+      console.error('Reset password error:', error);
+      res.status(500).json({ success: false, message: error.message });
+    }
+  },
+
+  changePassword: async (req: Request, res: Response) => {
+    try {
+      const userId = (req as any).user?._id;
+      if (!userId) {
+        return res.status(401).json({ success: false, message: 'Not authenticated' });
+      }
+
+      const { currentPassword, newPassword } = req.body;
+      if (!currentPassword || !newPassword) {
+        return res.status(400).json({
+          success: false,
+          message: 'Current password and new password are required',
+        });
+      }
+
+      if (String(newPassword).length < 6) {
+        return res.status(400).json({
+          success: false,
+          message: 'New password must be at least 6 characters',
+        });
+      }
+
+      const user = await User.findById(userId).select('+password');
+      if (!user) {
+        return res.status(404).json({ success: false, message: 'User not found' });
+      }
+
+      const isValid = await user.comparePassword(currentPassword);
+      if (!isValid) {
+        return res.status(400).json({ success: false, message: 'Current password is incorrect' });
+      }
+
+      user.password = newPassword;
+      await user.save();
+
+      res.json({ success: true, message: 'Password updated successfully' });
+    } catch (error: any) {
+      console.error('Change password error:', error);
+      res.status(500).json({ success: false, message: error.message });
+    }
   },
 };

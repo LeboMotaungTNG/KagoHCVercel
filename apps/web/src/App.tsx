@@ -2,10 +2,13 @@ import React from "react";
 import { Routes, Route, Navigate } from "react-router-dom";
 import { CountryProvider } from "./shared/contexts/CountryContext";
 import Login from "./apps/login/Login";
+import ForgotPassword from "./apps/login/ForgotPassword";
+import ResetPassword from "./apps/login/ResetPassword";
 import EmployeeDashboard from "./apps/employee/employee";
 import EmployeeLeave from "./apps/employee/leave";
 import EmployeeAttendance from "./apps/employee/attendance";
 import EmployeeProfilePage from "./apps/employee/EmployeeProfilePage";
+import EmployeeSettingsPage from "./apps/employee/EmployeeSettingsPage";
 import OwnerDashboard from "./apps/Owner/OwnerDashboard";
 import ManagerDashboard from "./apps/Manager/ManagerDashboard";
 import EmployeeProfile from "./apps/Manager/EmployeeProfile";
@@ -19,10 +22,12 @@ import AcceptInvitePage from "./apps/Platform/AcceptInvitePage";
 
 const App: React.FC = () => (
   <CountryProvider>
-    <Routes>
-      {/* Auth */}
-      <Route path="/"      element={<Login />} />
-      <Route path="/login" element={<Navigate to="/" replace />} />
+  <Routes>
+    {/* Auth */}
+    <Route path="/"       element={<Login />} />
+    <Route path="/login"  element={<Navigate to="/" replace />} />
+    <Route path="/forgot-password" element={<ForgotPassword />} />
+    <Route path="/reset-password/:token" element={<ResetPassword />} />
 
       {/* Platform Admin — your internal team only, role: platform_admin */}
       <Route path="/platform"      element={<PlatformAdminPage />} />
@@ -30,15 +35,15 @@ const App: React.FC = () => (
       {/* Public — invited owners land here to set name + password */}
       <Route path="/accept-invite" element={<AcceptInvitePage />} />
 
-      {/* Manager / Admin / HR */}
-      <Route path="/manager"                  element={<ManagerDashboard />} />
-      <Route path="/manager/profile"          element={<EmployeeProfile />} />
-      <Route path="/manager/profile/:id"      element={<EmployeeProfile />} />
-      <Route path="/manager/manage-employees" element={<ManageEmployees />} />
-      <Route path="/manager/employees"        element={<EmployeesPage />} />
-      <Route path="/manager/attendance"       element={<AttendancePage />} />
-      <Route path="/manager/leave-requests"   element={<LeavePage />} />
-      <Route path="/manager/payroll"          element={<Payroll />} />
+    {/* Manager / Admin / HR */}
+    <Route path="/manager"                  element={<ManagerDashboard />} />
+    <Route path="/manager/profile"          element={<EmployeeProfile />} />
+    <Route path="/manager/profile/:id"      element={<EmployeeProfile />} />
+    <Route path="/manager/manage-employees" element={<ManageEmployees />} />
+    <Route path="/manager/employees"        element={<EmployeesPage />} />
+    <Route path="/manager/attendance"       element={<AttendancePage />} />
+    <Route path="/manager/leave-requests"   element={<LeavePage />} />
+    <Route path="/manager/payroll"          element={<Payroll />} />
 
       {/* Owner */}
       <Route path="/owner/*" element={<OwnerDashboard />} />
@@ -50,11 +55,11 @@ const App: React.FC = () => (
       <Route path="/employee/profile"     element={<EmployeeProfilePage />} />
       <Route path="/employee/performance" element={<EmployeeDashboard />} />
       <Route path="/employee/documents"   element={<EmployeeDashboard />} />
-      <Route path="/employee/settings"    element={<EmployeeDashboard />} />
+    <Route path="/employee/settings"    element={<EmployeeSettingsPage />} />
 
       {/* catch-all */}
       <Route path="*" element={<Navigate to="/" replace />} />
-    </Routes>
+  </Routes>
   </CountryProvider>
 );
 
