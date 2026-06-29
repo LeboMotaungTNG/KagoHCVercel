@@ -1,7 +1,8 @@
 import mongoose, { Schema, Document } from 'mongoose';
 
 export interface ICompany extends Document {
-  ownerId: mongoose.Types.ObjectId;
+  ownerId?: mongoose.Types.ObjectId;
+  inviteEmail?: string;
   name: string;
   size: number;
   sector: string;
@@ -51,7 +52,7 @@ export interface ICompany extends Document {
   dateFormat: string;
   fiscalYearStart: string;
   fiscalYearEnd: string;
-  status: string;
+  status: 'pending_owner' | 'Active' | 'Inactive' | 'Suspended';
   verified: boolean;
   lastAuditDate: string;
   onboardingCompleted: boolean;
@@ -61,63 +62,104 @@ export interface ICompany extends Document {
   updatedAt: Date;
 }
 
-const CompanySchema = new Schema<ICompany>({
-  ownerId: { type: Schema.Types.ObjectId, ref: 'User', required: true, unique: true },
-  name: { type: String, default: '' },
-  size: { type: Number, default: 0 },
-  sector: { type: String, default: '' },
-  email: { type: String, default: '' },
-  phone: { type: String, default: '' },
-  alternativePhone: { type: String, default: '' },
-  website: { type: String, default: '' },
-  fax: { type: String, default: '' },
-  logoUrl: { type: String },
-  taxId: { type: String, default: '' },
-  registrationNumber: { type: String, default: '' },
-  vatNumber: { type: String, default: '' },
-  uifReference: { type: String, default: '' },
-  sdlReference: { type: String, default: '' },
-  workInjuryFundRef: { type: String, default: '' },
-  bank: {
-    bankName: { type: String, default: '' },
-    accountName: { type: String, default: '' },
-    accountNumber: { type: String, default: '' },
-    branchCode: { type: String, default: '' },
-    accountType: { type: String, default: 'Business Cheque' },
-    swiftCode: { type: String, default: '' }
+const CompanySchema = new Schema<ICompany>(
+  {
+    // No inline index here — defined explicitly below via CompanySchema.index()
+    // so Mongoose correctly applies sparse: true
+    ownerId: {
+      type: Schema.Types.ObjectId,
+      ref: 'User',
+      default: null,
+    },
+    inviteEmail: { type: String, default: '' },
+    name: { type: String, default: '' },
+    size: { type: Number, default: 0 },
+    sector: { type: String, default: '' },
+    email: { type: String, default: '' },
+    phone: { type: String, default: '' },
+    alternativePhone: { type: String, default: '' },
+    website: { type: String, default: '' },
+    fax: { type: String, default: '' },
+    logoUrl: { type: String },
+    taxId: { type: String, default: '' },
+    registrationNumber: { type: String, default: '' },
+    vatNumber: { type: String, default: '' },
+    uifReference: { type: String, default: '' },
+    sdlReference: { type: String, default: '' },
+    workInjuryFundRef: { type: String, default: '' },
+    bank: {
+      bankName: { type: String, default: '' },
+      accountName: { type: String, default: '' },
+      accountNumber: { type: String, default: '' },
+      branchCode: { type: String, default: '' },
+      accountType: { type: String, default: 'Business Cheque' },
+      swiftCode: { type: String, default: '' },
+    },
+    contacts: {
+      ceo: {
+        name: { type: String, default: '' },
+        email: { type: String, default: '' },
+        phone: { type: String, default: '' },
+      },
+      finance: {
+        name: { type: String, default: '' },
+        email: { type: String, default: '' },
+        phone: { type: String, default: '' },
+      },
+      payroll: {
+        name: { type: String, default: '' },
+        email: { type: String, default: '' },
+        phone: { type: String, default: '' },
+      },
+    },
+    address: {
+      street: { type: String, default: '' },
+      city: { type: String, default: '' },
+      state: { type: String, default: '' },
+      country: { type: String, default: 'South Africa' },
+      postalCode: { type: String, default: '' },
+      physicalAddress: { type: String, default: '' },
+      postalAddress: { type: String, default: '' },
+    },
+    businessType: { type: String, default: '' },
+    yearsInOperation: { type: Number, default: 0 },
+    sarsBranch: { type: String, default: '' },
+    incomeTaxNumber: { type: String, default: '' },
+    payeReference: { type: String, default: '' },
+    provisionalTaxpayer: { type: Boolean, default: false },
+    taxComplianceStatus: { type: String, default: 'Pending' },
+    language: { type: String, default: 'English' },
+    timezone: { type: String, default: 'Africa/Johannesburg' },
+    dateFormat: { type: String, default: 'DD/MM/YYYY' },
+    fiscalYearStart: {
+      type: String,
+      default: () => `${new Date().getFullYear()}-03-01`,
+    },
+    fiscalYearEnd: {
+      type: String,
+      default: () => `${new Date().getFullYear() + 1}-02-28`,
+    },
+    status: {
+      type: String,
+      enum: ['pending_owner', 'Active', 'Inactive', 'Suspended'],
+      default: 'pending_owner',
+    },
+    verified: { type: Boolean, default: false },
+    lastAuditDate: {
+      type: String,
+      default: () => new Date().toISOString().slice(0, 10),
+    },
+    onboardingCompleted: { type: Boolean, default: false },
+    onboardingCompletedAt: { type: Date },
+    country: { type: String },
   },
-  contacts: {
-    ceo: { name: { type: String, default: '' }, email: { type: String, default: '' }, phone: { type: String, default: '' } },
-    finance: { name: { type: String, default: '' }, email: { type: String, default: '' }, phone: { type: String, default: '' } },
-    payroll: { name: { type: String, default: '' }, email: { type: String, default: '' }, phone: { type: String, default: '' } }
-  },
-  address: {
-    street: { type: String, default: '' },
-    city: { type: String, default: '' },
-    state: { type: String, default: '' },
-    country: { type: String, default: 'South Africa' },
-    postalCode: { type: String, default: '' },
-    physicalAddress: { type: String, default: '' },
-    postalAddress: { type: String, default: '' }
-  },
-  businessType: { type: String, default: '' },
-  yearsInOperation: { type: Number, default: 0 },
-  sarsBranch: { type: String, default: '' },
-  incomeTaxNumber: { type: String, default: '' },
-  payeReference: { type: String, default: '' },
-  provisionalTaxpayer: { type: Boolean, default: false },
-  taxComplianceStatus: { type: String, default: 'Pending' },
-  language: { type: String, default: 'English' },
-  timezone: { type: String, default: 'Africa/Johannesburg' },
-  dateFormat: { type: String, default: 'DD/MM/YYYY' },
-  fiscalYearStart: { type: String, default: () => `${new Date().getFullYear()}-03-01` },
-  fiscalYearEnd: { type: String, default: () => `${new Date().getFullYear() + 1}-02-28` },
-  status: { type: String, default: 'Active' },
-  verified: { type: Boolean, default: false },
-  lastAuditDate: { type: String, default: () => new Date().toISOString().slice(0, 10) },
-  onboardingCompleted: { type: Boolean, default: false },
-  onboardingCompletedAt: { type: Date },
-  country: { type: String }
-}, { timestamps: true });
+  { timestamps: true }
+);
+
+// Sparse unique index defined at schema level — this is the correct way to
+// ensure Mongoose applies both unique AND sparse together. Inline index
+// options on the field definition don't reliably apply sparse in all
+// Mongoose/MongoDB driver versions.
+
 
 export default mongoose.model<ICompany>('Company', CompanySchema);

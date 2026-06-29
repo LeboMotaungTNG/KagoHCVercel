@@ -186,10 +186,16 @@ function AddEmployeeModal({ onClose, onSuccess }: { onClose: () => void; onSucce
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}>
             <div>
               <label style={labelStyle}>Role</label>
+              {/*
+                SECURITY FIX: 'owner' has been removed from this dropdown.
+                Owners are only created through the platform admin invite flow
+                (POST /platform/companies → accept-invite). Allowing an admin
+                or owner to freely create another 'owner' account from here
+                would bypass tenant isolation and mint an unscoped root user.
+              */}
               <select style={{ ...inputStyle, cursor: "pointer" }} value={form.role} onChange={setField("role")}>
                 <option value="user">Employee</option>
-                <option value="admin">Admin</option>
-                <option value="owner">Owner</option>
+                <option value="admin">Admin / Manager</option>
               </select>
             </div>
             <div>
