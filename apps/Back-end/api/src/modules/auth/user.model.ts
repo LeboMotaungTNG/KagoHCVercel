@@ -12,6 +12,8 @@ export interface IUser extends Document {
   employeeId?: mongoose.Types.ObjectId;
   isActive: boolean;
   lastLogin: Date;
+  resetPasswordToken?: string;
+  resetPasswordExpires?: Date;
   comparePassword(candidatePassword: string): Promise<boolean>;
 }
 
@@ -31,6 +33,8 @@ const UserSchema = new Schema<IUser>(
     isActive: { type: Boolean, default: true },
     phone: { type: String },
     lastLogin: { type: Date },
+    resetPasswordToken: { type: String },
+    resetPasswordExpires: { type: Date },
   },
   { timestamps: true }
 );

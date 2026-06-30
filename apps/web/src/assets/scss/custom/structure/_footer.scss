@@ -20,6 +20,15 @@
     }
 }
 
+/* On phones the bottom nav owns the bottom of the screen, so the
+   desktop footer (copyright / privacy links) would only collide with it.
+   Hide it; the legal links remain available from inside the menu. */
+@media (max-width: 600px) {
+    .footer {
+        display: none;
+    }
+}
+
 // Enlarge menu
 .vertical-collpsed {
     .footer {
