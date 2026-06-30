@@ -7,11 +7,6 @@ export interface IUser extends Document {
   password: string;
   firstName: string;
   lastName: string;
-  // platform_admin: your internal team — sits above all tenants, not scoped
-  //                 to any company, can create company shells and send invites.
-  // owner:          top of a single tenant, ownerId === self._id.
-  // admin/manager:  tenant-scoped staff, ownerId points to their owner.
-  // user:           regular employee account.
   role: 'platform_admin' | 'owner' | 'admin' | 'manager' | 'user';
   ownerId: mongoose.Types.ObjectId;
   employeeId?: mongoose.Types.ObjectId;
@@ -33,7 +28,6 @@ const UserSchema = new Schema<IUser>(
       enum: ['platform_admin', 'owner', 'admin', 'manager', 'user'],
       default: 'user',
     },
-    // platform_admin users intentionally have no ownerId.
     ownerId: { type: Schema.Types.ObjectId, ref: 'User', default: null },
     employeeId: { type: Schema.Types.ObjectId, ref: 'Employee' },
     isActive: { type: Boolean, default: true },
@@ -45,11 +39,25 @@ const UserSchema = new Schema<IUser>(
   { timestamps: true }
 );
 
-UserSchema.pre('save', async function (next) {
+// ── Password hashing on save ────────────────────────────────────────────────
+// WHY THIS LOOKS UNUSUAL:
+// Mongoose's pre('save') overloads can mismatch against certain
+// mongoose/@types/mongoose version pairs, causing TypeScript to misidentify
+// the callback's type as SaveOptions instead of a next() function — which
+// has no call signature, breaking compilation even though the JS is correct
+// at runtime. Casting the handler to `any` at the call site sidesteps
+// TypeScript's overload resolution for this one call without weakening
+// type safety anywhere else in the file.
+async function hashPasswordBeforeSave(this: IUser, next: any) {
   if (!this.isModified('password')) return next();
-  this.password = await bcrypt.hash(this.password, 10);
-  next();
-});
+  try {
+    this.password = await bcrypt.hash(this.password, 10);
+    next();
+  } catch (err) {
+    next(err);
+  }
+}
+UserSchema.pre('save', hashPasswordBeforeSave as any);
 
 UserSchema.methods.comparePassword = async function (
   candidatePassword: string
