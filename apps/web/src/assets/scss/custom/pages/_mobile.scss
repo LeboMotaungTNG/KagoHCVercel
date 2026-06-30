@@ -19,16 +19,12 @@ img, svg, video { max-width: 100%; height: auto; }
 
 /* ── App-like touch & motion polish (mobile + small tablet) ──────────── */
 @media (max-width: 992px) {
-  /* Kill iOS double-tap highlight everywhere; we add our own active states. */
   * { -webkit-tap-highlight-color: transparent; }
 
-  /* Smoother scrolling momentum on iOS. */
   html, body, .page-content {
     -webkit-overflow-scrolling: touch;
   }
 
-  /* Honor iPhone safe areas at the top so the topbar isn't hidden by the
-     status bar / notch when launched as a PWA / Add-to-Home-Screen. */
   #page-topbar {
     padding-top: env(safe-area-inset-top);
     background-color: rgba(255, 255, 255, 0.92);
@@ -38,7 +34,6 @@ img, svg, video { max-width: 100%; height: auto; }
     box-shadow: none;
   }
 
-  /* Cards: a subtle press effect makes every tile feel "tappable". */
   [style*="border-radius: 20"],
   [style*="border-radius: 16"],
   [style*="border-radius: 18"],
@@ -54,11 +49,7 @@ img, svg, video { max-width: 100%; height: auto; }
     transform: scale(0.985);
   }
 
-  /* Slight inertial bounce control — keeps overscroll from showing the
-     browser address bar pulling the page. */
-  body {
-    overscroll-behavior-y: contain;
-  }
+  body { overscroll-behavior-y: contain; }
 }
 
 /* Keep horizontal scroll from runaway absolute hero blobs etc. */
@@ -92,7 +83,7 @@ img, svg, video { max-width: 100%; height: auto; }
 /* ── ≤ 992 px (tablet) ────────────────────────────────────────────────── */
 @media (max-width: 992px) {
 
-  /* The Manage Employees command bar / queue rail (form + 340 px queue) */
+  /* Side-rail layouts (form + queue/rail) — every variant. */
   .me-page [style*="340px"],
   .me-page [style*="320px"],
   [style*="grid-template-columns: 1fr 340px"],
@@ -100,30 +91,60 @@ img, svg, video { max-width: 100%; height: auto; }
   [style*="grid-template-columns: 1fr 320px"],
   [style*="grid-template-columns:1fr 320px"],
   [style*="grid-template-columns: 1fr 360px"],
-  [style*="grid-template-columns:1fr 360px"] {
+  [style*="grid-template-columns:1fr 360px"],
+  [style*="grid-template-columns: 1fr 350px"],
+  [style*="grid-template-columns:1fr 350px"],
+  [style*="grid-template-columns: 1fr 300px"],
+  [style*="grid-template-columns:1fr 300px"],
+  [style*="grid-template-columns: 1fr 280px"],
+  [style*="grid-template-columns:1fr 280px"],
+  [style*="grid-template-columns: 1fr 260px"],
+  [style*="grid-template-columns:1fr 260px"],
+  [style*="grid-template-columns: minmax(0, 280px)"],
+  [style*="grid-template-columns:minmax(0, 280px)"],
+  [style*="grid-template-columns: minmax(0,280px)"],
+  [style*="grid-template-columns: minmax(0, 260px)"],
+  [style*="grid-template-columns: minmax(0, 240px)"] {
     grid-template-columns: 1fr !important;
   }
 
-  /* Three-up rows that should stack as 1 column on tablets too */
+  /* Many-column form rows like `2fr 1fr 1fr auto`, `2fr 1fr auto`,
+     `2fr 2fr auto`, `1fr 1fr auto` — collapse to a single column. */
+  [style*="grid-template-columns: 2fr 1fr 1fr"],
+  [style*="grid-template-columns: 2fr 1fr auto"],
+  [style*="grid-template-columns: 2fr 2fr auto"],
+  [style*="grid-template-columns: 1fr 1fr auto"],
+  [style*="grid-template-columns: 1fr auto"],
+  [style*="grid-template-columns:1fr auto"] {
+    grid-template-columns: 1fr !important;
+  }
+
+  /* Three-up rows that should stack on tablets too */
   [style*="grid-template-columns: 1fr 1fr 1fr"],
   [style*="grid-template-columns:1fr 1fr 1fr"],
   [style*="grid-template-columns: repeat(3"] {
     grid-template-columns: 1fr !important;
   }
 
-  /* Form rows */
+  /* Two-up form / KPI rows */
   [style*="grid-template-columns: 1fr 1fr"],
-  [style*="grid-template-columns:1fr 1fr"] {
+  [style*="grid-template-columns:1fr 1fr"],
+  [style*="grid-template-columns: repeat(2"] {
     grid-template-columns: 1fr !important;
   }
 
-  /* Common content "container caps" used in pages — let them fill the screen */
+  /* Common content "container caps" — fill the screen on mobile. */
   [style*="max-width: 1280"],
   [style*="max-width:1280"],
   [style*="max-width: 1200"],
   [style*="max-width:1200"],
   [style*="max-width: 1100"],
   [style*="max-width:1100"],
+  [style*="max-width: 1080"],
+  [style*="max-width: 1000"],
+  [style*="max-width:1000"],
+  [style*="max-width: 960"],
+  [style*="max-width: 900"],
   [style*="max-width: 1400"],
   [style*="max-width:1400"] {
     max-width: 100% !important;
@@ -132,39 +153,70 @@ img, svg, video { max-width: 100%; height: auto; }
   .container, .container-fluid { padding-left: 12px; padding-right: 12px; }
   .page-content { padding: 12px 0 64px 0 !important; }
 
-  /* Mobile sidebar overlay — add a soft backdrop hint when it's open */
-  body.sidebar-enable .vertical-menu {
-    box-shadow: 0 0 0 100vmax rgba(15, 23, 42, 0.35);
-    z-index: 1005;
-  }
-
   /* Modals — let them breathe on small screens */
   [role="dialog"], [aria-modal="true"] {
     max-width: calc(100vw - 24px) !important;
   }
+
+  /* Tables: wrap horizontal scroll so wide rows don't break the layout. */
+  table {
+    display: block;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    width: 100% !important;
+    max-width: 100% !important;
+  }
+  /* When a table has an inline min-width, keep it as a hint inside the
+     scrolling wrapper instead of forcing the whole page wider. */
+  table[style*="min-width"] {
+    min-width: 0 !important;
+  }
+  table[style*="min-width"] > * { min-width: 0 !important; }
 }
 
 /* ── ≤ 768 px (small tablet / landscape phone) ────────────────────────── */
 @media (max-width: 768px) {
 
-  /* Generic auto-fit grids stay one-column for clarity */
-  [style*="grid-template-columns: repeat(auto-fit"] { grid-template-columns: 1fr !important; }
+  /* Auto-fit / auto-fill grids — single column. */
+  [style*="grid-template-columns: repeat(auto-fit"],
+  [style*="grid-template-columns:repeat(auto-fit"],
+  [style*="grid-template-columns: repeat(auto-fill"],
+  [style*="grid-template-columns:repeat(auto-fill"] {
+    grid-template-columns: 1fr !important;
+  }
 
-  /* Page hero headings — scale down */
+  /* Page hero headings */
   h1 { font-size: 24px !important; line-height: 1.15 !important; }
   h2 { font-size: 20px !important; }
   h3 { font-size: 17px !important; }
 
   /* Big number / hero number displays (e.g. attendance timer 64 px) */
   [style*="font-size: 64"]  { font-size: 44px !important; }
-  [style*="font-size: 38"]  { font-size: 30px !important; }
+  [style*="font-size: 48"]  { font-size: 32px !important; }
+  [style*="font-size: 44"]  { font-size: 30px !important; }
+  [style*="font-size: 40"]  { font-size: 28px !important; }
+  [style*="font-size: 38"]  { font-size: 28px !important; }
   [style*="font-size: 36"]  { font-size: 26px !important; }
   [style*="font-size: 32"]  { font-size: 24px !important; }
-  [style*="font-size: 30"]  { font-size: 24px !important; }
+  [style*="font-size: 30"]  { font-size: 22px !important; }
 
   /* Footer text — center on phones */
   .footer .row > div { text-align: center !important; }
   .footer .text-sm-end { text-align: center !important; }
+
+  /* Tighten common card paddings (large hero / section cards). */
+  [style*="padding: 32"] { padding: 18px !important; }
+  [style*="padding: 28"] { padding: 16px !important; }
+  [style*="padding: 24"] { padding: 16px !important; }
+  [style*="padding: 22"] { padding: 14px !important; }
+  [style*="padding: 20"] { padding: 14px !important; }
+
+  /* Decorative absolute blobs we put on hero cards — hide on phones so they
+     don't cause horizontal scroll. They have border-radius: 50% inline. */
+  [style*="position: absolute"][style*="border-radius: 50%"][style*="filter: blur"],
+  [style*="position: absolute"][style*="border-radius: 999"][style*="filter: blur"] {
+    display: none !important;
+  }
 }
 
 /* ── ≤ 600 px (phones) ────────────────────────────────────────────────── */
@@ -175,38 +227,102 @@ img, svg, video { max-width: 100%; height: auto; }
   #page-topbar .header-item   { padding: 0 8px !important; }
   .user-dropdown .d-xl-inline-block { display: none !important; }
 
-  /* Tables in our pages — always allow horizontal scroll */
-  table { display: block; overflow-x: auto; -webkit-overflow-scrolling: touch; }
-
   /* Reduce padding on white cards across the app
      (most are tagged with inline `border-radius` 12–20 + padding 20–28). */
   [style*="border-radius: 20"][style*="padding: 28"],
   [style*="border-radius: 16"][style*="padding: 24"],
   [style*="border-radius: 18"][style*="padding: 22"],
   [style*="border-radius: 14"][style*="padding: 24"],
-  [style*="border-radius: 12"][style*="padding: 24"] {
-    padding: 16px !important;
+  [style*="border-radius: 12"][style*="padding: 24"],
+  [style*="border-radius: 16"][style*="padding: 20"],
+  [style*="border-radius: 18"][style*="padding: 24"],
+  [style*="border-radius: 20"][style*="padding: 24"],
+  [style*="border-radius: 24"][style*="padding: 24"],
+  [style*="border-radius: 24"][style*="padding: 28"] {
+    padding: 14px !important;
     border-radius: 14px !important;
   }
 
-  /* Two-up flex rows we use a lot — wrap clean */
+  /* Flex rows with space-between often have right-side action buttons that
+     wrap awkwardly; allow wrapping cleanly. */
   [style*="display: flex"][style*="justify-content: space-between"] {
     flex-wrap: wrap !important;
+    gap: 8px !important;
   }
 
-  /* KPI tiles & small grids — single column */
-  [style*="grid-template-columns: repeat(2"] { grid-template-columns: 1fr !important; }
+  /* Flex rows with explicit large gaps — tighten on phones. */
+  [style*="display: flex"][style*="gap: 24"],
+  [style*="display:flex"][style*="gap: 24"] {
+    gap: 12px !important;
+  }
+  [style*="display: flex"][style*="gap: 32"],
+  [style*="display:flex"][style*="gap: 32"] {
+    gap: 14px !important;
+  }
 
-  /* Quick-action style grids that target ≥3 columns — make them 2-up */
+  /* Single-column at this width regardless. */
+  [style*="grid-template-columns: repeat(2"],
+  [style*="grid-template-columns:repeat(2"] {
+    grid-template-columns: 1fr !important;
+  }
+
+  /* Quick-action style grids that target ≥3 columns — keep 2-up on phones. */
   .kg-actions-grid { grid-template-columns: repeat(2, minmax(0, 1fr)) !important; }
 
   /* Headings down one more notch */
   h1 { font-size: 22px !important; }
   h2 { font-size: 18px !important; }
 
-  /* Tap-targets */
+  /* Tap-targets & inputs */
   button, .btn { min-height: 40px; }
-  input, select, textarea { font-size: 16px !important; /* prevents iOS zoom */ }
+  input, select, textarea {
+    font-size: 16px !important; /* prevents iOS auto-zoom */
+    box-sizing: border-box !important;
+  }
+  input:not([type="checkbox"]):not([type="radio"]),
+  select,
+  textarea {
+    width: 100% !important;
+    max-width: 100% !important;
+  }
+
+  /* Inputs/buttons with hard-coded pixel widths — let them go full bleed. */
+  [style*="width: 220"][style*="height"],
+  [style*="width: 240"][style*="height"],
+  [style*="width: 260"][style*="height"],
+  [style*="width: 280"][style*="height"],
+  [style*="width: 300"][style*="height"],
+  [style*="width: 320"][style*="height"] {
+    width: 100% !important;
+  }
+
+  /* Action button rows: stack on phones. */
+  [style*="display: flex"][style*="gap"] > button {
+    flex: 1 1 auto;
+  }
+
+  /* Big hero avatars (employee profile) — keep proportional. */
+  [style*="width: 120"][style*="height: 120"],
+  [style*="width: 128"][style*="height: 128"],
+  [style*="width: 140"][style*="height: 140"],
+  [style*="width: 160"][style*="height: 160"] {
+    width: 96px !important;
+    height: 96px !important;
+  }
+
+  /* Tables: stick with horizontal scroll but trim text size so more fits. */
+  table th, table td {
+    font-size: 12.5px !important;
+    padding: 8px 10px !important;
+    white-space: nowrap;
+  }
+
+  /* Modal-like overlays — give them more breathing room and center properly. */
+  [role="dialog"], [aria-modal="true"] {
+    max-width: calc(100vw - 16px) !important;
+    max-height: calc(100vh - 32px) !important;
+    overflow-y: auto;
+  }
 
   /* Spacing utilities tightening */
   .mt-3 { margin-top: 0.75rem !important; }
@@ -221,6 +337,11 @@ img, svg, video { max-width: 100%; height: auto; }
 
   /* Hero pills & status chips can wrap freely */
   [style*="border-radius: 999"] { white-space: normal !important; }
+
+  /* Even tighter card padding for tiny phones. */
+  [style*="border-radius"][style*="padding"] {
+    padding: 12px !important;
+  }
 }
 
 /* ── Hero card defaults (always-on, no media query) ───────────────────── *
