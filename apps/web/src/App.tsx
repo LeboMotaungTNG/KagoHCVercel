@@ -22,9 +22,11 @@ import PlatformAdminPage from "./apps/Platform/PlatformAdminPage";
 import AcceptInvitePage from "./apps/Platform/AcceptInvitePage";
 
 // Convenience aliases so the route table reads cleanly.
+// "user" is the legacy role the backend currently issues for regular staff;
+// it is treated as a synonym of "employee" everywhere on the frontend.
 const ManagerArea  = ["manager", "admin", "hr"] as const;
 const OwnerArea    = ["owner"] as const;
-const EmployeeArea = ["employee", "manager", "admin", "hr", "owner"] as const;
+const EmployeeArea = ["employee", "user", "manager", "admin", "hr", "owner"] as const;
 const PlatformArea = ["platform_admin"] as const;
 
 const Guard: React.FC<{ roles?: readonly string[]; children: React.ReactNode }> = ({ roles, children }) => (

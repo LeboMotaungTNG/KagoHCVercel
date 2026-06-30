@@ -19,13 +19,21 @@
 import React, { useEffect, useState } from "react";
 import { Navigate, useLocation } from "react-router-dom";
 
+/**
+ * Roles recognised by the frontend. We accept "user" as an alias for
+ * "employee" because the live backend currently issues `role: "user"`
+ * for regular staff accounts (e.g. Bob Johnson). Treating it as an
+ * employee keeps everyone able to reach their dashboard without
+ * requiring a backend migration.
+ */
 export type AppRole =
   | "platform_admin"
   | "owner"
   | "admin"
   | "manager"
   | "hr"
-  | "employee";
+  | "employee"
+  | "user";
 
 interface RequireAuthProps {
   children: React.ReactNode;
@@ -66,8 +74,9 @@ const homeForRole = (role?: string): string => {
     case "admin":
     case "hr":
     case "manager":        return "/manager";
-    case "employee":       return "/employee";
-    default:               return "/";
+    case "employee":
+    case "user":           return "/employee";
+    default:               return "/employee"; // safest landing for any unexpected role
   }
 };
 
