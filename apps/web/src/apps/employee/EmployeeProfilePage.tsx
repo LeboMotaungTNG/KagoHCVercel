@@ -176,12 +176,12 @@ const StatTile: React.FC<{ icon: React.ReactNode; label: string; value: string; 
 
 const Field: React.FC<{
   label: string; value?: string; editing: boolean;
-  type?: string; placeholder?: string;
+  type?: string; placeholder?: string; editable?: boolean;
   onChange?: (v: string) => void;
-}> = ({ label, value, editing, type = "text", placeholder, onChange }) => (
+}> = ({ label, value, editing, type = "text", placeholder, editable = true, onChange }) => (
   <div>
     <label style={labelStyle}>{label}</label>
-    {editing ? (
+    {editing && editable ? (
       type === "tel" ? (
         <PhoneInput value={value || ""} onChange={v => onChange?.(v)} />
       ) : (
@@ -474,15 +474,15 @@ const EmployeeProfilePage: React.FC = () => {
                              onChange={v => updateDraft("personal", { lastName: v })} />
                       <Field label="Preferred Name" value={(editing ? draft : profile).personal.preferredName} editing={editing}
                              onChange={v => updateDraft("personal", { preferredName: v })} />
-                      <Field label="Date of Birth" type="date" value={(editing ? draft : profile).personal.dateOfBirth || ""} editing={editing}
+                      <Field label="Date of Birth" type="date" value={(editing ? draft : profile).personal.dateOfBirth || ""} editing={editing} editable={false}
                              onChange={v => updateDraft("personal", { dateOfBirth: v })} />
-                      <Field label="Gender" value={(editing ? draft : profile).personal.gender} editing={editing}
+                      <Field label="Gender" value={(editing ? draft : profile).personal.gender} editing={editing} editable={false}
                              onChange={v => updateDraft("personal", { gender: v })} />
-                      <Field label="Nationality" value={(editing ? draft : profile).personal.nationality} editing={editing}
+                      <Field label="Nationality" value={(editing ? draft : profile).personal.nationality} editing={editing} editable={false}
                              onChange={v => updateDraft("personal", { nationality: v })} />
-                      <Field label="ID Number" value={(editing ? draft : profile).personal.idNumber} editing={editing}
+                      <Field label="ID Number" value={(editing ? draft : profile).personal.idNumber} editing={editing} editable={false}
                              onChange={v => updateDraft("personal", { idNumber: v })} />
-                      <Field label="Marital Status" value={(editing ? draft : profile).personal.maritalStatus} editing={editing}
+                      <Field label="Marital Status" value={(editing ? draft : profile).personal.maritalStatus} editing={editing} editable={false}
                              onChange={v => updateDraft("personal", { maritalStatus: v })} />
                     </FieldGrid>
                   </EditableSection>
@@ -501,16 +501,16 @@ const EmployeeProfilePage: React.FC = () => {
                              onChange={v => updateDraft("employment", { position: v })} />
                       <Field label="Department" value={(editing ? draft : profile).employment.department} editing={false} />
                       <Field label="Manager" value={(editing ? draft : profile).employment.manager} editing={false} />
-                      <Field label="Hire Date" type="date" value={(editing ? draft : profile).employment.hireDate || ""} editing={editing}
+                      <Field label="Hire Date" type="date" value={(editing ? draft : profile).employment.hireDate || ""} editing={editing} editable={false}
                              onChange={v => updateDraft("employment", { hireDate: v })} />
-                      <Field label="Employment Type" value={(editing ? draft : profile).employment.employmentType} editing={editing}
+                      <Field label="Employment Type" value={(editing ? draft : profile).employment.employmentType} editing={editing} editable={false}
                              onChange={v => updateDraft("employment", { employmentType: v as any })} />
                       <Field label="Status" value={(editing ? draft : profile).employment.employmentStatus} editing={false} />
-                      <Field label="Work Location" value={(editing ? draft : profile).employment.workLocation} editing={editing}
+                      <Field label="Work Location" value={(editing ? draft : profile).employment.workLocation} editing={editing} editable={false}
                              onChange={v => updateDraft("employment", { workLocation: v })} />
-                      <Field label="Work Schedule" value={(editing ? draft : profile).employment.workSchedule} editing={editing}
+                      <Field label="Work Schedule" value={(editing ? draft : profile).employment.workSchedule} editing={editing} editable={false}
                              onChange={v => updateDraft("employment", { workSchedule: v })} />
-                      <Field label="Contract End" type="date" value={(editing ? draft : profile).employment.contractEnd || ""} editing={editing}
+                      <Field label="Contract End" type="date" value={(editing ? draft : profile).employment.contractEnd || ""} editing={editing} editable={false}
                              onChange={v => updateDraft("employment", { contractEnd: v })} />
                     </FieldGrid>
 
