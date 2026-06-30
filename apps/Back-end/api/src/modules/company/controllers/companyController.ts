@@ -1,24 +1,16 @@
 import { Request, Response } from 'express';
 import Company from '../models/Company';
 
-const getOwnerId = (req: Request): string | undefined => {
-  const u = (req as any).user;
-  return u?._id || u?.id || u?.userId;
-};
-
 export const getCompanySettings = async (req: Request, res: Response) => {
   try {
-    const ownerId = getOwnerId(req);
-    if (!ownerId) {
-      return res.status(401).json({ success: false, message: 'Not authenticated' });
-    }
-
+    const ownerId = (req as any).user?.id;
+    
     let company = await Company.findOne({ ownerId });
-
+    
     if (!company) {
       company = await Company.create({ ownerId });
     }
-
+    
     res.status(200).json({ success: true, data: company });
   } catch (error) {
     console.error('Error fetching company settings:', error);
@@ -28,18 +20,15 @@ export const getCompanySettings = async (req: Request, res: Response) => {
 
 export const updateCompanySettings = async (req: Request, res: Response) => {
   try {
-    const ownerId = getOwnerId(req);
-    if (!ownerId) {
-      return res.status(401).json({ success: false, message: 'Not authenticated' });
-    }
+    const ownerId = (req as any).user?.id;
     const updateData = req.body;
-
+    
     const company = await Company.findOneAndUpdate(
       { ownerId },
-      { ...updateData, ownerId, updatedAt: new Date() },
-      { new: true, upsert: true, setDefaultsOnInsert: true }
+      { ...updateData, updatedAt: new Date() },
+      { new: true, upsert: true }
     );
-
+    
     res.status(200).json({
       success: true,
       data: company,
@@ -53,22 +42,18 @@ export const updateCompanySettings = async (req: Request, res: Response) => {
 
 export const completeOnboarding = async (req: Request, res: Response) => {
   try {
-    const ownerId = getOwnerId(req);
-    if (!ownerId) {
-      return res.status(401).json({ success: false, message: 'Not authenticated' });
-    }
+    const ownerId = (req as any).user?.id;
     const { country } = req.body;
     
     const company = await Company.findOneAndUpdate(
       { ownerId },
-      {
-        ownerId,
-        onboardingCompleted: true,
-        onboardingCompletedAt: new Date(),
+      { 
+        onboardingCompleted: true, 
+        onboardingCompletedAt: new Date(), 
         country,
-        verified: true,
+        verified: true 
       },
-      { new: true, upsert: true, setDefaultsOnInsert: true }
+      { new: true }
     );
     
     res.status(200).json({

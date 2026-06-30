@@ -41,7 +41,6 @@ const LoginForm = () => {
 
         console.log("Attempting login for:", email);
         
-        // CALL YOUR REAL BACKEND API
         const response = await fetch(`${API_URL}/auth/login`, {
           method: 'POST',
           headers: {
@@ -59,7 +58,9 @@ const LoginForm = () => {
           localStorage.setItem('user', JSON.stringify(data.data.user));
           
           // Navigate based on role
-           if (data.data.user.role === 'owner') {
+          if (data.data.user.role === 'platform_admin') {
+            navigate("/platform");
+          } else if (data.data.user.role === 'owner') {
             navigate("/owner");
           } else if (data.data.user.role === 'admin') {
             navigate("/manager");
@@ -98,7 +99,6 @@ const LoginForm = () => {
       </div>
 
       <div className="w-100 mt-3">
-        {/* Show error message if login fails */}
         {loginError && (
           <div className="alert alert-danger mb-3" role="alert">
             {loginError}
@@ -209,8 +209,6 @@ const LoginForm = () => {
                   pending={pending}
                 />
               </div>
-
-            
             </Col>
           </Row>
         </Form>

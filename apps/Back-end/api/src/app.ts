@@ -19,6 +19,7 @@ import leaveRoutes from './modules/leave/routes/leave.routes';
 import leaveRulesRoutes from './modules/leave/routes/leave-rules.routes';
 import leavePolicyRoutes from './modules/owner/routes/leave-policy.routes';
 import taxRoutes from './modules/tax/routes/taxRoutes';
+import platformRoutes from './modules/platform/routes/platform.routes';
 
 dotenv.config();
 
@@ -45,6 +46,7 @@ app.use('/api/v1/payroll', payrollRoutes);
 app.use('/api/v1/leave-rules', leaveRulesRoutes);
 app.use('/api/v1/owner/leave-policies', leavePolicyRoutes);
 app.use('/api/v1/owner/tax-rates', taxRoutes);
+app.use('/api/v1/platform', platformRoutes);
 
 // Health check
 app.get('/health', (req, res) => {
