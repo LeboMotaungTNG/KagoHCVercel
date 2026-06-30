@@ -34,14 +34,18 @@ async function seed() {
     return;
   }
 
+  // NOTE: ownerId is intentionally omitted (not set to null) — IUser.ownerId
+  // is typed as a required ObjectId with no null/undefined union, so passing
+  // null fails to compile under strict mode. platform_admin accounts have no
+  // tenant, so we simply don't set the field; Mongoose leaves it undefined
+  // at the document level, which is what we want.
   const admin = await User.create({
     email: PLATFORM_ADMIN_EMAIL,
     password: PLATFORM_ADMIN_PASSWORD, // pre-save hook hashes this
     firstName: PLATFORM_ADMIN_FIRST,
     lastName: PLATFORM_ADMIN_LAST,
     role: 'platform_admin',
-    ownerId: null,
-  });
+  } as any);
 
   console.log('✅ platform_admin created:');
   console.log('   ID:    ', admin._id.toString());
