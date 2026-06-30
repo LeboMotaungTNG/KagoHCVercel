@@ -1,9 +1,4 @@
-/**
- * SharedLayout – common Owner shell for sub-pages.
- *
- * Provides the Owner sidebar and header for pages like ManageEmployees
- * so they share a consistent look and navigation experience.
- */
+
 import React from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import {
@@ -18,15 +13,26 @@ import {
   ChevronDown,
   ChevronRight,
 } from "lucide-react";
+import {
+  SidebarHoverStyle,
+  MobileSidebarChrome,
+} from "../../shared/components/sidebarStyles";
+import MobileBottomNav from "../../shared/components/MobileBottomNav";
 // @ts-ignore
 import logoKago from "../../assets/images/logo-black-white.png";
+
+const ownerLogout = (navigate: (path: string) => void) => {
+  localStorage.removeItem("token");
+  localStorage.removeItem("user");
+  navigate("/login");
+};
 
 export interface SharedLayoutProps {
   title?: string;
   children: React.ReactNode;
 }
 
-const OwnerSidebar: React.FC = () => {
+const OwnerSidebar: React.FC<{ onLogout: () => void }> = ({ onLogout }) => {
   const [isHumanCapitalOpen, setIsHumanCapitalOpen] = React.useState(false);
   const location = useLocation();
   const isActive = (path: string) => location.pathname === path;
@@ -43,9 +49,11 @@ const OwnerSidebar: React.FC = () => {
 
   return (
     <div
-      className="vertical-menu"
+      className="vertical-menu kago-sidebar"
       style={{ backgroundColor: "#000", top: 0, zIndex: 1005, paddingTop: "20px" }}
     >
+      <SidebarHoverStyle />
+      <MobileSidebarChrome onLogout={onLogout} />
       <div className="h-100" style={{ overflowY: "auto", overflowX: "hidden" }}>
         <div id="sidebar-menu">
           <div className="d-flex mb-5" style={{ padding: "0 20px" }}>
@@ -324,10 +332,13 @@ const OwnerFooter: React.FC = () => (
   </footer>
 );
 
-const SharedLayout: React.FC<SharedLayoutProps> = ({ children }) => (
+const SharedLayout: React.FC<SharedLayoutProps> = ({ children }) => {
+  const navigate = useNavigate();
+  const handleLogout = () => ownerLogout(navigate);
+  return (
   <div id="layout-wrapper">
     <OwnerHeader />
-    <OwnerSidebar />
+    <OwnerSidebar onLogout={handleLogout} />
     <div className="main-content">
       <div
         className="page-content"
@@ -337,7 +348,16 @@ const SharedLayout: React.FC<SharedLayoutProps> = ({ children }) => (
       </div>
     </div>
     <OwnerFooter />
+    <MobileBottomNav
+      items={[
+        { to: "/owner",                       label: "Home",     icon: <Home size={20} /> },
+        { to: "/owner/employees",             label: "People",   icon: <Users size={20} /> },
+        { to: "/owner/employee-review",       label: "Reviews",  icon: <PenTool size={20} /> },
+        { to: "/owner/organization-settings", label: "Org",      icon: <Building2 size={20} /> },
+      ]}
+    />
   </div>
-);
+  );
+};
 
 export default SharedLayout;
