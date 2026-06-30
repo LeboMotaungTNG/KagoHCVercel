@@ -68,7 +68,10 @@ img, svg, video { max-width: 100%; height: auto; }
   [style*="grid-template-columns: 2fr 1fr"],
   [style*="grid-template-columns:2fr 1fr"],
   [style*="grid-template-columns: minmax(0,2fr) minmax(0,1fr)"],
-  [style*="grid-template-columns: minmax(0, 2fr) minmax(0, 1fr)"] {
+  [style*="grid-template-columns: minmax(0, 2fr) minmax(0, 1fr)"],
+  [style*="minmax(0px, 2fr) minmax(0px, 1fr)"],
+  [style*="minmax(0px, 1fr) minmax(0px, 2fr)"],
+  [style*="minmax(0px, 1fr) minmax(0px, 1fr)"] {
     grid-template-columns: 1fr !important;
   }
 
@@ -100,11 +103,16 @@ img, svg, video { max-width: 100%; height: auto; }
   [style*="grid-template-columns:1fr 280px"],
   [style*="grid-template-columns: 1fr 260px"],
   [style*="grid-template-columns:1fr 260px"],
-  [style*="grid-template-columns: minmax(0, 280px)"],
-  [style*="grid-template-columns:minmax(0, 280px)"],
-  [style*="grid-template-columns: minmax(0,280px)"],
-  [style*="grid-template-columns: minmax(0, 260px)"],
-  [style*="grid-template-columns: minmax(0, 240px)"] {
+  [style*="minmax(0, 280px)"],
+  [style*="minmax(0px, 280px)"],
+  [style*="minmax(0, 260px)"],
+  [style*="minmax(0px, 260px)"],
+  [style*="minmax(0, 240px)"],
+  [style*="minmax(0px, 240px)"],
+  [style*="minmax(0, 220px)"],
+  [style*="minmax(0px, 220px)"],
+  [style*="minmax(0, 200px)"],
+  [style*="minmax(0px, 200px)"] {
     grid-template-columns: 1fr !important;
   }
 
@@ -299,6 +307,23 @@ img, svg, video { max-width: 100%; height: auto; }
   /* Action button rows: stack on phones. */
   [style*="display: flex"][style*="gap"] > button {
     flex: 1 1 auto;
+  }
+
+  /* Hero blocks with a flex column pinned to the right (e.g. profile
+     completion side panel). On phones, let them flow full-width and
+     align to the start so the numbers line up with the rest. */
+  [style*="display: flex"][style*="flex-direction: column"][style*="align-items: flex-end"] {
+    align-items: flex-start !important;
+    width: 100% !important;
+    min-width: 0 !important;
+  }
+
+  /* Bars/progress trails forced to 200 px inside hero blocks — go fluid. */
+  [style*="width: 200"][style*="height: 6"],
+  [style*="width: 200"][style*="height: 8"],
+  [style*="width: 240"][style*="height: 6"],
+  [style*="width: 240"][style*="height: 8"] {
+    width: 100% !important;
   }
 
   /* Big hero avatars (employee profile) — keep proportional. */
