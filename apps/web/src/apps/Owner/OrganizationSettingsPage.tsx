@@ -785,19 +785,49 @@ export const PayrollSettingsTab = () => {
       const token = localStorage.getItem("token");
       const runId = activePayrollRun._id || activePayrollRun.id;
       
+      // ✅ FETCH WITH BLOB RESPONSE
       const response = await fetch(`${API_URL}/payroll/runs/${runId}/emp201`, {
-        headers: { "Authorization": `Bearer ${token}` }
+        headers: { 
+          "Authorization": `Bearer ${token}`
+        }
       });
       
-      const data = await response.json();
-      if (data.success) {
-        setActivePayrollRun({ ...activePayrollRun, status: "reports_generated" });
-        alert(`✅ EMP201 Generated!\nPAYE: R${data.data.financials.payeAmount.toFixed(2)}\nUIF: R${data.data.financials.uifAmount.toFixed(2)}\nTotal Payable: R${data.data.financials.totalPayable.toFixed(2)}`);
-      } else {
-        alert("❌ Failed: " + (data.message || "Unknown error"));
+      if (!response.ok) {
+        const errorText = await response.text();
+        throw new Error(`HTTP ${response.status}: ${errorText}`);
       }
+      
+      // ✅ Get the blob
+      const blob = await response.blob();
+      
+      // ✅ Check if it's actually a PDF
+      if (blob.type !== 'application/pdf') {
+        // If not PDF, try to parse as JSON (error response)
+        const text = await blob.text();
+        try {
+          const json = JSON.parse(text);
+          throw new Error(json.message || 'Unknown error');
+        } catch {
+          throw new Error('Unexpected response format');
+        }
+      }
+      
+      // ✅ Download the PDF
+      const url = window.URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = `EMP201_${activePayrollRun.period.replace(/\s/g, '_')}.pdf`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      window.URL.revokeObjectURL(url);
+      
+      setActivePayrollRun({ ...activePayrollRun, status: "reports_generated" });
+      alert("✅ EMP201 Report downloaded successfully!");
+      
     } catch (error) {
-      alert("❌ Failed to generate EMP201 report");
+      console.error('Error downloading EMP201:', error);
+      alert(`❌ Failed to download EMP201: ${error instanceof Error ? error.message : 'Unknown error'}`);
     } finally {
       setReportGenerating(false);
     }
