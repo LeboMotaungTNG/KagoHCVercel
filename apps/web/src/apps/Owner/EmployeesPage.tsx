@@ -100,7 +100,7 @@ function AddEmployeeModal({ onClose, onSuccess }: { onClose: () => void; onSucce
       }
     } catch (err) {
       console.error(err);
-      setError("Network error. Please try again.");
+      setError("Couldn't connect. Please check your internet and try again.");
     } finally {
       setSaving(false);
     }

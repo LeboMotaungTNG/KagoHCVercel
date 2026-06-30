@@ -473,7 +473,7 @@ export async function createEmployeeWithOnboarding(
       message: data?.message,
     };
   } catch (err: any) {
-    return { ok: false, message: err?.message || "Network error" };
+    return { ok: false, message: err?.message || "Couldn't connect. Please check your internet and try again." };
   }
 }
 

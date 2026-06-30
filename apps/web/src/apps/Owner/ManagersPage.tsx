@@ -123,7 +123,7 @@ function PromoteToManagerModal({ onClose, onSuccess }: { onClose: () => void; on
       }
     } catch (err) {
       console.error(err);
-      setError("Network error. Please try again.");
+      setError("Couldn't connect. Please check your internet and try again.");
     } finally {
       setSaving(false);
     }
@@ -266,7 +266,7 @@ function DemoteManagerModal({ manager, onClose, onSuccess }: { manager: any; onC
       }
     } catch (err) {
       console.error(err);
-      setError("Network error. Please try again.");
+      setError("Couldn't connect. Please check your internet and try again.");
     } finally {
       setSaving(false);
     }

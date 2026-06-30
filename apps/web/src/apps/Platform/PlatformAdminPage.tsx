@@ -281,7 +281,7 @@ const PlatformAdminPage: React.FC = () => {
         setFormError(data.message || "Failed to create company.");
       }
     } catch {
-      setFormError("Network error. Please try again.");
+      setFormError("Couldn't connect. Please check your internet and try again.");
     } finally {
       setSubmitting(false);
     }

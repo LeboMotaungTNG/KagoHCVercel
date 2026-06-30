@@ -463,7 +463,7 @@ const EmployeeLeave: React.FC = () => {
       }
     } catch (error) {
       console.error('Error submitting leave request:', error);
-      setMessage({ text: 'Network error. Please try again.', type: 'error' });
+      setMessage({ text: "Couldn't connect. Please check your internet and try again.", type: 'error' });
     } finally {
       setSubmitting(false);
       
