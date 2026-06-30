@@ -17,6 +17,50 @@
 html, body { -webkit-text-size-adjust: 100%; }
 img, svg, video { max-width: 100%; height: auto; }
 
+/* ── App-like touch & motion polish (mobile + small tablet) ──────────── */
+@media (max-width: 992px) {
+  /* Kill iOS double-tap highlight everywhere; we add our own active states. */
+  * { -webkit-tap-highlight-color: transparent; }
+
+  /* Smoother scrolling momentum on iOS. */
+  html, body, .page-content {
+    -webkit-overflow-scrolling: touch;
+  }
+
+  /* Honor iPhone safe areas at the top so the topbar isn't hidden by the
+     status bar / notch when launched as a PWA / Add-to-Home-Screen. */
+  #page-topbar {
+    padding-top: env(safe-area-inset-top);
+    background-color: rgba(255, 255, 255, 0.92);
+    -webkit-backdrop-filter: saturate(180%) blur(14px);
+    backdrop-filter: saturate(180%) blur(14px);
+    border-bottom: 1px solid rgba(15, 23, 42, 0.06);
+    box-shadow: none;
+  }
+
+  /* Cards: a subtle press effect makes every tile feel "tappable". */
+  [style*="border-radius: 20"],
+  [style*="border-radius: 16"],
+  [style*="border-radius: 18"],
+  [style*="border-radius: 14"],
+  [style*="border-radius: 12"] {
+    transition: transform 0.18s ease, box-shadow 0.18s ease;
+  }
+  [style*="border-radius: 20"]:active,
+  [style*="border-radius: 16"]:active,
+  [style*="border-radius: 18"]:active,
+  [style*="border-radius: 14"]:active,
+  [style*="border-radius: 12"]:active {
+    transform: scale(0.985);
+  }
+
+  /* Slight inertial bounce control — keeps overscroll from showing the
+     browser address bar pulling the page. */
+  body {
+    overscroll-behavior-y: contain;
+  }
+}
+
 /* Keep horizontal scroll from runaway absolute hero blobs etc. */
 #layout-wrapper, .main-content, .page-content, .container-fluid { max-width: 100%; }
 .page-content { overflow-x: hidden; }

@@ -20,7 +20,9 @@ import {
 import {
   sidebarItemStyle,
   SidebarHoverStyle,
+  MobileSidebarChrome,
 } from "../../shared/components/sidebarStyles";
+import MobileBottomNav from "../../shared/components/MobileBottomNav";
 // @ts-ignore
 import logoKago from "../../assets/images/logo-black-white.png";
 
@@ -29,7 +31,7 @@ export interface SharedLayoutProps {
   children: React.ReactNode;
 }
 
-const ManagerSidebar: React.FC = () => {
+const ManagerSidebar: React.FC<{ onLogout: () => void }> = ({ onLogout }) => {
   const location = useLocation();
   const isActive = (path: string) => location.pathname === path || location.pathname.startsWith(path + "/");
 
@@ -49,6 +51,7 @@ const ManagerSidebar: React.FC = () => {
       style={{ backgroundColor: "#000", top: 0, zIndex: 1005, paddingTop: "20px" }}
     >
       <SidebarHoverStyle />
+      <MobileSidebarChrome onLogout={onLogout} />
       <div className="h-100" style={{ overflowY: "auto", overflowX: "hidden" }}>
         <div id="sidebar-menu">
           <div className="d-flex mb-5" style={{ padding: "0 20px" }}>
@@ -205,10 +208,17 @@ const ManagerFooter: React.FC = () => (
   </footer>
 );
 
-const SharedLayout: React.FC<SharedLayoutProps> = ({ children }) => (
+const SharedLayout: React.FC<SharedLayoutProps> = ({ children }) => {
+  const navigate = useNavigate();
+  const handleLogout = () => {
+    localStorage.removeItem('token');
+    localStorage.removeItem('user');
+    navigate("/login");
+  };
+  return (
   <div id="layout-wrapper">
     <ManagerHeader />
-    <ManagerSidebar />
+    <ManagerSidebar onLogout={handleLogout} />
     <div className="main-content">
       <div
         className="page-content"
@@ -218,8 +228,17 @@ const SharedLayout: React.FC<SharedLayoutProps> = ({ children }) => (
       </div>
     </div>
     <ManagerFooter />
+    <MobileBottomNav
+      items={[
+        { to: "/manager",                label: "Home",       icon: <Home size={20} /> },
+        { to: "/manager/attendance",     label: "Attendance", icon: <Calendar size={20} /> },
+        { to: "/manager/leave-requests", label: "Leave",      icon: <ClipboardList size={20} /> },
+        { to: "/manager/employees",      label: "Team",       icon: <Users size={20} /> },
+      ]}
+    />
   </div>
-);
+  );
+};
 
 export default SharedLayout;
  

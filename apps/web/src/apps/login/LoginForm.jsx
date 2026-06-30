@@ -4,6 +4,7 @@ import { Row, Col, Form, Input, FormFeedback, Label } from "reactstrap";
 import { useFormik } from "formik";
 import * as Yup from "yup";
 import { AiOutlineEye, AiOutlineEyeInvisible } from "react-icons/ai";
+import { Lock } from "lucide-react";
 
 import logoKago from "../../assets/images/kago-logo.png";
 import ButtonSubmit from "./ButtonSubmit";
@@ -41,6 +42,7 @@ const LoginForm = () => {
 
         console.log("Attempting login for:", email);
         
+        // CALL YOUR REAL BACKEND API
         const response = await fetch(`${API_URL}/auth/login`, {
           method: 'POST',
           headers: {
@@ -58,9 +60,7 @@ const LoginForm = () => {
           localStorage.setItem('user', JSON.stringify(data.data.user));
           
           // Navigate based on role
-          if (data.data.user.role === 'platform_admin') {
-            navigate("/platform");
-          } else if (data.data.user.role === 'owner') {
+           if (data.data.user.role === 'owner') {
             navigate("/owner");
           } else if (data.data.user.role === 'admin') {
             navigate("/manager");
@@ -81,24 +81,17 @@ const LoginForm = () => {
 
   return (
     <>
-      <div
-        style={{
-          width: "100px",
-          height: "60px",
-          display: "flex",
-          marginTop: "2%",
-        }}
-      >
-        <img
-          src={logoKago}
-          alt="hc-logo"
-          style={{
-            objectFit: "contain",
-          }}
-        />
+      <div className="login-form-brand">
+        <img src={logoKago} alt="Kago HC" />
       </div>
 
-      <div className="w-100 mt-3">
+      <div className="login-form-heading">
+        <h1>Welcome back</h1>
+        <p>Sign in to your Kago Human Capital account.</p>
+      </div>
+
+      <div className="w-100">
+        {/* Show error message if login fails */}
         {loginError && (
           <div className="alert alert-danger mb-3" role="alert">
             {loginError}
@@ -190,9 +183,10 @@ const LoginForm = () => {
                 ) : null}
               </div>
               
-              <div className="w-100 mb-2 d-flex justify-content-end">
-                <Link to="/forgot-password" className="text-muted">
-                  <i className="mdi mdi-lock"></i> Forgot your password?
+              <div className="login-forgot-row">
+                <Link to="/forgot-password" className="login-forgot-link">
+                  <Lock size={14} aria-hidden="true" />
+                  <span>Forgot your password?</span>
                 </Link>
               </div>
 
@@ -209,6 +203,8 @@ const LoginForm = () => {
                   pending={pending}
                 />
               </div>
+
+            
             </Col>
           </Row>
         </Form>
