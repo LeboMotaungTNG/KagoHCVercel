@@ -65,7 +65,7 @@ const ResetPasswordForm = () => {
         navigate("/", { replace: true, state: { passwordReset: true } });
       } catch (error) {
         console.error("Reset password error:", error);
-        setFormError("Network error. Is the backend running?");
+        setFormError("We couldn't reach the server. Please check your connection and try again.");
       } finally {
         setPending(false);
       }

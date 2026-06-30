@@ -53,7 +53,7 @@ const ForgotPasswordForm = () => {
         setSubmitted(true);
       } catch (error) {
         console.error("Forgot password error:", error);
-        setFormError("Network error. Is the backend running?");
+        setFormError("We couldn't reach the server. Please check your connection and try again.");
       } finally {
         setPending(false);
       }

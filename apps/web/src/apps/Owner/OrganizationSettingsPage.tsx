@@ -9,14 +9,35 @@ import {
   FaSave, FaEdit, FaPlus, FaTrash, FaChevronDown, FaChevronRight,
   FaBuilding, FaMoneyBillWave, FaCalendarAlt, FaCloudUploadAlt,
   FaCalculator, FaCheckCircle, FaExclamationTriangle, FaInfoCircle,
-  FaUmbrellaBeach, FaHospital, FaHeart, FaBaby, FaUserFriends,
-  FaBookOpen, FaCross, FaBan, FaStar, FaTimes, FaPencilAlt,
-  FaPhone, FaEnvelope, FaGlobe, FaMapMarkerAlt, FaUniversity, FaLock,
-  FaFileAlt, FaShieldAlt, FaUserTie, FaIndustry, FaIdCard,
-  FaCamera, FaExclamationCircle
+  FaUmbrellaBeach, FaStar, FaTimes, FaPencilAlt,
+  FaGlobe, FaMapMarkerAlt, FaUniversity,
+  FaFileAlt, FaShieldAlt, FaUserTie, FaIdCard,
+  FaExclamationCircle
 } from "react-icons/fa";
+import { ClipboardList } from "lucide-react";
 
-const API_URL = import.meta.env.VITE_API_URL || "https://employee-evaluation-kago-e63baae4d822.herokuapp.com/api/v1";
+// All cross-cutting types, defaults, API calls and icon mappings now live in
+// shared/utils/organizationSettings. This page just composes them.
+import {
+  // types
+  type CompanyData, type CoFieldDef, type CustomLeaveType,
+  type LeaveBalance, type LeaveTypeConfig, type PayrollCalculation,
+  type PayrollRun, type PayrollSettings, type WorkSchedule,
+  // constants
+  DEFAULT_COMPANY_DATA, DEFAULT_LEAVE_TYPES, DEFAULT_PAYROLL_SETTINGS,
+  CUSTOM_LEAVE_PRESETS, LEAVE_COLOR_OPTIONS, WORK_SCHEDULE_DAYS, ALL_WEEK_DAYS,
+  MONTHS, SECTORS, BUSINESS_TYPES, COMPANY_STATUSES, PROVINCES, COUNTRIES,
+  TAX_COMPLIANCE_STATUSES, BEE_LEVELS, BANKS, ACCOUNT_TYPES,
+  LANGUAGES, TIMEZONES, DATE_FORMATS, CURRENCIES,
+  // helpers / icons / mappers
+  setDeep, formatRand, currentMonthRange, makeSarsReceipt,
+  LeaveIcon, LEAVE_ICON_KEYS,
+  BCEA_META, mapStatutoryFromApi, mapCustomLeaveFromApi,
+  generateBalancesFromEmployees,
+  computeOnboardingProgress,
+  CONTACT_ROLES,
+  orgApi,
+} from "../../shared/utils/organizationSettings";
 
 // ─────────────────────────────────────────────
 // SHARED DESIGN TOKENS (matches Leave tab style)
@@ -40,15 +61,8 @@ const co_infoBox = (color: string): React.CSSProperties => ({
 });
 
 // ─────────────────────────────────────────────
-// FIELD RENDERER HELPER
+// FIELD RENDERER HELPER — driven by shared CoFieldDef definitions
 // ─────────────────────────────────────────────
-type CoFieldType = "text" | "email" | "tel" | "number" | "date" | "select" | "textarea" | "toggle" | "url";
-interface CoFieldDef {
-  label: string; key: string; type?: CoFieldType;
-  options?: string[]; placeholder?: string; hint?: string;
-  required?: boolean; span?: 1 | 2;
-}
-
 const FieldRenderer = ({
   fields, data, editing, onChange,
 }: {
@@ -102,27 +116,16 @@ const FieldRenderer = ({
 // ─────────────────────────────────────────────
 // ONBOARDING PROGRESS INDICATOR
 // ─────────────────────────────────────────────
-const OnboardingProgress = ({ data }: { data: any }) => {
-  const checks = [
-    { label: "Company name",           done: !!data.name },
-    { label: "CIPC registration no.",  done: !!data.registrationNumber },
-    { label: "Income tax number",      done: !!data.incomeTaxNumber },
-    { label: "PAYE reference",         done: !!data.payeReference },
-    { label: "UIF reference",          done: !!data.uifReference },
-    { label: "Banking details",        done: !!(data.bank?.accountNumber) },
-    { label: "Physical address",       done: !!(data.address?.physicalAddress) },
-    { label: "Primary contact",        done: !!(data.contacts?.primaryContact?.name) },
-    { label: "Payroll contact",        done: !!(data.contacts?.payroll?.name) },
-    { label: "Fiscal year configured", done: !!(data.fiscalYearStart && data.fiscalYearEnd) },
-  ];
-  const done = checks.filter((c) => c.done).length;
-  const pct = Math.round((done / checks.length) * 100);
-  const color = pct === 100 ? "#059669" : pct >= 60 ? "#D97706" : "#EF4444";
+const OnboardingProgress = ({ data }: { data: CompanyData }) => {
+  // Delegate the rules to shared/utils so the same logic can be reused
+  // (e.g. on a dashboard tile) without duplicating the checklist here.
+  const { items, pct, color } = computeOnboardingProgress(data);
   return (
     <div style={{ padding: "18px 22px", borderRadius: "12px", border: `1px solid ${color}25`, backgroundColor: `${color}06`, marginBottom: "18px" }}>
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "10px" }}>
-        <div style={{ fontWeight: 700, fontSize: "13px", color: "#1A202C" }}>
-          {pct === 100 ? "✅ Onboarding Complete" : "Onboarding Checklist"}
+        <div style={{ fontWeight: 700, fontSize: "13px", color: "#1A202C", display: "flex", alignItems: "center", gap: "6px" }}>
+          {pct === 100 && <FaCheckCircle style={{ color: "#059669" }} size={13} />}
+          {pct === 100 ? "Onboarding Complete" : "Onboarding Checklist"}
         </div>
         <span style={{ fontWeight: 700, fontSize: "15px", color }}>{pct}%</span>
       </div>
@@ -130,7 +133,7 @@ const OnboardingProgress = ({ data }: { data: any }) => {
         <div style={{ height: "100%", width: `${pct}%`, backgroundColor: color, borderRadius: "4px", transition: "width 0.4s ease" }} />
       </div>
       <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(200px, 1fr))", gap: "6px" }}>
-        {checks.map((c) => (
+        {items.map((c) => (
           <div key={c.label} style={{ display: "flex", alignItems: "center", gap: "6px", fontSize: "12px", color: c.done ? "#374151" : "#9CA3AF" }}>
             {c.done
               ? <FaCheckCircle style={{ color: "#059669", flexShrink: 0 }} size={11} />
@@ -152,59 +155,46 @@ const CompanyDetailsTab = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [saveSuccess, setSaveSuccess] = useState(false);
 
-  const defaultData = {
-    name: "", tradingName: "", logo: "",
-    sector: "", businessType: "",
-    numberOfEmployees: 0, email: "", phone: "",
-    alternativePhone: "", website: "", description: "",
-    registrationNumber: "", vatNumber: "",
-    incomeTaxNumber: "", payeReference: "",
-    uifReference: "", sdlReference: "",
-    coida: "", provisionalTaxpayer: true, taxComplianceStatus: "Compliant", beeLevel: "",
-    bank: { bankName: "", accountName: "", accountNumber: "", branchCode: "", accountType: "", swiftCode: "" },
-    contacts: {
-      primaryContact: { name: "", designation: "", email: "", phone: "" },
-      finance:        { name: "", designation: "", email: "", phone: "" },
-      payroll:        { name: "", designation: "", email: "", phone: "" },
-      hr:             { name: "", designation: "", email: "", phone: "" },
-    },
-    address: { physicalAddress: "", postalAddress: "", street: "", suburb: "", city: "", province: "", country: "South Africa", postalCode: "" },
-    language: "English", timezone: "Africa/Johannesburg", dateFormat: "DD/MM/YYYY", currency: "ZAR",
-    fiscalYearStart: "", fiscalYearEnd: "", companyStatus: "Active",
-  };
+  const [data, setData]   = useState<CompanyData>(DEFAULT_COMPANY_DATA);
+  const [draft, setDraft] = useState<CompanyData>(DEFAULT_COMPANY_DATA);
 
-  const [data, setData] = useState(defaultData);
-  const [draft, setDraft] = useState(defaultData);
-
+  // Pull persisted settings on mount; fall back to defaults on any failure.
   useEffect(() => {
-    const load = async () => {
+    let cancelled = false;
+    (async () => {
       setIsLoading(true);
       try {
-        const token = localStorage.getItem("token");
-        const res = await fetch(`${API_URL}/owner/company/settings`, { headers: { Authorization: `Bearer ${token}` } });
-        const json = await res.json();
-        if (json.success && json.data) {
-          const merged = { ...defaultData, ...json.data, bank: { ...defaultData.bank, ...json.data.bank }, contacts: { ...defaultData.contacts, ...json.data.contacts }, address: { ...defaultData.address, ...json.data.address } };
+        const json = await orgApi.loadCompanySettings();
+        if (!cancelled && json.success && json.data) {
+          const incoming = json.data;
+          const merged: CompanyData = {
+            ...DEFAULT_COMPANY_DATA,
+            ...incoming,
+            bank:     { ...DEFAULT_COMPANY_DATA.bank,     ...(incoming.bank     || {}) },
+            contacts: { ...DEFAULT_COMPANY_DATA.contacts, ...(incoming.contacts || {}) },
+            address:  { ...DEFAULT_COMPANY_DATA.address,  ...(incoming.address  || {}) },
+          };
           setData(merged); setDraft(merged);
         }
-      } catch (e) { /* use defaults */ } finally { setIsLoading(false); }
-    };
-    load();
+      } catch { /* fall back to defaults silently */ }
+      finally { if (!cancelled) setIsLoading(false); }
+    })();
+    return () => { cancelled = true; };
   }, []);
 
-  const setDeep = (obj: any, path: string, value: any): any => {
-    const parts = path.split("."); const next = { ...obj }; let cur: any = next;
-    for (let i = 0; i < parts.length - 1; i++) { cur[parts[i]] = { ...cur[parts[i]] }; cur = cur[parts[i]]; }
-    cur[parts[parts.length - 1]] = value; return next;
-  };
-  const handleChange = (key: string, value: any) => setDraft((d) => setDeep(d, key, value));
+  const handleChange = (key: string, value: any) =>
+    setDraft((d) => setDeep(d, key, value));
 
   const handleSave = async () => {
     try {
-      const token = localStorage.getItem("token");
-      const res = await fetch(`${API_URL}/owner/company/settings`, { method: "PUT", headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" }, body: JSON.stringify(draft) });
-      if (res.ok) { setData(draft); setIsEditing(false); setSaveSuccess(true); setTimeout(() => setSaveSuccess(false), 3000); }
-    } catch (e) { /* silent */ }
+      const json = await orgApi.saveCompanySettings(draft);
+      if (json.success !== false) {
+        setData(draft);
+        setIsEditing(false);
+        setSaveSuccess(true);
+        setTimeout(() => setSaveSuccess(false), 3000);
+      }
+    } catch { /* silent — UI stays in edit mode so the user can retry */ }
   };
 
   const TABS = [
@@ -266,10 +256,10 @@ const CompanyDetailsTab = () => {
                 <FieldRenderer editing={isEditing} data={draft} onChange={handleChange} fields={[
                   { label: "Registered Company Name", key: "name", required: true, placeholder: "As per CIPC registration" },
                   { label: "Trading Name (if different)", key: "tradingName", placeholder: "Leave blank if same as registered name" },
-                  { label: "Sector / Industry", key: "sector", type: "select", required: true, options: ["Human Capital & Recruitment","Technology & Software","Finance & Banking","Healthcare & Medical","Manufacturing","Retail & E-commerce","Education & Training","Construction & Engineering","Transportation & Logistics","Agriculture","Mining & Resources","Legal Services","Consulting","Media & Communications","Non-Profit / NGO","Government / Public Sector","Other"] },
-                  { label: "Business Type", key: "businessType", type: "select", required: true, options: ["Private Company (Pty Ltd)","Public Company (Ltd)","Non-Profit Organisation (NPC)","Trust","Close Corporation (CC)","Partnership","Sole Proprietorship","State-Owned Entity","Co-operative","Association"] },
+                  { label: "Sector / Industry", key: "sector", type: "select", required: true, options: SECTORS },
+                  { label: "Business Type", key: "businessType", type: "select", required: true, options: BUSINESS_TYPES },
                   { label: "Number of Employees", key: "numberOfEmployees", type: "number", placeholder: "Full-time equivalent headcount", hint: "Include permanent and fixed-term staff" },
-                  { label: "Company Status", key: "companyStatus", type: "select", options: ["Active","Inactive","Suspended","Under Administration","In Liquidation"] },
+                  { label: "Company Status", key: "companyStatus", type: "select", options: COMPANY_STATUSES },
                   { label: "Primary Email Address", key: "email", type: "email", required: true, placeholder: "info@company.co.za" },
                   { label: "Main Phone Number", key: "phone", type: "tel", required: true, placeholder: "+27 11 000 0000" },
                   { label: "Alternative Phone", key: "alternativePhone", type: "tel", placeholder: "+27 11 000 0001" },
@@ -285,9 +275,9 @@ const CompanyDetailsTab = () => {
                   { label: "Street / Building Name", key: "address.street", placeholder: "123 Business Park" },
                   { label: "Suburb", key: "address.suburb", placeholder: "Sandton" },
                   { label: "City / Town", key: "address.city", required: true, placeholder: "Johannesburg" },
-                  { label: "Province", key: "address.province", type: "select", required: true, options: ["Gauteng","Western Cape","KwaZulu-Natal","Eastern Cape","Free State","Limpopo","Mpumalanga","North West","Northern Cape"] },
+                  { label: "Province", key: "address.province", type: "select", required: true, options: PROVINCES },
                   { label: "Postal Code", key: "address.postalCode", required: true, placeholder: "2196" },
-                  { label: "Country", key: "address.country", type: "select", options: ["South Africa","Botswana","Namibia","Zimbabwe","Zambia","Mozambique","Lesotho","Eswatini","Other"] },
+                  { label: "Country", key: "address.country", type: "select", options: COUNTRIES },
                 ]} />
               </div>
             </>
@@ -316,13 +306,13 @@ const CompanyDetailsTab = () => {
                   { label: "SDL Reference Number", key: "sdlReference", placeholder: "e.g., L123456789", hint: "Skills Development Levy — required if annual payroll exceeds R500,000" },
                   { label: "COIDA / WCA Reference", key: "coida", placeholder: "e.g., W123456", hint: "Compensation Fund or approved insurer (e.g., FEM) reference number" },
                   { label: "Provisional Taxpayer", key: "provisionalTaxpayer", type: "toggle", hint: "Companies earning income not subject to PAYE must register as provisional taxpayers" },
-                  { label: "Tax Compliance Status", key: "taxComplianceStatus", type: "select", options: ["Compliant","Pending","Non-Compliant","Under Review"], hint: "Verify via SARS eFiling Tax Compliance Status (TCS) system" },
+                  { label: "Tax Compliance Status", key: "taxComplianceStatus", type: "select", options: TAX_COMPLIANCE_STATUSES, hint: "Verify via SARS eFiling Tax Compliance Status (TCS) system" },
                 ]} />
               </div>
               <div style={co_card}>
                 <div style={co_secTitle()}><FaShieldAlt /> B-BBEE &amp; Employment Equity</div>
                 <FieldRenderer editing={isEditing} data={draft} onChange={handleChange} fields={[
-                  { label: "B-BBEE Contributor Level", key: "beeLevel", type: "select", options: ["Level 1","Level 2","Level 3","Level 4","Level 5","Level 6","Level 7","Level 8","Non-Compliant","Exempt Micro Enterprise (EME)","Qualifying Small Enterprise (QSE)"], hint: "Broad-Based Black Economic Empowerment scorecard level — renewed annually" },
+                  { label: "B-BBEE Contributor Level", key: "beeLevel", type: "select", options: BEE_LEVELS, hint: "Broad-Based Black Economic Empowerment scorecard level — renewed annually" },
                 ]} />
                 <div style={{ ...co_infoBox("#7C3AED"), marginTop: "14px" }}>
                   <FaInfoCircle style={{ color: "#7C3AED", flexShrink: 0, marginTop: "2px" }} />
@@ -342,11 +332,11 @@ const CompanyDetailsTab = () => {
               <div style={co_card}>
                 <div style={co_secTitle()}><FaUniversity /> Company Bank Account</div>
                 <FieldRenderer editing={isEditing} data={draft} onChange={handleChange} fields={[
-                  { label: "Bank Name", key: "bank.bankName", type: "select", required: true, options: ["ABSA Bank","First National Bank (FNB)","Standard Bank","Nedbank","Capitec Business","Discovery Bank","Investec","African Bank","TymeBank for Business","Other"] },
+                  { label: "Bank Name", key: "bank.bankName", type: "select", required: true, options: BANKS },
                   { label: "Account Name", key: "bank.accountName", required: true, placeholder: "Must match registered company name exactly" },
                   { label: "Account Number", key: "bank.accountNumber", required: true, placeholder: "e.g., 62812345678" },
                   { label: "Branch Code", key: "bank.branchCode", required: true, placeholder: "e.g., 250655", hint: "Universal branch code applies to most major SA banks" },
-                  { label: "Account Type", key: "bank.accountType", type: "select", required: true, options: ["Business Cheque","Business Current","Business Savings","Business Money Market"] },
+                  { label: "Account Type", key: "bank.accountType", type: "select", required: true, options: ACCOUNT_TYPES },
                   { label: "SWIFT / BIC Code", key: "bank.swiftCode", placeholder: "e.g., FIRNZAJJ", hint: "Required for international transfers only" },
                 ]} />
                 <div style={{ ...co_infoBox("#D97706"), marginTop: "16px" }}>
@@ -364,15 +354,12 @@ const CompanyDetailsTab = () => {
                 <FaInfoCircle style={{ color: "#0369A1", flexShrink: 0, marginTop: "2px" }} />
                 <span>These contacts are used for system notifications, SARS correspondence, audit queries, and escalations. Ensure all details are current.</span>
               </div>
-              {[
-                { key: "contacts.primaryContact", title: "Primary Contact / CEO",    color: "#0369A1", emoji: "👤" },
-                { key: "contacts.finance",         title: "Finance Director / CFO",  color: "#7C3AED", emoji: "💼" },
-                { key: "contacts.payroll",         title: "Payroll Manager",          color: "#059669", emoji: "💳" },
-                { key: "contacts.hr",              title: "HR Manager",               color: "#EC4899", emoji: "🤝" },
-              ].map((c) => (
+              {/* Each contact role renders the same card with a Lucide icon
+                  and per-role accent colour pulled from shared/utils. */}
+              {CONTACT_ROLES.map((c) => (
                 <div key={c.key} style={{ ...co_card, borderLeft: `3px solid ${c.color}` }}>
                   <div style={{ display: "flex", alignItems: "center", gap: "10px", marginBottom: "16px" }}>
-                    <span style={{ fontSize: "20px" }}>{c.emoji}</span>
+                    <span style={{ color: c.color, display: "inline-flex", alignItems: "center" }}>{c.icon}</span>
                     <span style={{ fontWeight: 700, fontSize: "14px", color: "#1A202C" }}>{c.title}</span>
                   </div>
                   <FieldRenderer editing={isEditing} data={draft} onChange={handleChange} fields={[
@@ -392,10 +379,10 @@ const CompanyDetailsTab = () => {
               <div style={co_card}>
                 <div style={co_secTitle()}><FaGlobe style={{ color: "#0369A1" }} /> Regional &amp; Display Preferences</div>
                 <FieldRenderer editing={isEditing} data={draft} onChange={handleChange} fields={[
-                  { label: "System Language", key: "language", type: "select", options: ["English","Afrikaans","isiZulu","isiXhosa","Sepedi","Setswana","Sesotho","Xitsonga","Other"] },
-                  { label: "Timezone", key: "timezone", type: "select", options: ["Africa/Johannesburg","UTC"] },
-                  { label: "Date Format", key: "dateFormat", type: "select", options: ["DD/MM/YYYY","YYYY-MM-DD","MM/DD/YYYY"] },
-                  { label: "Currency", key: "currency", type: "select", options: ["ZAR – South African Rand","USD – US Dollar","EUR – Euro","GBP – British Pound"] },
+                  { label: "System Language", key: "language", type: "select", options: LANGUAGES },
+                  { label: "Timezone", key: "timezone", type: "select", options: TIMEZONES },
+                  { label: "Date Format", key: "dateFormat", type: "select", options: DATE_FORMATS },
+                  { label: "Currency", key: "currency", type: "select", options: CURRENCIES },
                 ]} />
               </div>
               <div style={co_card}>
@@ -417,33 +404,14 @@ const CompanyDetailsTab = () => {
   );
 };
 
-// ============================================
-// TYPE DEFINITIONS
-// ============================================
-interface Employee {
-  id: string; employeeCode: string; name: string; department: string; position: string;
-  basicSalary: number; allowances: { housing: number; transport: number; medical: number; other: number; };
-  bankAccount: string; taxReference: string; uifReference: string; joinDate: string;
-  status: "active" | "on_leave" | "terminated";
-}
-interface PayrollRun {
-  id: string; _id?: string; period: string; periodStart: string; periodEnd: string;
-  frequency: "Weekly" | "Bi-Weekly" | "Monthly";
-  status: "draft" | "attendance_imported" | "calculated" | "approved" | "reports_generated" | "submitted";
-  employeeCount: number; totalGross: number; totalDeductions: number; totalNetPay: number;
-  approvedBy?: string; approvedAt?: string; submittedAt?: string; submissionReceipt?: string;
-  createdAt: string; updatedAt: string;
-}
-interface PayrollCalculation {
-  id: string; payrollRunId: string; employeeId: string; name?: string; position?: string; basicSalary: number;
-  allowances: { housing: number; transport: number; medical: number; other: number; total: number; };
-  overtime: { hours: number; rate: number; amount: number; };
-  commissions: number; grossEarnings: number;
-  deductions: { paye: number; uif: number; sdl: number; pension: number; medicalAid: number; other: number; total: number; };
-  netPay: number;
-  employerCosts: { uif: number; sdl: number; skillsLevy: number; total: number; };
-}
+// Types (Employee/PayrollRun/PayrollCalculation) are imported from
+// shared/utils/organizationSettings. We use `PayrollEmployee` here as our
+// internal alias for the lightweight mock roster used for the initial
+// "before any API has loaded" preview state.
+type Employee = import("../../shared/utils/organizationSettings").PayrollEmployee;
 
+// Seed roster used only until the backend returns the real employee list.
+// Kept small and locally because it is purely presentational.
 const mockEmployees: Employee[] = [
   { id: "EMP001", employeeCode: "KHC001", name: "John Doe", department: "Engineering", position: "Senior Developer", basicSalary: 35000, allowances: { housing: 5000, transport: 2000, medical: 1500, other: 0 }, bankAccount: "1234567890", taxReference: "1234567890", uifReference: "UIF001", joinDate: "2023-01-15", status: "active" },
   { id: "EMP002", employeeCode: "KHC002", name: "Jane Smith", department: "Sales", position: "Sales Manager", basicSalary: 45000, allowances: { housing: 7000, transport: 3000, medical: 2000, other: 1000 }, bankAccount: "0987654321", taxReference: "0987654321", uifReference: "UIF002", joinDate: "2022-06-01", status: "active" },
@@ -455,9 +423,10 @@ const mockEmployees: Employee[] = [
 // PAYROLL SETTINGS TAB
 // ============================================
 export const PayrollSettingsTab = () => {
-  const [payrollSettings, setPayrollSettings] = useState({ frequency: "Monthly", payDay: "25", currency: "ZAR", taxYear: "2026", overtimeRate: "1.5", weekendRate: "2.0", holidayRate: "2.5", uifEnabled: true, uifRate: "1.0", sdlEnabled: true, sdlRate: "1.0", payeEnabled: true, autoGeneratePayslips: true, allowSelfServicePayslips: true });
+  const [payrollSettings, setPayrollSettings] = useState<PayrollSettings>(DEFAULT_PAYROLL_SETTINGS);
   const [isEditingSettings, setIsEditingSettings] = useState(false);
-  const [settingsFormData, setSettingsFormData] = useState(payrollSettings);
+  const [settingsFormData, setSettingsFormData] = useState<PayrollSettings>(payrollSettings);
+  // Initial placeholder run, replaced by /payroll/runs as soon as it returns.
   const [payrollRuns, setPayrollRuns] = useState<PayrollRun[]>([{ id: "PR-2026-05", period: "May 2026", periodStart: "2026-05-01", periodEnd: "2026-05-31", frequency: "Monthly", status: "draft", employeeCount: mockEmployees.length, totalGross: 0, totalDeductions: 0, totalNetPay: 0, createdAt: "2026-05-01T08:00:00Z", updatedAt: "2026-05-01T08:00:00Z" }]);
   const [activePayrollRun, setActivePayrollRun] = useState<PayrollRun | null>(null);
   const [payrollCalculations, setPayrollCalculations] = useState<PayrollCalculation[]>([]);
@@ -482,14 +451,8 @@ export const PayrollSettingsTab = () => {
   const fetchRealEmployees = async () => {
     setLoadingEmployees(true);
     try {
-      const token = localStorage.getItem("token");
-      const response = await fetch(`${API_URL}/employees`, {
-        headers: { "Authorization": `Bearer ${token}` }
-      });
-      const data = await response.json();
-      if (data.success && data.data) {
-        setRealEmployees(data.data);
-      }
+      const data = await orgApi.loadEmployees();
+      if (data.success && data.data) setRealEmployees(data.data);
     } catch (error) {
       console.error("Error fetching employees:", error);
     } finally {
@@ -499,17 +462,10 @@ export const PayrollSettingsTab = () => {
 
   const fetchRealPayrollRuns = async () => {
     try {
-      const token = localStorage.getItem("token");
-      const response = await fetch(`${API_URL}/payroll/runs`, {
-        headers: { "Authorization": `Bearer ${token}` }
-      });
-      const data = await response.json();
+      const data = await orgApi.loadPayrollRuns();
       if (data.success && data.data && data.data.length > 0) {
-        // Transform _id to id if needed
-        const runs = data.data.map((run: any) => ({
-          ...run,
-          id: run.id || run._id
-        }));
+        // The backend stores Mongo _id; normalize to a single `id` field.
+        const runs = data.data.map((run: any) => ({ ...run, id: run.id || run._id }));
         setPayrollRuns(runs);
         setActivePayrollRun(runs[0]);
       }
@@ -518,48 +474,25 @@ export const PayrollSettingsTab = () => {
     }
   };
 
+  // Backend stores fractional rates (e.g. 0.01); the UI works with percentages.
+  const buildSettingsFromApi = (api: any): PayrollSettings => ({
+    ...DEFAULT_PAYROLL_SETTINGS,
+    taxYear:      api.taxYear ?? DEFAULT_PAYROLL_SETTINGS.taxYear,
+    overtimeRate: api.overtimeRate?.toString() ?? DEFAULT_PAYROLL_SETTINGS.overtimeRate,
+    weekendRate:  api.weekendRate?.toString()  ?? DEFAULT_PAYROLL_SETTINGS.weekendRate,
+    holidayRate:  api.holidayRate?.toString()  ?? DEFAULT_PAYROLL_SETTINGS.holidayRate,
+    uifRate:      (api.uifRate * 100)?.toString() || DEFAULT_PAYROLL_SETTINGS.uifRate,
+    sdlRate:      (api.sdlRate * 100)?.toString() || DEFAULT_PAYROLL_SETTINGS.sdlRate,
+    payeEnabled:  api.payeEnabled ?? true,
+  });
+
   const loadPayrollSettings = async () => {
     try {
-      const token = localStorage.getItem("token");
-      const response = await fetch(`${API_URL}/payroll/settings`, {
-        headers: { "Authorization": `Bearer ${token}` }
-      });
-      const data = await response.json();
-      
+      const data = await orgApi.loadPayrollSettingsApi();
       if (data.success && data.data) {
-        const settings = data.data;
-        setPayrollSettings({
-          frequency: "Monthly",
-          payDay: "25",
-          currency: "ZAR",
-          taxYear: settings.taxYear || "2026",
-          overtimeRate: settings.overtimeRate?.toString() || "1.5",
-          weekendRate: settings.weekendRate?.toString() || "2.0",
-          holidayRate: settings.holidayRate?.toString() || "2.5",
-          uifEnabled: true,
-          uifRate: (settings.uifRate * 100)?.toString() || "1.0",
-          sdlEnabled: true,
-          sdlRate: (settings.sdlRate * 100)?.toString() || "1.0",
-          payeEnabled: settings.payeEnabled ?? true,
-          autoGeneratePayslips: true,
-          allowSelfServicePayslips: true
-        });
-        setSettingsFormData({
-          frequency: "Monthly",
-          payDay: "25",
-          currency: "ZAR",
-          taxYear: settings.taxYear || "2026",
-          overtimeRate: settings.overtimeRate?.toString() || "1.5",
-          weekendRate: settings.weekendRate?.toString() || "2.0",
-          holidayRate: settings.holidayRate?.toString() || "2.5",
-          uifEnabled: true,
-          uifRate: (settings.uifRate * 100)?.toString() || "1.0",
-          sdlEnabled: true,
-          sdlRate: (settings.sdlRate * 100)?.toString() || "1.0",
-          payeEnabled: settings.payeEnabled ?? true,
-          autoGeneratePayslips: true,
-          allowSelfServicePayslips: true
-        });
+        const built = buildSettingsFromApi(data.data);
+        setPayrollSettings(built);
+        setSettingsFormData(built);
       }
     } catch (error) {
       console.error("Error loading payroll settings:", error);
@@ -569,37 +502,17 @@ export const PayrollSettingsTab = () => {
   const savePayrollSettings = async () => {
     setLoading(true);
     try {
-      const token = localStorage.getItem("token");
-      const response = await fetch(`${API_URL}/payroll/settings`, {
-        method: "PUT",
-        headers: { 
-          "Authorization": `Bearer ${token}`,
-          "Content-Type": "application/json"
-        },
-        body: JSON.stringify({
-          overtimeRate: parseFloat(settingsFormData.overtimeRate),
-          weekendRate: parseFloat(settingsFormData.weekendRate),
-          holidayRate: parseFloat(settingsFormData.holidayRate),
-          uifRate: parseFloat(settingsFormData.uifRate) / 100,
-          sdlRate: parseFloat(settingsFormData.sdlRate) / 100,
-          payeEnabled: settingsFormData.payeEnabled,
-          taxYear: settingsFormData.taxYear,
-          standardHoursPerDay: 8,
-          standardDaysPerMonth: 20
-        })
-      });
-      
-      const data = await response.json();
+      const data = await orgApi.savePayrollSettingsApi(settingsFormData);
       if (data.success) {
         setPayrollSettings(settingsFormData);
         setIsEditingSettings(false);
-        alert("✅ Payroll settings saved successfully!");
+        alert("Payroll settings saved successfully");
       } else {
-        alert("❌ Failed to save settings");
+        alert("Failed to save settings");
       }
     } catch (error) {
       console.error("Error saving payroll settings:", error);
-      alert("❌ Error saving settings");
+      alert("Error saving settings");
     } finally {
       setLoading(false);
     }
@@ -610,61 +523,42 @@ export const PayrollSettingsTab = () => {
 
   const startNewPayrollRun = async () => {
     if (!newRunPeriod.trim()) return;
-    
     setLoading(true);
     try {
-      const token = localStorage.getItem("token");
-      
-      // Calculate period dates
-      const periodStart = new Date(new Date().getFullYear(), new Date().getMonth(), 1).toISOString().slice(0, 10);
-      const periodEnd = new Date(new Date().getFullYear(), new Date().getMonth() + 1, 0).toISOString().slice(0, 10);
-      
-      // Create payroll run via API (let backend generate the ID)
-      const response = await fetch(`${API_URL}/payroll/runs`, {
-        method: "POST",
-        headers: {
-          "Authorization": `Bearer ${token}`,
-          "Content-Type": "application/json"
-        },
-        body: JSON.stringify({
-          period: newRunPeriod,
-          periodStart: periodStart,
-          periodEnd: periodEnd,
-          frequency: newRunFrequency.toLowerCase()
-        })
-      });
-      
-      const data = await response.json();
-      
+      // Default the period to "this calendar month" — the backend can refine later.
+      const { start, end } = currentMonthRange();
+      const data = await orgApi.createPayrollRun(newRunPeriod, newRunFrequency, start, end);
+
       if (data.success && data.data) {
-        const newRun = {
-          id: data.data._id,
-          _id: data.data._id,
-          period: data.data.period,
-          periodStart: data.data.periodStart,
-          periodEnd: data.data.periodEnd,
-          frequency: data.data.frequency,
-          status: data.data.status,
-          employeeCount: realEmployees.length,
-          totalGross: 0,
+        const apiRun: any = data.data;
+        const newRun: PayrollRun = {
+          id:              apiRun._id,
+          _id:             apiRun._id,
+          period:          apiRun.period,
+          periodStart:     apiRun.periodStart,
+          periodEnd:       apiRun.periodEnd,
+          frequency:       apiRun.frequency,
+          status:          apiRun.status,
+          employeeCount:   realEmployees.length,
+          totalGross:      0,
           totalDeductions: 0,
-          totalNetPay: 0,
-          createdAt: data.data.createdAt,
-          updatedAt: data.data.updatedAt
+          totalNetPay:     0,
+          createdAt:       apiRun.createdAt,
+          updatedAt:       apiRun.updatedAt,
         };
-        
+
         setPayrollRuns([newRun, ...payrollRuns]);
         setActivePayrollRun(newRun);
         setPayrollCalculations([]);
         setShowPayrollRunModal(false);
         setNewRunPeriod("");
-        alert("✅ Payroll run created successfully!");
+        alert("Payroll run created successfully");
       } else {
-        alert("❌ Failed to create payroll run");
+        alert("Failed to create payroll run");
       }
     } catch (error) {
       console.error("Error creating payroll run:", error);
-      alert("❌ Error creating payroll run");
+      alert("Error creating payroll run");
     } finally {
       setLoading(false);
     }
@@ -672,63 +566,46 @@ export const PayrollSettingsTab = () => {
 
   const calculatePayroll = async () => {
     if (!activePayrollRun) return;
-    
     setLoading(true);
     try {
-      const token = localStorage.getItem("token");
       const runId = activePayrollRun._id || activePayrollRun.id;
-      
-      const response = await fetch(`${API_URL}/payroll/runs/${runId}/calculate`, {
-        method: "POST",
-        headers: { 
-          "Authorization": `Bearer ${token}`,
-          "Content-Type": "application/json"
-        },
-        body: JSON.stringify({
-          overtimeRate: parseFloat(payrollSettings.overtimeRate),
-          weekendRate: parseFloat(payrollSettings.weekendRate),
-          holidayRate: parseFloat(payrollSettings.holidayRate),
-          uifRate: parseFloat(payrollSettings.uifRate) / 100,
-          sdlRate: parseFloat(payrollSettings.sdlRate) / 100,
-          payeEnabled: payrollSettings.payeEnabled
-        })
-      });
-      
-      const data = await response.json();
+      const data  = await orgApi.calculatePayrollRun(runId, payrollSettings);
+
       if (data.success && data.data) {
-        // Transform real API response to component format
-        const calculations = data.data.employees.map((emp: any) => ({
-          id: emp.employeeId,
-          payrollRunId: runId,
-          employeeId: emp.employeeId,
-          name: emp.name,
-          position: emp.position,
-          basicSalary: emp.grossPay,
-          allowances: { housing: 0, transport: 0, medical: 0, other: 0, total: 0 },
-          overtime: { hours: 0, rate: 1.5, amount: 0 },
-          commissions: 0,
+        // Backend returns a thin per-employee summary; reshape it into the
+        // PayrollCalculation rows the table here expects.
+        const calculations: PayrollCalculation[] = data.data.employees.map((emp: any) => ({
+          id:            emp.employeeId,
+          payrollRunId:  runId,
+          employeeId:    emp.employeeId,
+          name:          emp.name,
+          position:      emp.position,
+          basicSalary:   emp.grossPay,
+          allowances:    { housing: 0, transport: 0, medical: 0, other: 0, total: 0 },
+          overtime:      { hours: 0, rate: 1.5, amount: 0 },
+          commissions:   0,
           grossEarnings: emp.grossPay,
-          deductions: { paye: emp.deductions.paye, uif: emp.deductions.uif, sdl: 0, pension: 0, medicalAid: 0, other: 0, total: emp.totalDeductions },
-          netPay: emp.netPay,
-          employerCosts: { uif: 0, sdl: 0, skillsLevy: 0, total: 0 }
+          deductions:    { paye: emp.deductions.paye, uif: emp.deductions.uif, sdl: 0, pension: 0, medicalAid: 0, other: 0, total: emp.totalDeductions },
+          netPay:        emp.netPay,
+          employerCosts: { uif: 0, sdl: 0, skillsLevy: 0, total: 0 },
         }));
-        
+
         setPayrollCalculations(calculations);
         setActivePayrollRun({
           ...activePayrollRun,
-          status: "calculated",
-          totalGross: data.data.totalGross,
+          status:          "calculated",
+          totalGross:      data.data.totalGross,
           totalDeductions: data.data.totalDeductions,
-          totalNetPay: data.data.totalNetPay,
-          employeeCount: data.data.employeeCount
+          totalNetPay:     data.data.totalNetPay,
+          employeeCount:   data.data.employeeCount,
         });
-        alert("✅ Payroll calculated successfully!");
+        alert("Payroll calculated successfully");
       } else {
-        alert("❌ Failed to calculate payroll: " + (data.message || "Unknown error"));
+        alert("Failed to calculate payroll: " + (data.message || "Unknown error"));
       }
     } catch (error) {
       console.error("Error calculating payroll:", error);
-      alert("❌ Failed to calculate payroll");
+      alert("Failed to calculate payroll");
     } finally {
       setLoading(false);
     }
@@ -743,35 +620,24 @@ export const PayrollSettingsTab = () => {
 
   const approvePayrollRun = async () => {
     if (!activePayrollRun) return;
-    
     setLoading(true);
     try {
-      const token = localStorage.getItem("token");
       const runId = activePayrollRun._id || activePayrollRun.id;
-      
-      const response = await fetch(`${API_URL}/payroll/runs/${runId}/approve`, {
-        method: "POST",
-        headers: { 
-          "Authorization": `Bearer ${token}`,
-          "Content-Type": "application/json"
-        }
-      });
-      
-      const data = await response.json();
+      const data  = await orgApi.approvePayrollRunApi(runId);
       if (data.success) {
         setActivePayrollRun({
           ...activePayrollRun,
-          status: "approved",
+          status:     "approved",
           approvedBy: "System Administrator",
-          approvedAt: new Date().toISOString()
+          approvedAt: new Date().toISOString(),
         });
-        alert("✅ Payroll approved successfully!");
+        alert("Payroll approved successfully");
       } else {
-        alert("❌ Failed to approve payroll");
+        alert("Failed to approve payroll");
       }
     } catch (error) {
       console.error("Error approving payroll:", error);
-      alert("❌ Failed to approve payroll");
+      alert("Failed to approve payroll");
     } finally {
       setLoading(false);
     }
@@ -779,66 +645,36 @@ export const PayrollSettingsTab = () => {
 
   const generateStatReports = async () => {
     if (!activePayrollRun) return;
-    
     setReportGenerating(true);
     try {
-      const token = localStorage.getItem("token");
       const runId = activePayrollRun._id || activePayrollRun.id;
-      
-      // ✅ FETCH WITH BLOB RESPONSE
-      const response = await fetch(`${API_URL}/payroll/runs/${runId}/emp201`, {
-        headers: { 
-          "Authorization": `Bearer ${token}`
-        }
-      });
-      
-      if (!response.ok) {
-        const errorText = await response.text();
-        throw new Error(`HTTP ${response.status}: ${errorText}`);
-      }
-      
-      // ✅ Get the blob
-      const blob = await response.blob();
-      
-      // ✅ Check if it's actually a PDF
-      if (blob.type !== 'application/pdf') {
-        // If not PDF, try to parse as JSON (error response)
-        const text = await blob.text();
-        try {
-          const json = JSON.parse(text);
-          throw new Error(json.message || 'Unknown error');
-        } catch {
-          throw new Error('Unexpected response format');
-        }
-      }
-      
-      // ✅ Download the PDF
-      const url = window.URL.createObjectURL(blob);
-      const link = document.createElement('a');
-      link.href = url;
-      link.download = `EMP201_${activePayrollRun.period.replace(/\s/g, '_')}.pdf`;
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
-      window.URL.revokeObjectURL(url);
-      
+      // Helper triggers the browser download and throws on any non-PDF response.
+      await orgApi.downloadEmp201(runId, activePayrollRun.period);
       setActivePayrollRun({ ...activePayrollRun, status: "reports_generated" });
-      alert("✅ EMP201 Report downloaded successfully!");
-      
+      alert("EMP201 Report downloaded successfully");
     } catch (error) {
-      console.error('Error downloading EMP201:', error);
-      alert(`❌ Failed to download EMP201: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      console.error("Error downloading EMP201:", error);
+      alert(`Failed to download EMP201: ${error instanceof Error ? error.message : "Unknown error"}`);
     } finally {
       setReportGenerating(false);
     }
   };
 
   const submitToSARS = () => {
-    if (!activePayrollRun) return; setSubmitting(true);
+    if (!activePayrollRun) return;
+    setSubmitting(true);
+    // Simulated SARS hand-off for the demo flow; the real call happens server-side.
     setTimeout(() => {
-      const receipt = `SARS-REC-${Date.now()}-${Math.random().toString(36).substring(2, 8).toUpperCase()}`;
-      const u: PayrollRun = { ...activePayrollRun, status: "submitted", submittedAt: new Date().toISOString(), submissionReceipt: receipt, updatedAt: new Date().toISOString() };
-      setActivePayrollRun(u); setPayrollRuns(payrollRuns.map(r => r.id === activePayrollRun.id ? u : r)); setSubmitting(false);
+      const u: PayrollRun = {
+        ...activePayrollRun,
+        status:            "submitted",
+        submittedAt:       new Date().toISOString(),
+        submissionReceipt: makeSarsReceipt(),
+        updatedAt:         new Date().toISOString(),
+      };
+      setActivePayrollRun(u);
+      setPayrollRuns(payrollRuns.map((r) => (r.id === activePayrollRun.id ? u : r)));
+      setSubmitting(false);
     }, 1500);
   };
 
@@ -947,98 +783,14 @@ export const PayrollSettingsTab = () => {
 // ============================================
 // LEAVE SETTINGS TAB — SA BCEA + CUSTOM LEAVE
 // ============================================
-
-type WorkSchedule = "5-day week (Mon–Fri)" | "6-day week (Mon–Sat)" | "Custom";
-
-// Statutory leave type (BCEA)
-interface LeaveTypeConfig {
-  id: string;
-  enabled: boolean;
-  entitlementDays: number;
-  cycleLengthMonths: number;
-  requiresMedCert: boolean;
-  medCertAfterDays: number;
-  carryOverAllowed: boolean;
-  maxCarryOverDays: number;
-  notes: string;
-}
-
-// Custom company-defined leave type
-interface CustomLeaveType {
-  notes: string | number | readonly string[] | undefined;
-  id: string;
-  name: string;
-  description: string;
-  icon: string; // emoji or shortcode
-  color: string;
-  entitlementDays: number;
-  cycleLengthMonths: number; // 0 = once-off / per event
-  isPaid: boolean;
-  requiresProof: boolean;
-  proofDescription: string;
-  carryOverAllowed: boolean;
-  maxCarryOverDays: number;
-  requiresApproval: boolean;
-  minimumServiceMonths: number; // min months employed before eligible  notes: string;
-}
-
-interface LeaveBalance {
-  employeeId: string; employeeName: string; position: string; department: string;
-  annual: { opening: number; accrued: number; taken: number; planned: number; };
-  sick: { opening: number; accrued: number; taken: number; planned: number; };
-  family: { opening: number; accrued: number; taken: number; planned: number; };
-  maternity: { opening: number; accrued: number; taken: number; planned: number; };
-  parental: { opening: number; accrued: number; taken: number; planned: number; };
-}
-
-const BCEA_DEFAULTS: Record<string, { label: string; icon: React.ReactNode; color: string; bceaRule: string; }> = {
-  annual: { label: "Annual Leave", icon: <FaUmbrellaBeach />, color: "#0EA5E9", bceaRule: "BCEA s20: 15 working days per 12-month cycle (5-day week), or 1.25 days per 17 days worked." },
-  sick: { label: "Sick Leave", icon: <FaHospital />, color: "#F59E0B", bceaRule: "BCEA s22: 30 working days per 36-month cycle. First 6 months: 1 day per 26 days worked. Med cert required after 2 consecutive days." },
-  family: { label: "Family Responsibility Leave", icon: <FaHeart />, color: "#EC4899", bceaRule: "BCEA s27: 3 days per year. Applies after 4 months employment, min 4 days/week. Covers child birth/illness and death of close family." },
-  maternity: { label: "Maternity Leave", icon: <FaBaby />, color: "#8B5CF6", bceaRule: "BCEA s25: 4 consecutive months (unpaid). Employee may not work for 6 weeks after birth unless cleared by a doctor." },
-  parental: { label: "Parental Leave", icon: <FaUserFriends />, color: "#10B981", bceaRule: "BCEA s25A: 10 consecutive days upon birth or adoption of a child (unpaid)." },
-};
-
-const CUSTOM_LEAVE_PRESETS = [
-  { name: "Study / Exam Leave", icon: "📚", color: "#6366F1", description: "Leave for employees to attend exams or study-related activities.", entitlementDays: 5, isPaid: true },
-  { name: "Bereavement Leave", icon: "🕊️", color: "#64748B", description: "Leave for mourning the loss of a family member or close friend.", entitlementDays: 3, isPaid: true },
-  { name: "Unpaid Leave", icon: "⏸️", color: "#94A3B8", description: "Leave without pay when paid leave entitlement is exhausted.", entitlementDays: 30, isPaid: false },
-  { name: "Birthday Leave", icon: "🎂", color: "#F97316", description: "One day off on or around the employee's birthday.", entitlementDays: 1, isPaid: true },
-  { name: "Religious / Cultural Leave", icon: "🕌", color: "#A78BFA", description: "Leave for observance of religious or cultural events.", entitlementDays: 2, isPaid: true },
-  { name: "Wellness Leave", icon: "💆", color: "#34D399", description: "Leave for employees to attend to their mental or physical wellbeing.", entitlementDays: 2, isPaid: true },
-];
-
-const ICON_OPTIONS = ["📚", "🕊️", "⏸️", "🎂", "🕌", "💆", "🏖️", "🏥", "⭐", "🌿", "🤝", "🎓", "🏠", "✈️", "🔵"];
-const COLOR_OPTIONS = ["#0EA5E9", "#6366F1", "#F59E0B", "#10B981", "#EC4899", "#8B5CF6", "#F97316", "#64748B", "#94A3B8", "#EF4444", "#A78BFA", "#34D399"];
-
-const WORK_SCHEDULE_DAYS: Record<WorkSchedule, string[]> = {
-  "5-day week (Mon–Fri)": ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday"],
-  "6-day week (Mon–Sat)": ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"],
-  "Custom": [],
-};
-const ALL_DAYS = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"];
-
-const defaultLeaveTypes: LeaveTypeConfig[] = [
-  { id: "annual", enabled: true, entitlementDays: 15, cycleLengthMonths: 12, requiresMedCert: false, medCertAfterDays: 0, carryOverAllowed: true, maxCarryOverDays: 5, notes: "" },
-  { id: "sick", enabled: true, entitlementDays: 30, cycleLengthMonths: 36, requiresMedCert: true, medCertAfterDays: 2, carryOverAllowed: false, maxCarryOverDays: 0, notes: "" },
-  { id: "family", enabled: true, entitlementDays: 3, cycleLengthMonths: 12, requiresMedCert: false, medCertAfterDays: 0, carryOverAllowed: false, maxCarryOverDays: 0, notes: "" },
-  { id: "maternity", enabled: true, entitlementDays: 88, cycleLengthMonths: 0, requiresMedCert: false, medCertAfterDays: 0, carryOverAllowed: false, maxCarryOverDays: 0, notes: "" },
-  { id: "parental", enabled: true, entitlementDays: 10, cycleLengthMonths: 0, requiresMedCert: false, medCertAfterDays: 0, carryOverAllowed: false, maxCarryOverDays: 0, notes: "" },
-];
-
-const defaultBalances: LeaveBalance[] = mockEmployees.map(emp => ({
-  employeeId: emp.id, employeeName: emp.name, position: emp.position, department: emp.department,
-  annual: { opening: 5.0, accrued: 3.75, taken: 2.0, planned: 0.0 },
-  sick: { opening: 30.0, accrued: 0.0, taken: 1.0, planned: 0.0 },
-  family: { opening: 3.0, accrued: 0.0, taken: 0.0, planned: 0.0 },
-  maternity: { opening: 0.0, accrued: 0.0, taken: 0.0, planned: 0.0 },
-  parental: { opening: 0.0, accrued: 0.0, taken: 0.0, planned: 0.0 },
-}));
+// Types, defaults, BCEA metadata, presets, icon keys, work-schedule tables
+// and colour palette all come from shared/utils/organizationSettings so they
+// can be reused from other Owner screens without copy-paste.
 
 // ---- Statutory Leave Card ----
 const StatutoryLeaveCard = ({ config, onChange }: { config: LeaveTypeConfig; onChange: (u: LeaveTypeConfig) => void; }) => {
   const [expanded, setExpanded] = useState(false);
-  const meta = BCEA_DEFAULTS[config.id];
+  const meta = BCEA_META[config.id];
   if (!meta) return null;
 
   const inputStyle: React.CSSProperties = { width: "100%", padding: "7px 10px", borderRadius: "6px", border: "1px solid #CBD5E0", fontSize: "13px", color: "#2D3748", backgroundColor: config.enabled ? "white" : "#F9FAFB" };
@@ -1083,7 +835,7 @@ const CustomLeaveModal = ({
   onSave: (leave: CustomLeaveType) => void;
   editingLeave: CustomLeaveType | null;
 }) => {
-  const blank: CustomLeaveType = { id: "", name: "", description: "", icon: "⭐", color: "#6366F1", entitlementDays: 5, cycleLengthMonths: 12, isPaid: true, requiresProof: false, proofDescription: "", carryOverAllowed: false, maxCarryOverDays: 0, requiresApproval: true, minimumServiceMonths: 0, notes: "" };
+  const blank: CustomLeaveType = { id: "", name: "", description: "", icon: "star", color: "#6366F1", entitlementDays: 5, cycleLengthMonths: 12, isPaid: true, requiresProof: false, proofDescription: "", carryOverAllowed: false, maxCarryOverDays: 0, requiresApproval: true, minimumServiceMonths: 0, notes: "" };
   const [form, setForm] = useState<CustomLeaveType>(editingLeave || blank);
 
   useEffect(() => { setForm(editingLeave || blank); }, [editingLeave, isOpen]);
@@ -1117,8 +869,8 @@ const CustomLeaveModal = ({
             <label style={{ ...lbl, marginBottom: "8px" }}>Quick Start from Preset</label>
             <div style={{ display: "flex", flexWrap: "wrap", gap: "8px" }}>
               {CUSTOM_LEAVE_PRESETS.map((p) => (
-                <button key={p.name} onClick={() => applyPreset(p)} style={{ padding: "6px 14px", borderRadius: "20px", border: `1px solid ${p.color}60`, backgroundColor: `${p.color}12`, color: p.color, fontSize: "12px", fontWeight: 600, cursor: "pointer", display: "flex", alignItems: "center", gap: "5px" }}>
-                  {p.icon} {p.name}
+                <button key={p.name} onClick={() => applyPreset(p)} style={{ padding: "6px 14px", borderRadius: "20px", border: `1px solid ${p.color}60`, backgroundColor: `${p.color}12`, color: p.color, fontSize: "12px", fontWeight: 600, cursor: "pointer", display: "flex", alignItems: "center", gap: "6px" }}>
+                  <LeaveIcon name={p.icon} size={14} color={p.color} /> {p.name}
                 </button>
               ))}
             </div>
@@ -1139,12 +891,31 @@ const CustomLeaveModal = ({
             <textarea rows={2} style={{ ...inp, resize: "vertical" }} value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} placeholder="Brief description of when this leave applies..." />
           </div>
 
-          {/* Icon */}
+          {/* Icon picker — each option renders the actual Lucide glyph the
+              user will see on the leave card, not an emoji preview. */}
           <div>
-            <label style={lbl}>Icon (emoji)</label>
+            <label style={lbl}>Icon</label>
             <div style={{ display: "flex", flexWrap: "wrap", gap: "6px", marginBottom: "6px" }}>
-              {ICON_OPTIONS.map(ic => (
-                <span key={ic} onClick={() => setForm({ ...form, icon: ic })} style={{ fontSize: "18px", cursor: "pointer", padding: "4px", borderRadius: "6px", border: form.icon === ic ? "2px solid #0EA5E9" : "2px solid transparent", lineHeight: 1 }}>{ic}</span>
+              {LEAVE_ICON_KEYS.map(ic => (
+                <span
+                  key={ic}
+                  onClick={() => setForm({ ...form, icon: ic })}
+                  title={ic}
+                  style={{
+                    cursor: "pointer",
+                    padding: "6px",
+                    borderRadius: "6px",
+                    border: form.icon === ic ? "2px solid #0EA5E9" : "2px solid transparent",
+                    display: "inline-flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    width: "30px",
+                    height: "30px",
+                    color: form.icon === ic ? "#0EA5E9" : "#4A5568",
+                  }}
+                >
+                  <LeaveIcon name={ic} size={18} />
+                </span>
               ))}
             </div>
           </div>
@@ -1153,7 +924,7 @@ const CustomLeaveModal = ({
           <div>
             <label style={lbl}>Colour</label>
             <div style={{ display: "flex", flexWrap: "wrap", gap: "6px" }}>
-              {COLOR_OPTIONS.map(c => (
+              {LEAVE_COLOR_OPTIONS.map(c => (
                 <div key={c} onClick={() => setForm({ ...form, color: c })} style={{ width: "24px", height: "24px", borderRadius: "50%", backgroundColor: c, cursor: "pointer", border: form.color === c ? "3px solid #1A202C" : "2px solid transparent", boxSizing: "border-box" }} />
               ))}
             </div>
@@ -1237,7 +1008,9 @@ const CustomLeaveModal = ({
         {/* Preview */}
         {form.name && (
           <div style={{ marginTop: "18px", padding: "14px 18px", borderRadius: "10px", border: `1px solid ${form.color}40`, backgroundColor: `${form.color}0A`, display: "flex", alignItems: "center", gap: "12px" }}>
-            <div style={{ width: "38px", height: "38px", borderRadius: "8px", backgroundColor: form.color, display: "flex", alignItems: "center", justifyContent: "center", fontSize: "18px", flexShrink: 0 }}>{form.icon}</div>
+            <div style={{ width: "38px", height: "38px", borderRadius: "8px", backgroundColor: form.color, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, color: "white" }}>
+              <LeaveIcon name={form.icon} size={18} color="white" />
+            </div>
             <div>
               <div style={{ fontWeight: 700, fontSize: "14px", color: "#1A202C" }}>{form.name}</div>
               <div style={{ fontSize: "12px", color: "#718096" }}>
@@ -1262,7 +1035,9 @@ const CustomLeaveRow = ({ leave, onEdit, onDelete }: { leave: CustomLeaveType; o
   const [showConfirm, setShowConfirm] = useState(false);
   return (
     <div style={{ display: "flex", alignItems: "center", gap: "14px", padding: "14px 18px", border: `1px solid ${leave.color}30`, borderRadius: "10px", marginBottom: "8px", backgroundColor: "white", transition: "box-shadow 0.15s" }}>
-      <div style={{ width: "38px", height: "38px", borderRadius: "8px", backgroundColor: leave.color, display: "flex", alignItems: "center", justifyContent: "center", fontSize: "17px", flexShrink: 0 }}>{leave.icon}</div>
+      <div style={{ width: "38px", height: "38px", borderRadius: "8px", backgroundColor: leave.color, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, color: "white" }}>
+        <LeaveIcon name={leave.icon} size={18} color="white" />
+      </div>
       <div style={{ flex: 1, minWidth: 0 }}>
         <div style={{ fontWeight: 600, fontSize: "14px", color: "#1A202C", display: "flex", alignItems: "center", gap: "8px" }}>
           {leave.name}
@@ -1316,13 +1091,15 @@ const EmployeeBalancesTable = ({ balances, leaveTypes, customLeaveTypes }: { bal
             <th style={ths}>Employee</th>
             {enabledTypes.map(lt => (
               <th key={lt.id} style={{ ...ths, textAlign: "center" }}>
-                <span style={{ color: BCEA_DEFAULTS[lt.id]?.color }}>{BCEA_DEFAULTS[lt.id]?.label}</span>
+                <span style={{ color: BCEA_META[lt.id]?.color }}>{BCEA_META[lt.id]?.label}</span>
                 <div style={{ fontWeight: 400, fontSize: "10px", color: "#A0AEC0", textTransform: "none" }}>Balance</div>
               </th>
             ))}
             {customLeaveTypes.map(clt => (
               <th key={clt.id} style={{ ...ths, textAlign: "center" }}>
-                <span style={{ color: clt.color }}>{clt.icon} {clt.name}</span>
+                <span style={{ color: clt.color, display: "inline-flex", alignItems: "center", gap: "5px", justifyContent: "center" }}>
+                  <LeaveIcon name={clt.icon} size={12} color={clt.color} /> {clt.name}
+                </span>
                 <div style={{ fontWeight: 400, fontSize: "10px", color: "#A0AEC0", textTransform: "none" }}>Balance</div>
               </th>
             ))}
@@ -1356,10 +1133,10 @@ const EmployeeBalancesTable = ({ balances, leaveTypes, customLeaveTypes }: { bal
                       <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(170px, 1fr))", gap: "10px" }}>
                         {enabledTypes.map(lt => {
                           const b = getBalance(bal, lt.id); if (!b) return null;
-                          const color = BCEA_DEFAULTS[lt.id]?.color || "#33A6CD";
+                          const color = BCEA_META[lt.id]?.color || "#33A6CD";
                           return (
                             <div key={lt.id} style={{ padding: "12px", borderRadius: "8px", border: `1px solid ${color}22`, backgroundColor: "white" }}>
-                              <div style={{ fontSize: "11px", fontWeight: 700, color, marginBottom: "8px" }}>{BCEA_DEFAULTS[lt.id]?.label}</div>
+                              <div style={{ fontSize: "11px", fontWeight: 700, color, marginBottom: "8px" }}>{BCEA_META[lt.id]?.label}</div>
                               <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "4px", fontSize: "12px" }}>
                                 <span style={{ color: "#A0AEC0" }}>Opening</span><span style={{ fontWeight: 600 }}>{b.opening.toFixed(1)}</span>
                                 <span style={{ color: "#A0AEC0" }}>Accrued</span><span style={{ fontWeight: 600, color: "#10B981" }}>+{b.accrued.toFixed(1)}</span>
@@ -1371,7 +1148,9 @@ const EmployeeBalancesTable = ({ balances, leaveTypes, customLeaveTypes }: { bal
                         })}
                         {customLeaveTypes.map(clt => (
                           <div key={clt.id} style={{ padding: "12px", borderRadius: "8px", border: `1px solid ${clt.color}22`, backgroundColor: "white" }}>
-                            <div style={{ fontSize: "11px", fontWeight: 700, color: clt.color, marginBottom: "8px" }}>{clt.icon} {clt.name}</div>
+                            <div style={{ fontSize: "11px", fontWeight: 700, color: clt.color, marginBottom: "8px", display: "flex", alignItems: "center", gap: "5px" }}>
+                              <LeaveIcon name={clt.icon} size={12} color={clt.color} /> {clt.name}
+                            </div>
                             <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "4px", fontSize: "12px" }}>
                               <span style={{ color: "#A0AEC0" }}>Entitlement</span><span style={{ fontWeight: 600 }}>{clt.entitlementDays.toFixed(1)}</span>
                               <span style={{ color: "#A0AEC0" }}>Taken</span><span style={{ fontWeight: 600, color: "#F59E0B" }}>0.0</span>
@@ -1399,7 +1178,7 @@ const LeaveSettingsTab = () => {
   const [customDays, setCustomDays] = useState<string[]>([]);
   const [leaveBasis, setLeaveBasis] = useState<"Working Days" | "Calendar Days">("Working Days");
   const [leaveYearStart, setLeaveYearStart] = useState("January");
-  const [leaveTypes, setLeaveTypes] = useState<LeaveTypeConfig[]>(defaultLeaveTypes);
+  const [leaveTypes, setLeaveTypes] = useState<LeaveTypeConfig[]>(DEFAULT_LEAVE_TYPES);
   const [customLeaveTypes, setCustomLeaveTypes] = useState<CustomLeaveType[]>([]);
   const [balances, setBalances] = useState<LeaveBalance[]>([]);
   const [realEmployees, setRealEmployees] = useState<any[]>([]);
@@ -1415,46 +1194,15 @@ const LeaveSettingsTab = () => {
     fetchLeavePolicy();
   }, []);
 
+  // Pull the live employee roster and synthesize accrual-based balances so
+  // the Balances tab can render before any explicit policy is saved.
   const fetchRealEmployeesForLeave = async () => {
     setLoadingEmployees(true);
     try {
-      const token = localStorage.getItem("token");
-      const response = await fetch(`${API_URL}/employees`, {
-        headers: { "Authorization": `Bearer ${token}` }
-      });
-      const data = await response.json();
-      
+      const data = await orgApi.loadEmployees();
       if (data.success && data.data) {
         setRealEmployees(data.data);
-        
-        // Generate real leave balances based on employee data
-        const generatedBalances = data.data.map((emp: any) => {
-          // Calculate based on start date
-          const startDate = emp.startDate ? new Date(emp.startDate) : new Date();
-          const monthsEmployed = Math.max(1, Math.floor((new Date().getTime() - startDate.getTime()) / (1000 * 3600 * 24 * 30)));
-          
-          // Annual leave: 1.25 days per month
-          const annualAccrued = Math.min(15, Math.floor(monthsEmployed * 1.25));
-          const annualTaken = Math.floor(Math.random() * annualAccrued);
-          
-          // Sick leave: 1 day per 26 days worked (max 30)
-          const sickAccrued = Math.min(30, Math.floor(monthsEmployed * 0.83));
-          const sickTaken = Math.floor(Math.random() * 5);
-          
-          return {
-            employeeId: emp._id,
-            employeeName: `${emp.firstName} ${emp.lastName}`,
-            position: emp.position || "Staff",
-            department: emp.department || "General",
-            annual: { opening: Math.max(0, annualAccrued - annualTaken), accrued: annualAccrued, taken: annualTaken, planned: 0 },
-            sick: { opening: Math.max(0, sickAccrued - sickTaken), accrued: sickAccrued, taken: sickTaken, planned: 0 },
-            family: { opening: 3, accrued: 0, taken: 0, planned: 0 },
-            maternity: { opening: 0, accrued: 0, taken: 0, planned: 0 },
-            parental: { opening: 0, accrued: 0, taken: 0, planned: 0 }
-          };
-        });
-        
-        setBalances(generatedBalances);
+        setBalances(generateBalancesFromEmployees(data.data));
       }
     } catch (error) {
       console.error("Error fetching employees for leave:", error);
@@ -1463,186 +1211,49 @@ const LeaveSettingsTab = () => {
     }
   };
 
-  // ✅ Fetch leave policy from backend
-  // Helper functions for custom leave types
-  const getIconForLeaveType = (type: string): string => {
-    const icons: Record<string, string> = {
-      study: "📚",
-      bereavement: "🕊️",
-      unpaid: "⏸️",
-      birthday: "🎂",
-      religious: "🕌",
-      wellness: "💆"
-    };
-    return icons[type] || "⭐";
-  };
-
-  const getColorForLeaveType = (type: string): string => {
-    const colors: Record<string, string> = {
-      study: "#6366F1",
-      bereavement: "#64748B",
-      unpaid: "#94A3B8",
-      birthday: "#F97316",
-      religious: "#A78BFA",
-      wellness: "#34D399"
-    };
-    return colors[type] || "#0EA5E9";
-  };
-
+  // Load the full leave-policy list and map it onto our UI models (statutory
+  // entries update existing rows, the rest become custom leave entries).
   const fetchLeavePolicy = async () => {
     try {
-      const token = localStorage.getItem("token");
-      const response = await fetch(`${API_URL}/owner/leave-policies`, {
-        headers: { "Authorization": `Bearer ${token}` }
-      });
-      const data = await response.json();
-      
+      const data = await orgApi.loadLeavePolicies();
       if (data.success && data.data) {
         const policies = data.data;
-        
-        // Update statutory leave types
-        const updatedLeaveTypes = leaveTypes.map(lt => {
-          const policy = policies.find((p: any) => p.type === lt.id);
-          if (policy) {
-            return {
-              ...lt,
-              enabled: policy.enabled !== false,
-              entitlementDays: policy.entitlementDays || policy.daysPerYear || policy.daysTotal || lt.entitlementDays,
-              cycleLengthMonths: (policy.cycleYears || 1) * 12,
-              carryOverAllowed: policy.carryOver || false,
-              maxCarryOverDays: policy.maxAccrual || 0,
-              requiresMedCert: policy.requiresDoctorNote || false
-            };
-          }
-          return lt;
-        });
-        
-        setLeaveTypes(updatedLeaveTypes);
-        
-        // ✅ Load custom leave types
-        const customPolicies = policies.filter((p: any) => 
-          !['annual', 'sick', 'family', 'maternity', 'parental'].includes(p.type) && p.enabled !== false
-        );
-        
-        const loadedCustomLeaveTypes = customPolicies.map((p: any) => ({
-          id: p._id,
-          name: p.name,
-          description: p.description || '',
-          icon: p.icon || '📋',
-          color: p.color || '#6366F1',
-          entitlementDays: p.entitlementDays || p.daysPerYear || p.daysTotal || 5,
-          cycleLengthMonths: (p.cycleYears || 1) * 12,
-          isPaid: p.paidPercentage === 100,
-          requiresProof: p.requiresDoctorNote || false,
-          proofDescription: '',
-          carryOverAllowed: p.carryOver || false,
-          maxCarryOverDays: p.maxAccrual || 0,
-          requiresApproval: p.requiresApproval !== false,
-          minimumServiceMonths: p.minimumServiceMonths || 0,
-          notes: p.notes || ''
-        }));
-        
-        setCustomLeaveTypes(loadedCustomLeaveTypes);
-        console.log("Loaded custom leave types:", loadedCustomLeaveTypes);
+        setLeaveTypes((current) => mapStatutoryFromApi(current, policies));
+        setCustomLeaveTypes(mapCustomLeaveFromApi(policies));
       }
     } catch (error) {
       console.error("Error fetching leave policy:", error);
     }
   };
 
-  //  Save leave policy to backend
+  // Persist all statutory + custom leave policies in one click. Existing rows
+  // are PUT-updated; previously-unknown custom rows get a fresh POST.
   const saveLeavePolicy = async () => {
     setSaving(true);
     try {
-      const token = localStorage.getItem("token");
-      
-      // First, get existing policies
-      const existingResponse = await fetch(`${API_URL}/owner/leave-policies`, {
-        headers: { "Authorization": `Bearer ${token}` }
-      });
-      const existingData = await existingResponse.json();
-      const existingPolicies = existingData.data || [];
-      
-      // Save statutory leave types
+      const existing = await orgApi.loadLeavePolicies();
+      const existingPolicies: any[] = existing.data || [];
+
       for (const lt of leaveTypes) {
-        const existingPolicy = existingPolicies.find((p: any) => p.type === lt.id);
-        
-        if (existingPolicy) {
-          // Update existing policy
-          let updateData: any = {
+        const match = existingPolicies.find((p) => p.type === lt.id);
+        if (match) {
+          await orgApi.updateLeavePolicy(match._id, {
+            ...orgApi.statutoryToApi(lt),
             enabled: lt.enabled,
-            carryOver: lt.carryOverAllowed,
-            maxAccrual: lt.maxCarryOverDays,
-            entitlementDays: lt.entitlementDays,
-            daysPerYear: lt.entitlementDays,
-            daysTotal: lt.entitlementDays,
-            cycleYears: Math.floor(lt.cycleLengthMonths / 12),
-            requiresDoctorNote: lt.requiresMedCert
-          };
-          
-          await fetch(`${API_URL}/owner/leave-policies/${existingPolicy._id}`, {
-            method: "PUT",
-            headers: { 
-              "Authorization": `Bearer ${token}`,
-              "Content-Type": "application/json"
-            },
-            body: JSON.stringify(updateData)
           });
         }
       }
-      
-      // ✅ Save custom leave types
+
       for (const custom of customLeaveTypes) {
-        // Check if already exists
-        const existingCustom = existingPolicies.find((p: any) => p.type === custom.id || p.name === custom.name);
-        
-        const customData = {
-          name: custom.name,
-          type: custom.id,
-          daysPerYear: custom.entitlementDays,
-          cycleYears: Math.floor(custom.cycleLengthMonths / 12),
-          carryOver: custom.carryOverAllowed,
-          maxAccrual: custom.maxCarryOverDays,
-          requiresDoctorNote: custom.requiresProof,
-          requiresApproval: custom.requiresApproval,
-          paidPercentage: custom.isPaid ? 100 : 0,
-          applicableTo: ['permanent', 'contract', 'probation'],
-          icon: custom.icon,
-          color: custom.color,
-          description: custom.description,
-          notes: custom.notes,
-          enabled: true
-        };
-        
-        if (existingCustom) {
-          // Update existing
-          await fetch(`${API_URL}/owner/leave-policies/${existingCustom._id}`, {
-            method: "PUT",
-            headers: { 
-              "Authorization": `Bearer ${token}`,
-              "Content-Type": "application/json"
-            },
-            body: JSON.stringify(customData)
-          });
-        } else {
-          // Create new
-          await fetch(`${API_URL}/owner/leave-policies`, {
-            method: "POST",
-            headers: { 
-              "Authorization": `Bearer ${token}`,
-              "Content-Type": "application/json"
-            },
-            body: JSON.stringify(customData)
-          });
-        }
+        const match = existingPolicies.find((p) => p.type === custom.id || p.name === custom.name);
+        const payload = orgApi.customLeaveToApi(custom);
+        if (match) await orgApi.updateLeavePolicy(match._id, payload);
+        else       await orgApi.createLeavePolicy(payload);
       }
-      
+
       setSaveSuccess(true);
       setTimeout(() => setSaveSuccess(false), 3000);
-      
-      // Refresh policies
       await fetchLeavePolicy();
-      
     } catch (error) {
       console.error("Error saving leave policy:", error);
       alert("Failed to save leave policy");
@@ -1656,45 +1267,14 @@ const LeaveSettingsTab = () => {
   const handleSaveCustomLeave = async (leave: CustomLeaveType) => {
     setSaving(true);
     try {
-      const token = localStorage.getItem("token");
-      
-      const customData = {
-        name: leave.name,
-        type: leave.id,
-        daysPerYear: leave.entitlementDays,
-        cycleYears: Math.floor(leave.cycleLengthMonths / 12),
-        carryOver: leave.carryOverAllowed,
-        maxAccrual: leave.maxCarryOverDays,
-        requiresDoctorNote: leave.requiresProof,
-        requiresApproval: leave.requiresApproval,
-        paidPercentage: leave.isPaid ? 100 : 0,
-        applicableTo: ['permanent', 'contract', 'probation'],
-        icon: leave.icon,
-        color: leave.color,
-        description: leave.description,
-        notes: leave.notes,
-        enabled: true
-      };
-      
-      const response = await fetch(`${API_URL}/owner/leave-policies`, {
-        method: "POST",
-        headers: { 
-          "Authorization": `Bearer ${token}`,
-          "Content-Type": "application/json"
-        },
-        body: JSON.stringify(customData)
-      });
-      
-      const data = await response.json();
-      
+      const data = await orgApi.createLeavePolicy(orgApi.customLeaveToApi(leave));
       if (data.success) {
-        // Refresh the list
         await fetchLeavePolicy();
         setShowCustomModal(false);
         setEditingLeave(null);
         setSaveSuccess(true);
         setTimeout(() => setSaveSuccess(false), 3000);
-        alert("Custom leave type added successfully!");
+        alert("Custom leave type added successfully");
       } else {
         alert("Failed to add: " + (data.message || "Unknown error"));
       }
@@ -1708,24 +1288,18 @@ const LeaveSettingsTab = () => {
 
   const handleDeleteCustomLeave = async (leave: CustomLeaveType) => {
     if (!window.confirm(`Delete "${leave.name}"? This will remove it from employee leave balances.`)) return;
-    const token = localStorage.getItem("token");
-    // Optimistic UI: drop it locally so it disappears immediately
-    setCustomLeaveTypes(prev => prev.filter(l => l.id !== leave.id));
+    // Optimistic UI: drop it locally so it disappears immediately.
+    setCustomLeaveTypes((prev) => prev.filter((l) => l.id !== leave.id));
     try {
-      // Custom leave types are loaded with id = Mongo _id, so this hits /owner/leave-policies/:id
-      const response = await fetch(`${API_URL}/owner/leave-policies/${leave.id}`, {
-        method: "DELETE",
-        headers: { "Authorization": `Bearer ${token}` }
-      });
-      const data = await response.json().catch(() => ({}));
-      if (!response.ok || data?.success === false) {
+      const data = await orgApi.deleteLeavePolicy(leave.id);
+      if (data.success === false) {
         alert("Failed to delete leave type on the server. Reloading list.");
       }
     } catch (err) {
       console.error("Error deleting custom leave:", err);
-      alert("Network error while deleting leave type. Reloading list.");
+      alert("Couldn't reach the server while deleting the leave type. Reloading the list.");
     } finally {
-      // Re-sync with server so UI matches DB regardless of outcome
+      // Re-sync with server so the UI always reflects the DB state.
       await fetchLeavePolicy();
     }
   };
@@ -1771,7 +1345,7 @@ const LeaveSettingsTab = () => {
                   <option>Custom</option>
                 </select>
                 <div style={{ display: "flex", flexWrap: "wrap", gap: "6px", marginTop: "8px" }}>
-                  {workSchedule === "Custom" ? ALL_DAYS.map(day => (
+                  {workSchedule === "Custom" ? ALL_WEEK_DAYS.map(day => (
                     <span key={day} onClick={() => setCustomDays(prev => prev.includes(day) ? prev.filter(d => d !== day) : [...prev, day])} style={{ padding: "4px 10px", borderRadius: "20px", fontSize: "12px", fontWeight: 600, cursor: "pointer", border: `1px solid ${customDays.includes(day) ? "#0EA5E9" : "#CBD5E0"}`, backgroundColor: customDays.includes(day) ? "#E0F2FE" : "#F7FAFC", color: customDays.includes(day) ? "#0EA5E9" : "#718096", userSelect: "none" }}>{day.slice(0, 3)}</span>
                   )) : effectiveDays.map(day => (
                     <span key={day} style={{ padding: "4px 10px", borderRadius: "20px", fontSize: "12px", fontWeight: 600, border: "1px solid #0EA5E9", backgroundColor: "#E0F2FE", color: "#0EA5E9" }}>{day.slice(0, 3)}</span>
@@ -1825,7 +1399,9 @@ const LeaveSettingsTab = () => {
 
             {customLeaveTypes.length === 0 ? (
               <div style={{ textAlign: "center", padding: "48px 20px", border: "2px dashed #E2E8F0", borderRadius: "10px", color: "#A0AEC0" }}>
-                <div style={{ fontSize: "36px", marginBottom: "12px" }}>📋</div>
+                <div style={{ marginBottom: "12px", color: "#A0AEC0", display: "flex", justifyContent: "center" }}>
+                  <ClipboardList size={36} aria-hidden="true" />
+                </div>
                 <div style={{ fontWeight: 600, fontSize: "15px", marginBottom: "6px", color: "#718096" }}>No custom leave types yet</div>
                 <p style={{ fontSize: "13px", margin: "0 0 16px" }}>Add study leave, bereavement, unpaid leave, or any other type your company offers.</p>
                 <button onClick={() => { setEditingLeave(null); setShowCustomModal(true); }} style={{ padding: "8px 20px", borderRadius: "8px", backgroundColor: "#0EA5E9", color: "white", border: "none", fontWeight: 600, fontSize: "13px", cursor: "pointer", display: "inline-flex", alignItems: "center", gap: "6px" }}>
@@ -1842,7 +1418,9 @@ const LeaveSettingsTab = () => {
                 <div style={{ marginTop: "20px", display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(160px, 1fr))", gap: "10px" }}>
                   {customLeaveTypes.map(leave => (
                     <div key={leave.id} style={{ padding: "14px", borderRadius: "10px", border: `1px solid ${leave.color}30`, backgroundColor: `${leave.color}08`, textAlign: "center" }}>
-                      <div style={{ fontSize: "22px", marginBottom: "6px" }}>{leave.icon}</div>
+                      <div style={{ marginBottom: "6px", color: leave.color, display: "flex", justifyContent: "center" }}>
+                        <LeaveIcon name={leave.icon} size={22} color={leave.color} />
+                      </div>
                       <div style={{ fontWeight: 700, fontSize: "13px", color: "#1A202C", marginBottom: "2px" }}>{leave.name}</div>
                       <div style={{ fontWeight: 700, fontSize: "20px", color: leave.color }}>{leave.entitlementDays}</div>
                       <div style={{ fontSize: "11px", color: "#A0AEC0" }}>days / {leave.cycleLengthMonths > 0 ? `${leave.cycleLengthMonths}mo` : "once-off"}</div>

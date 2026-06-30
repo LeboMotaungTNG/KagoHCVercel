@@ -593,7 +593,7 @@ export function useEmployeeAttendance() {
         console.error('Clock in error:', data);
       }
     } catch (error) {
-      showAlert(error instanceof Error ? error.message : "Network error", "error");
+      showAlert(error instanceof Error ? error.message : "Couldn't connect. Please check your internet and try again.", "error");
       console.error('Clock in exception:', error);
     } finally {
       setClockLoading(false);
@@ -654,7 +654,7 @@ export function useEmployeeAttendance() {
         showAlert(data.error?.message || "Failed to clock out", "error");
       }
     } catch (error) {
-      showAlert("Network error", "error");
+      showAlert("Couldn't connect. Please check your internet and try again.", "error");
     } finally {
       setClockLoading(false);
     }

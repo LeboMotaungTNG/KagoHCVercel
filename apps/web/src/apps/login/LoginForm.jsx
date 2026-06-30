@@ -74,7 +74,7 @@ const LoginForm = () => {
         }
       } catch (error) {
         console.error("Login error:", error);
-        setLoginError("Network error. Is the backend running?");
+        setLoginError("We couldn't reach the server. Please check your connection and try again.");
       } finally {
         setPending(false);
       }

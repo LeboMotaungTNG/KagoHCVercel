@@ -236,7 +236,7 @@ const AcceptInvitePage: React.FC = () => {
         setServerError(data.message || "Something went wrong. Please try again.");
       }
     } catch {
-      setServerError("Network error. Please check your connection and try again.");
+      setServerError("We couldn't reach the server. Please check your connection and try again.");
     } finally {
       setSubmitting(false);
     }
