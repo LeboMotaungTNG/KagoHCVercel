@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">Kago HC</string>
+    <string name="title_activity_main">Kago HC</string>
+    <string name="package_name">za.co.kagohc.app</string>
+    <string name="custom_url_scheme">za.co.kagohc.app</string>
+</resources>
