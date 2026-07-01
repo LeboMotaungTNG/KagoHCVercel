@@ -10,6 +10,7 @@ import EmployeeLeave from "./apps/employee/leave";
 import EmployeeAttendance from "./apps/employee/attendance";
 import EmployeeProfilePage from "./apps/employee/EmployeeProfilePage";
 import EmployeeSettingsPage from "./apps/employee/EmployeeSettingsPage";
+import EmployeeDocumentsPage from "./apps/employee/EmployeeDocumentsPage";
 import OwnerDashboard from "./apps/Owner/OwnerDashboard";
 import ManagerDashboard from "./apps/Manager/ManagerDashboard";
 import EmployeeProfile from "./apps/Manager/EmployeeProfile";
@@ -65,7 +66,7 @@ const App: React.FC = () => (
       <Route path="/employee/attendance"  element={<Guard roles={EmployeeArea}><EmployeeAttendance /></Guard>} />
       <Route path="/employee/profile"     element={<Guard roles={EmployeeArea}><EmployeeProfilePage /></Guard>} />
       <Route path="/employee/performance" element={<Guard roles={EmployeeArea}><EmployeeDashboard /></Guard>} />
-      <Route path="/employee/documents"   element={<Guard roles={EmployeeArea}><EmployeeDashboard /></Guard>} />
+      <Route path="/employee/documents"   element={<Guard roles={EmployeeArea}><EmployeeDocumentsPage /></Guard>} />
       <Route path="/employee/settings"    element={<Guard roles={EmployeeArea}><EmployeeSettingsPage /></Guard>} />
 
       {/* ── Catch-all → login ─────────────────────────────────────── */}
