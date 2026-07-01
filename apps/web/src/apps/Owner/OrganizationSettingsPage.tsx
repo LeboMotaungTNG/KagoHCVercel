@@ -12,9 +12,10 @@ import {
   FaUmbrellaBeach, FaStar, FaTimes, FaPencilAlt,
   FaGlobe, FaMapMarkerAlt, FaUniversity,
   FaFileAlt, FaShieldAlt, FaUserTie, FaIdCard,
-  FaExclamationCircle
+  FaExclamationCircle, FaFolderOpen,
 } from "react-icons/fa";
 import { ClipboardList } from "lucide-react";
+import DocumentsLibraryTab from "./DocumentsLibraryTab";
 
 // All cross-cutting types, defaults, API calls and icon mappings now live in
 // shared/utils/organizationSettings. This page just composes them.
@@ -1476,7 +1477,7 @@ const LeaveSettingsTab = () => {
 // MAIN ORGANIZATION SETTINGS PAGE
 // ============================================
 export const OrganizationSettingsPage = () => {
-  const [activeTab, setActiveTab] = useState<"company" | "payroll" | "leave">("company");
+  const [activeTab, setActiveTab] = useState<"company" | "payroll" | "leave" | "documents">("company");
 
   const tabStyle = (isActive: boolean): React.CSSProperties => ({
     padding: "12px 24px", backgroundColor: isActive ? "#33A6CD" : "transparent",
@@ -1491,10 +1492,12 @@ export const OrganizationSettingsPage = () => {
         <button onClick={() => setActiveTab("company")} style={tabStyle(activeTab === "company")}><FaBuilding size={16} /> Company Details</button>
         <button onClick={() => setActiveTab("payroll")} style={tabStyle(activeTab === "payroll")}><FaMoneyBillWave size={16} /> Payroll</button>
         <button onClick={() => setActiveTab("leave")} style={tabStyle(activeTab === "leave")}><FaCalendarAlt size={16} /> Leave</button>
+        <button onClick={() => setActiveTab("documents")} style={tabStyle(activeTab === "documents")}><FaFolderOpen size={16} /> Documents Library</button>
       </div>
       {activeTab === "company" && <CompanyDetailsTab />}
       {activeTab === "payroll" && <PayrollSettingsTab />}
       {activeTab === "leave" && <LeaveSettingsTab />}
+      {activeTab === "documents" && <DocumentsLibraryTab />}
     </div>
   );
 };
