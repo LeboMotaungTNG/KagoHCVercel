@@ -1,17 +1,4 @@
-/**
- * OwnerOverview.tsx
- * Rendered by OwnerDashboard.tsx at route "/owner".
- * Same visual DNA as employee.tsx — gradient hero cards, Card primitives,
- * StatusPill, ProgressBar — but with org-wide, owner-level data and privileges.
- *
- * NEW features vs old OwnerOverview:
- *  - Gradient org-health hero + growth card
- *  - Department breakdown (derived from employees array)
- *  - Managers list with their team sizes
- *  - Org-wide pending leave overview (read-only for owner)
- *  - Subscription status card
- *  - AI assistant prompt strip
- */
+
 import React, { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import {

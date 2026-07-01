@@ -1,11 +1,9 @@
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useMemo } from "react";
 import { useCountry } from "../contexts/CountryContext";
 import {
-  COUNTRY_PROFILES,
   composeStoredPhone,
   formatLocalDisplay,
   isValidLocalPhone,
-  onlyDigits,
   toNationalDigits,
   type CountryProfile,
 } from "../utils/country";
@@ -51,20 +49,11 @@ const PhoneInput: React.FC<PhoneInputProps> = ({
 }) => {
   const { profile: activeProfile } = useCountry();
   const profile = profileOverride || activeProfile;
-  const [selectedCountry, setSelectedCountry] = useState(profileOverride?.name || profile.name);
-
-  useEffect(() => {
-    setSelectedCountry(profileOverride?.name || profile.name);
-  }, [profileOverride?.name, profile.name]);
-
-  const effectiveProfile = useMemo(() => {
-    return COUNTRY_PROFILES.find(c => c.name === selectedCountry) || profile;
-  }, [profile, selectedCountry]);
 
   // Extract the local NSN from whatever the caller is currently storing.
-  const nsn = useMemo(() => toNationalDigits(value, effectiveProfile), [value, effectiveProfile]);
-  const displayValue = useMemo(() => formatLocalDisplay(nsn, effectiveProfile), [nsn, effectiveProfile]);
-  const invalid = showValidationHint && value.trim().length > 0 && !isValidLocalPhone(value, effectiveProfile);
+  const nsn = useMemo(() => toNationalDigits(value, profile), [value, profile]);
+  const displayValue = useMemo(() => formatLocalDisplay(nsn, profile), [nsn, profile]);
+  const invalid = showValidationHint && value.trim().length > 0 && !isValidLocalPhone(value, profile);
 
   const isSm = size === "sm";
   const height = isSm ? 32 : 38;
@@ -72,15 +61,8 @@ const PhoneInput: React.FC<PhoneInputProps> = ({
   const padX = isSm ? 10 : 12;
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const next = composeStoredPhone(e.target.value, effectiveProfile);
+    const next = composeStoredPhone(e.target.value, profile);
     onChange(next);
-  };
-
-  const handleCountryChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
-    const nextCountry = e.target.value;
-    setSelectedCountry(nextCountry);
-    const nextProfile = COUNTRY_PROFILES.find(c => c.name === nextCountry) || effectiveProfile;
-    onChange(value ? composeStoredPhone(onlyDigits(value), nextProfile) : "");
   };
 
   return (
@@ -92,74 +74,73 @@ const PhoneInput: React.FC<PhoneInputProps> = ({
         boxShadow: invalid ? `0 0 0 3px ${DANGER}1a` : undefined,
         transition: "border-color .15s ease, box-shadow .15s ease",
       }}>
-        <select
-          aria-label="Country code"
-          value={selectedCountry}
-          onChange={handleCountryChange}
-          disabled={disabled || readOnly}
+        {/* Locked dial-code tile */}
+        <span
+          aria-hidden
+          title={profile.name}
           style={{
-            minWidth: 170, padding: `0 ${padX}px`, border: "none",
-            borderRight: `1px solid ${BORDER}`, background: BG_DIAL,
-            fontSize, color: TEXT, outline: "none", cursor: "pointer",
+            display: "inline-flex", alignItems: "center", gap: 6,
+            padding: `0 ${padX}px`,
+            background: BG_DIAL,
+            borderRight: `1px solid ${BORDER}`,
+            fontSize, fontWeight: 700, color: TEXT,
+            whiteSpace: "nowrap", flexShrink: 0,
+            userSelect: "none",
           }}
         >
-          {COUNTRY_PROFILES.map(country => (
-            <option key={country.name} value={country.name}>
-              {country.flag} {country.name} (+{country.dialCode})
-            </option>
-          ))}
-        </select>
-        <div style={{ flex: 1, minWidth: 0 }}>
-          <input
-            id={id}
-            name={name}
-            type="tel"
-            inputMode="numeric"
-            autoComplete="tel-national"
-            value={displayValue}
-            onChange={handleChange}
-            disabled={disabled}
-            readOnly={readOnly}
-            placeholder={effectiveProfile.placeholderLocal}
-            aria-label={`Phone number (${effectiveProfile.name})`}
-            aria-invalid={invalid || undefined}
-            style={{
-              width: "100%", minWidth: 0,
-              padding: `0 ${padX}px`,
-              border: "none", outline: "none",
-              fontSize, color: TEXT, background: "transparent",
-              height,
-            }}
-            onFocus={e => {
-              const wrap = e.currentTarget.parentElement?.parentElement;
-              if (wrap && !invalid) {
-                wrap.style.borderColor = FOCUS;
-                wrap.style.boxShadow = `0 0 0 4px ${FOCUS}1f`;
-              }
-            }}
-            onBlur={e => {
-              const wrap = e.currentTarget.parentElement?.parentElement;
-              if (wrap) {
-                wrap.style.borderColor = invalid ? DANGER : BORDER;
-                wrap.style.boxShadow = invalid ? `0 0 0 3px ${DANGER}1a` : "";
-              }
-            }}
-          />
-        </div>
+          <span style={{ fontSize: fontSize + 2, lineHeight: 1 }}>{profile.flag}</span>
+          <span>+{profile.dialCode}</span>
+        </span>
+        {/* National number input */}
+        <input
+          id={id}
+          name={name}
+          type="tel"
+          inputMode="numeric"
+          autoComplete="tel-national"
+          value={displayValue}
+          onChange={handleChange}
+          disabled={disabled}
+          readOnly={readOnly}
+          placeholder={profile.placeholderLocal}
+          aria-label={`Phone number (${profile.name})`}
+          aria-invalid={invalid || undefined}
+          style={{
+            flex: 1, minWidth: 0,
+            padding: `0 ${padX}px`,
+            border: "none", outline: "none",
+            fontSize, color: TEXT, background: "transparent",
+            height,
+          }}
+          onFocus={e => {
+            const wrap = e.currentTarget.parentElement;
+            if (wrap && !invalid) {
+              wrap.style.borderColor = FOCUS;
+              wrap.style.boxShadow = `0 0 0 4px ${FOCUS}1f`;
+            }
+          }}
+          onBlur={e => {
+            const wrap = e.currentTarget.parentElement;
+            if (wrap) {
+              wrap.style.borderColor = invalid ? DANGER : BORDER;
+              wrap.style.boxShadow = invalid ? `0 0 0 3px ${DANGER}1a` : "";
+            }
+          }}
+        />
       </div>
       {invalid && (
         <div style={{
           marginTop: 6, padding: "4px 8px", borderRadius: 6,
           background: DANGER_BG, color: DANGER, fontSize: 11.5, fontWeight: 600,
         }}>
-          Enter a valid {effectiveProfile.name} number (
-          {effectiveProfile.nsnLengths.join("/")} digits after +{effectiveProfile.dialCode}
-          {effectiveProfile.trunkPrefix ? ` or starting with ${effectiveProfile.trunkPrefix}` : ""})
+          Enter a valid {profile.name} number (
+          {profile.nsnLengths.join("/")} digits after +{profile.dialCode}
+          {profile.trunkPrefix ? ` or starting with ${profile.trunkPrefix}` : ""})
         </div>
       )}
       {!invalid && !displayValue && (
         <div style={{ marginTop: 4, fontSize: 11, color: MUTED }}>
-          {effectiveProfile.name} numbers only · e.g. {effectiveProfile.placeholder}
+          {profile.name} numbers only · e.g. {profile.placeholder}
         </div>
       )}
     </div>

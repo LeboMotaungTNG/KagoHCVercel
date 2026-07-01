@@ -1,10 +1,3 @@
-/**
- * onboarding – frontend utilities for the Owner onboarding wizard.
- *
- * Holds types, constants, the brand palette and all the API calls the page
- * needs so the UI file stays focused on layout/render.
- */
-
 import { API_URL, safeJson, unwrapArray, unwrapSuccessData } from "./employee";
 
 /* ─────────────────────────────────────────────────────────────────────────
