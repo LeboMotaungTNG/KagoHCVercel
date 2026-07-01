@@ -404,12 +404,12 @@ function Tab2Contact({ f, upd }: { f: Employee; upd: (k: keyof Employee, v: any)
 
       <div style={S.sectionTitle}><Ic.Phone /> Communication Details</div>
       <div style={S.row2}>
-        <FI label="Home Number" icon={<Ic.Phone />}><TextInput type="tel" value={f.home_number} onChange={v => upd("home_number", v)} placeholder="0111234567" /></FI>
-        <FI label="Work Number" icon={<Ic.Phone />}><TextInput type="tel" value={f.work_number} onChange={v => upd("work_number", v)} placeholder="0111234567" /></FI>
+        <FI label="Home Number" icon={<Ic.Phone />}><TextInput value={f.home_number} onChange={v => upd("home_number", v)} placeholder="0111234567" /></FI>
+        <FI label="Work Number" icon={<Ic.Phone />}><TextInput value={f.work_number} onChange={v => upd("work_number", v)} placeholder="0111234567" /></FI>
       </div>
       <div style={S.row2}>
         <FI label="Cell Number" required icon={<Ic.Phone />}><TextInput type="tel" value={f.cell_number} onChange={v => upd("cell_number", v)} /></FI>
-        <FI label="Alternative Cell" icon={<Ic.Phone />}><TextInput type="tel" value={f.alt_cell} onChange={v => upd("alt_cell", v)} placeholder="0831234567" /></FI>
+        <FI label="Alternative Cell" icon={<Ic.Phone />}><TextInput value={f.alt_cell} onChange={v => upd("alt_cell", v)} placeholder="0831234567" /></FI>
       </div>
       <div style={S.row2}>
         <FI label="Email Address" required icon={<Ic.Mail />}><TextInput type="email" value={f.email} onChange={v => upd("email", v)} placeholder="john@company.com" /></FI>
@@ -441,16 +441,9 @@ function Tab2Contact({ f, upd }: { f: Employee; upd: (k: keyof Employee, v: any)
 
 function Tab3Employment({ f, upd }: { f: Employee; upd: (k: keyof Employee, v: any) => void }) {
   const benefits = benefitsForType(f.employment_type);
-  const showUifSection = f.employment_type === "Full Time" || uifRequired(f.employment_type);
   const toggleBenefit = (b: string) => {
     const cur = f.benefits_package;
     upd("benefits_package", cur.includes(b) ? cur.filter(x => x !== b) : [...cur, b]);
-  };
-  const handleEmploymentTypeChange = (value: EmploymentType) => {
-    upd("employment_type", value);
-    if (value === "Full Time") {
-      upd("uif_required", true);
-    }
   };
 
   return (
@@ -471,7 +464,7 @@ function Tab3Employment({ f, upd }: { f: Employee; upd: (k: keyof Employee, v: a
 
       <div style={S.sectionTitle}><Ic.Clock /> Employment Type</div>
       <FI label="Employment Type" required>
-        <RadioGroup value={f.employment_type} onChange={v => handleEmploymentTypeChange(v as EmploymentType)}
+        <RadioGroup value={f.employment_type} onChange={v => upd("employment_type", v as EmploymentType)}
           options={["Full Time","Part Time","Contract","Intern","Temporary","Casual","Probation"]} horizontal />
       </FI>
 
@@ -614,7 +607,7 @@ function Tab3Employment({ f, upd }: { f: Employee; upd: (k: keyof Employee, v: a
 
       {/* UIF */}
       <div style={S.sectionTitle}><Ic.Shield /> UIF (Unemployment Insurance Fund)</div>
-      {!showUifSection ? (
+      {!uifRequired(f.employment_type) ? (
         <div style={S.notice("info")}><Ic.Info /><div>UIF is not applicable for <strong>{f.employment_type}</strong> employees.</div></div>
       ) : (
         <>

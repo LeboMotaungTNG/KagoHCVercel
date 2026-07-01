@@ -5,7 +5,6 @@ import {
   type ManagerAttendanceRecord,
   type Employee,
   type DateRangeKey,
-  type WorkSchedule,
   STATUS_COLORS,
   badgeStyle,
   fmtTime,
@@ -190,140 +189,6 @@ const StatCard: React.FC<{ label: string; value: string | number; sub?: string; 
     </div>
   </div>
 );
-
-// ─── Work Schedule Card ───────────────────────────────────────────────────────
-/* Lets a Manager pin the company-wide expected arrival / departure times.
- * Anyone whose clock-in is later than `arrivalTime + graceMinutes` is
- * automatically reclassified as "late" everywhere on this page. */
-
-const WorkScheduleCard: React.FC<{ schedule: WorkSchedule; onSave: (s: WorkSchedule) => void }> = ({ schedule, onSave }) => {
-  const [arrival,   setArrival]   = useState(schedule.arrivalTime);
-  const [departure, setDeparture] = useState(schedule.departureTime);
-  const [grace,     setGrace]     = useState(schedule.graceMinutes);
-  const [savedAt,   setSavedAt]   = useState<number | null>(null);
-
-  useEffect(() => {
-    setArrival(schedule.arrivalTime);
-    setDeparture(schedule.departureTime);
-    setGrace(schedule.graceMinutes);
-  }, [schedule.arrivalTime, schedule.departureTime, schedule.graceMinutes]);
-
-  const dirty =
-    arrival   !== schedule.arrivalTime   ||
-    departure !== schedule.departureTime ||
-    grace     !== schedule.graceMinutes;
-
-  const handleSave = () => {
-    onSave({ arrivalTime: arrival, departureTime: departure, graceMinutes: Math.max(0, Math.min(180, grace || 0)) });
-    setSavedAt(Date.now());
-    window.setTimeout(() => setSavedAt(null), 2400);
-  };
-
-  const handleReset = () => {
-    onSave({ arrivalTime: "08:00", departureTime: "17:00", graceMinutes: 0 });
-  };
-
-  const field = (label: string, hint: string, control: React.ReactNode) => (
-    <div style={{ flex: "1 1 180px", minWidth: 0 }}>
-      <p style={{ margin: "0 0 6px", fontSize: 11, fontWeight: 700, letterSpacing: 0.6, textTransform: "uppercase", color: "#9ca3af" }}>{label}</p>
-      {control}
-      <p style={{ margin: "6px 0 0", fontSize: 11.5, color: "#9ca3af" }}>{hint}</p>
-    </div>
-  );
-
-  return (
-    <div style={{ ...CARD, marginBottom: 24, position: "relative", overflow: "hidden" }}>
-      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, flexWrap: "wrap", marginBottom: 16 }}>
-        <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-          <div style={{ width: 40, height: 40, borderRadius: 10, background: "linear-gradient(135deg, #fffaeb 0%, #fef3c7 100%)", color: "#b45309", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
-            <Icon.Calendar />
-          </div>
-          <div>
-            <h3 style={{ margin: "0 0 2px", fontSize: 16, fontWeight: 700, color: "#1d2939" }}>Work Schedule</h3>
-            <p style={{ margin: 0, fontSize: 12.5, color: "#9ca3af" }}>Set the expected arrival &amp; departure times. Late thresholds apply automatically.</p>
-          </div>
-        </div>
-        {savedAt && (
-          <span style={{ display: "inline-flex", alignItems: "center", gap: 6, padding: "5px 12px", borderRadius: 999, background: "#ecfdf3", color: "#027a48", fontSize: 12, fontWeight: 700 }}>
-            ✓ Saved
-          </span>
-        )}
-      </div>
-
-      <div style={{ display: "flex", flexWrap: "wrap", gap: 16, alignItems: "flex-end" }}>
-        {field(
-          "Arrival time",
-          "Clock-ins after this are flagged late.",
-          <input
-            type="time"
-            value={arrival}
-            onChange={e => setArrival(e.target.value)}
-            style={INPUT}
-            aria-label="Expected arrival time"
-          />,
-        )}
-        {field(
-          "Departure time",
-          "Expected end of working day.",
-          <input
-            type="time"
-            value={departure}
-            onChange={e => setDeparture(e.target.value)}
-            style={INPUT}
-            aria-label="Expected departure time"
-          />,
-        )}
-        {field(
-          "Grace (minutes)",
-          "Minutes after arrival still treated as on-time.",
-          <input
-            type="number"
-            min={0}
-            max={180}
-            value={grace}
-            onChange={e => setGrace(Math.max(0, Math.min(180, parseInt(e.target.value || "0", 10) || 0)))}
-            style={{ ...INPUT, cursor: "text" }}
-            aria-label="Grace minutes"
-          />,
-        )}
-        <div style={{ display: "flex", gap: 8, flex: "0 0 auto", flexWrap: "wrap" }}>
-          <button
-            type="button"
-            onClick={handleSave}
-            disabled={!dirty}
-            style={{
-              height: 40, padding: "0 18px", borderRadius: 10, border: "none",
-              background: dirty ? "#1a1a1a" : "#e4e7ec",
-              color: dirty ? "#fff" : "#9ca3af",
-              fontSize: 13, fontWeight: 700, cursor: dirty ? "pointer" : "not-allowed",
-              transition: "background 0.18s ease",
-            }}
-          >
-            Save schedule
-          </button>
-          <button
-            type="button"
-            onClick={handleReset}
-            style={{
-              height: 40, padding: "0 14px", borderRadius: 10,
-              border: "1px solid #d0d5dd", background: "#fff",
-              color: "#475467", fontSize: 13, fontWeight: 600, cursor: "pointer",
-            }}
-          >
-            Reset
-          </button>
-        </div>
-      </div>
-
-      <p style={{ margin: "14px 0 0", fontSize: 12.5, color: "#667085" }}>
-        Currently expecting clock-in by <strong style={{ color: "#1d2939" }}>{schedule.arrivalTime}</strong>
-        {schedule.graceMinutes > 0 && (
-          <> (+{schedule.graceMinutes} min grace)</>
-        )} and clock-out around <strong style={{ color: "#1d2939" }}>{schedule.departureTime}</strong>.
-      </p>
-    </div>
-  );
-};
 
 // ─── Punctuality Board ────────────────────────────────────────────────────────
 
@@ -560,7 +425,6 @@ function AttendanceContent() {
   const {
     loading, todayAttendance, allHistory, employees,
     departments, stats,
-    workSchedule, setWorkSchedule,
     noClockInList, showNoClockIn, setShowNoClockIn,
     filters, setSearch, setStatus, setDateRange, setDept, clearFilters,
     filtered,
@@ -569,15 +433,6 @@ function AttendanceContent() {
     selectedRow, setSelectedRow,
     alert, clearAlert,
   } = useManagerAttendance();
-
-  const lateThresholdLabel = useMemo(() => {
-    const [h, m] = workSchedule.arrivalTime.split(":");
-    const hh = parseInt(h, 10);
-    const grace = workSchedule.graceMinutes
-      ? ` (+${workSchedule.graceMinutes} min grace)`
-      : "";
-    return `Arrived after ${hh % 12 === 0 ? 12 : hh % 12}:${m} ${hh >= 12 ? "PM" : "AM"}${grace}`;
-  }, [workSchedule]);
 
   return (
     <div style={{ maxWidth: 1280, margin: "0 auto" }}>
@@ -606,11 +461,9 @@ function AttendanceContent() {
 
           <LiveClock />
 
-          <WorkScheduleCard schedule={workSchedule} onSave={setWorkSchedule} />
-
           <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(185px,1fr))", gap: 16, marginBottom: 24 }}>
             <StatCard label="Today's Attendance" value={`${stats.todayPresent}/${stats.totalEmployees}`} sub={`${stats.todayPercentage}% present`} icon={<Icon.Users />} accentBg="#f0fdf4" accentColor="#10b981" />
-            <StatCard label="Late Arrivals"       value={stats.todayLate}     sub={lateThresholdLabel}    icon={<Icon.AlertCircle />} accentBg="#fffaeb" accentColor="#f59e0b" />
+            <StatCard label="Late Arrivals"       value={stats.todayLate}     sub="Arrived after 09:00"  icon={<Icon.AlertCircle />} accentBg="#fffaeb" accentColor="#f59e0b" />
             <StatCard label="Absent Today"        value={stats.todayAbsent}   sub="On leave / sick"      icon={<Icon.UserX />}       accentBg="#fef3f2" accentColor="#ef4444" />
             <StatCard label="Monthly Average"     value={`${stats.monthlyAverage}%`} sub="Attendance rate" icon={<Icon.TrendUp />} accentBg="#eff6ff" accentColor="#3b82f6" />
           </div>
