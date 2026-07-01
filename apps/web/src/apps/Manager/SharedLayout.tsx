@@ -11,7 +11,6 @@ import {
   Home,
   Users,
   Calendar,
-  ListChecks,
   ClipboardList,
   Menu,
   Bell,
@@ -38,7 +37,6 @@ const ManagerSidebar: React.FC<{ onLogout: () => void }> = ({ onLogout }) => {
   const items: { to: string; label: string; icon: React.ReactNode }[] = [
     { to: "/manager",                  label: "Dashboard",          icon: <Home size={20} style={{ marginRight: 10 }} /> },
     { to: "/manager/profile",          label: "Employee Profile",   icon: <Users size={20} style={{ marginRight: 10 }} /> },
-    { to: "/manager/manage-employees", label: "Manage Employees",   icon: <ListChecks size={20} style={{ marginRight: 10 }} /> },
     { to: "/manager/employees",        label: "All Employees",      icon: <Users size={20} style={{ marginRight: 10 }} /> },
     { to: "/manager/attendance",       label: "Attendance",         icon: <Calendar size={20} style={{ marginRight: 10 }} /> },
     { to: "/manager/leave-requests",   label: "Leave Requests",     icon: <ClipboardList size={20} style={{ marginRight: 10 }} /> },
