@@ -101,3 +101,23 @@ export const isValidLocalPhone = (raw: string, profile: CountryProfile): boolean
   if (!nsn) return false;
   return profile.nsnLengths.includes(nsn.length);
 };
+
+/**
+ * Detect which country a stored phone value belongs to based on its dial code
+ * prefix (e.g. "+27 82 123 4567" -> South Africa). Falls back to `null` when
+ * the value is empty or has no recognisable prefix. Prefixes are matched
+ * longest-first so overlapping codes can't collide.
+ */
+const PROFILES_BY_DIAL_LEN = [...COUNTRY_PROFILES].sort(
+  (a, b) => b.dialCode.length - a.dialCode.length,
+);
+
+export const detectCountryFromValue = (raw: string): CountryProfile | null => {
+  const d = onlyDigits(raw);
+  if (!d) return null;
+  for (const p of PROFILES_BY_DIAL_LEN) {
+    if (d.startsWith("00" + p.dialCode)) return p;
+    if (d.startsWith(p.dialCode))        return p;
+  }
+  return null;
+};
