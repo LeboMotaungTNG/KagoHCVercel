@@ -197,8 +197,8 @@ function Checkbox({ checked, onChange, label, sub }: { checked: boolean; onChang
   return (
     <label style={{ display: "flex", alignItems: "flex-start", gap: 10, cursor: "pointer", marginBottom: 8 }}>
       <div style={{
-        width: 18, height: 18, borderRadius: 4, border: `2px solid ${checked ? "#33a6cd" : "#d0d5dd"}`,
-        background: checked ? "#33a6cd" : "#fff", display: "flex", alignItems: "center",
+        width: 18, height: 18, borderRadius: 4, border: `2px solid ${checked ? BRAND.primary : "#d0d5dd"}`,
+        background: checked ? BRAND.primary : "#fff", display: "flex", alignItems: "center",
         justifyContent: "center", flexShrink: 0, marginTop: 1, transition: "all 0.15s",
       }}>
         {checked && <Ic.Check />}
@@ -221,8 +221,8 @@ function RadioGroup({ value, onChange, options, horizontal }: {
         <label key={o} style={{ display: "flex", alignItems: "center", gap: 8, cursor: "pointer" }}>
           <div style={{
             width: 16, height: 16, borderRadius: "50%",
-            border: `2px solid ${value === o ? "#33a6cd" : "#d0d5dd"}`,
-            background: value === o ? "#33a6cd" : "#fff", transition: "all 0.15s",
+            border: `2px solid ${value === o ? BRAND.primary : "#d0d5dd"}`,
+            background: value === o ? BRAND.primary : "#fff", transition: "all 0.15s",
             display: "flex", alignItems: "center", justifyContent: "center",
           }}>
             {value === o && <div style={{ width: 6, height: 6, borderRadius: "50%", background: "#fff" }} />}
@@ -490,9 +490,9 @@ function Tab3Employment({ f, upd }: { f: Employee; upd: (k: keyof Employee, v: a
               {["Medical Aid","Retirement Fund","Disability Cover","Life Insurance","Funeral Cover"].map(b => (
                 <label key={b} style={{
                   display: "flex", alignItems: "center", gap: 6, padding: "6px 12px",
-                  border: `1px solid ${f.benefits_package.includes(b) ? "#33a6cd" : "#d0d5dd"}`,
+                  border: `1px solid ${f.benefits_package.includes(b) ? BRAND.primary : "#d0d5dd"}`,
                   borderRadius: 20, cursor: "pointer", fontSize: 12,
-                  background: f.benefits_package.includes(b) ? "#33a6cd1f" : "#fff",
+                  background: f.benefits_package.includes(b) ? `${BRAND.primary}1f` : "#fff",
                   color: f.benefits_package.includes(b) ? "#0f6b8e" : "#344054",
                 }}>
                   <input type="checkbox" checked={f.benefits_package.includes(b)}

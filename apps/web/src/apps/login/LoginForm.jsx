@@ -5,6 +5,7 @@ import { useFormik } from "formik";
 import * as Yup from "yup";
 import { AiOutlineEye, AiOutlineEyeInvisible } from "react-icons/ai";
 import { Lock } from "lucide-react";
+import { C } from "../../shared/utils/employee";
 
 import logoKago from "../../assets/images/kago-logo.png";
 import ButtonSubmit from "./ButtonSubmit";
@@ -195,7 +196,7 @@ const LoginForm = () => {
               <div className="w-100 d-grid">
                 <ButtonSubmit
                   Title={pending ? "Logging in..." : "Login"}
-                  BackgroundColor="#33a6cd"
+                  BackgroundColor={C.primary}
                   ColorText="#fff"
                   BorderColor=""
                   borderRadius="20px"

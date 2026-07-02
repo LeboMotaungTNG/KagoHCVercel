@@ -4,6 +4,7 @@ import DataTable from "react-data-table-component";
 import { AiFillEye, AiOutlineSearch, AiOutlineUser, AiOutlineClose } from "react-icons/ai";
 import SharedLayout from "./SharedLayout";
 import PhoneInput from "../../shared/components/PhoneInput";
+import { C } from "../../shared/utils/employee";
 
 const API_URL = import.meta.env.VITE_API_URL || "https://employee-evaluation-kago-e63baae4d822.herokuapp.com/api/v1";
 
@@ -211,7 +212,7 @@ function AddEmployeeModal({ onClose, onSuccess }: { onClose: () => void; onSucce
           <button
             onClick={handleSubmit}
             disabled={saving}
-            style={{ padding: "9px 20px", borderRadius: 8, border: "none", background: "#33A6CD", fontSize: 14, fontWeight: 600, color: "#fff", cursor: saving ? "not-allowed" : "pointer", opacity: saving ? 0.7 : 1, display: "flex", alignItems: "center", gap: 8 }}
+            style={{ padding: "9px 20px", borderRadius: 8, border: "none", background: C.primary, fontSize: 14, fontWeight: 600, color: "#fff", cursor: saving ? "not-allowed" : "pointer", opacity: saving ? 0.7 : 1, display: "flex", alignItems: "center", gap: 8 }}
           >
             {saving ? <><Spinner size="sm" /> Creating...</> : "Create Employee"}
           </button>
@@ -233,7 +234,7 @@ function ViewEmployeeModal({ employee, onClose }: { employee: any; onClose: () =
     <div style={{ position: "fixed", inset: 0, zIndex: 9999, display: "flex", alignItems: "center", justifyContent: "center", padding: 24 }}>
       <div onClick={onClose} style={{ position: "absolute", inset: 0, background: "rgba(0,0,0,0.55)", backdropFilter: "blur(6px)" }} />
       <div onClick={e => e.stopPropagation()} style={{ position: "relative", width: "100%", maxWidth: 420, borderRadius: 16, background: "#fff", boxShadow: "0 25px 50px rgba(0,0,0,0.2)", overflow: "hidden" }}>
-        <div style={{ background: "linear-gradient(135deg, #33A6CD 0%, #1a7fa3 100%)", padding: "28px 24px 36px", position: "relative" }}>
+        <div style={{ background: `linear-gradient(135deg, ${C.primary} 0%, ${C.primaryDark} 100%)`, padding: "28px 24px 36px", position: "relative" }}>
           <button onClick={onClose} style={{ position: "absolute", top: 14, right: 14, background: "rgba(255,255,255,0.15)", border: "none", borderRadius: 8, padding: 6, cursor: "pointer", color: "#fff", display: "flex" }}>
             <AiOutlineClose size={18} />
           </button>
@@ -344,7 +345,7 @@ export const EmployeesPage = () => {
       name: <span className="font-weight-bold fs-13">Action</span>,
       cell: (row: any) => (
         <div style={{ display: "flex", alignItems: "center" }}>
-          <AiFillEye size={20} className="mx-1" style={{ cursor: "pointer", color: "#33A6CD" }} onClick={() => setViewEmployee(row)} />
+          <AiFillEye size={20} className="mx-1" style={{ cursor: "pointer", color: C.primary }} onClick={() => setViewEmployee(row)} />
         </div>
       ),
     },
@@ -374,9 +375,9 @@ export const EmployeesPage = () => {
               <ButtonBtn
                 Title="Add Employee"
                 type="button"
-                BackgroundColor="#33A6CD"
+                BackgroundColor={C.primary}
                 ColorText="white"
-                BorderColor="#33A6CD"
+                BorderColor={C.primary}
                 borderRadius={20}
                 handleOnclick={() => setShowAddModal(true)}
                 pending={false}

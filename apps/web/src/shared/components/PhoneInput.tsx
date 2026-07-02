@@ -9,6 +9,7 @@ import {
   toNationalDigits,
   type CountryProfile,
 } from "../utils/country";
+import { C } from "../utils/employee";
 
 export interface PhoneInputProps {
   /** Current stored value (may already include "+27 …" or just digits — both work). */
@@ -45,7 +46,7 @@ const INK = "#101828";
 const MUTED = "#98a2b3";
 const DANGER = "#b42318";
 const DANGER_BG = "#fef3f2";
-const FOCUS = "#33A6CD";
+const FOCUS = C.primary;
 const FOCUS_DK = "#0369A1";
 
 /* ─────────────────────────────────────────────────────────────────────

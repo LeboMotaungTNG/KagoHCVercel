@@ -42,6 +42,7 @@ import {
   validateAdministrator,
   validateCompanyForSave,
 } from "../../shared/utils/onboarding";
+import { C } from "../../shared/utils/employee";
 
 /* ──────────────────────────────────────────────────────────────────────────
  * Shared inline styles
@@ -521,11 +522,11 @@ export default OnboardingPage;
  * (ManagersPage / EmployeesPage on the owner side): bordered Card,
  * pill on the left, pill chips on the right, system blue accent.
  */
-const HERO_BRAND = "#33A6CD";       // sibling-page system blue
-const HERO_BRAND_DK = "#1a7fa3";
-const HERO_BORDER = "#D9D9D9";      // sibling Card border
-const HERO_TINT = "#e7f4fa";        // soft brand tint
-const HERO_TINT_LINE = "#cfe7f2";   // tint border
+const HERO_BRAND = C.primary;
+const HERO_BRAND_DK = C.primaryDark;
+const HERO_BORDER = "#D9D9D9";
+const HERO_TINT = C.primaryTint;
+const HERO_TINT_LINE = "rgba(51,166,205,0.28)";
 
 const HeroBanner: React.FC<{ country: string; progress: number }> = ({ country, progress }) => (
   <div style={{

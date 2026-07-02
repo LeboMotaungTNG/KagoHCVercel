@@ -6,10 +6,11 @@
 import React from "react";
 import SharedLayout from "./SharedLayout";
 import { LeaveManagement } from "../../shared/components/LeaveManagement";
+import { C } from "../../shared/utils/employee";
 
 const LeavePage: React.FC = () => (
   <SharedLayout title="Leave Requests">
-    <LeaveManagement accent="#E6A79E" canReview />
+    <LeaveManagement accent={C.primary} canReview />
   </SharedLayout>
 );
 

@@ -220,7 +220,7 @@ const TodaysSessionCard: React.FC<{
     <section
       style={{
         position: "relative", overflow: "hidden",
-        background: `linear-gradient(135deg, #2a2f7a 0%, #4f3da3 60%, #6a5cd8 100%)`,
+        background: `linear-gradient(135deg, ${C.primaryDark} 0%, ${C.primary} 60%, ${C.primaryLight} 100%)`,
         borderRadius: R.hero,
         padding: 28,
         boxShadow: "0 12px 32px rgba(42,47,122,0.35)",

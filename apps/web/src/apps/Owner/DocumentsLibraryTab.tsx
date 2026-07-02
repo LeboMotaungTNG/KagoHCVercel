@@ -22,13 +22,14 @@ import {
   downloadDataUrl, fileToDataUrl, formatBytes, formatDate,
   loadOrgDocuments, newId, saveOrgDocuments,
 } from "../../shared/utils/documentsLibrary";
+import { C } from "../../shared/utils/employee";
 
 /* ─────────────────────────────────────────────────────────────────────
  * Local design tokens — mirror OrganizationSettingsPage.tsx so the tab
  * feels native, no visual seam.
  * ────────────────────────────────────────────────────────────────── */
-const BRAND = "#33A6CD";
-const BRAND_DK = "#0369A1";
+const BRAND = C.primary;
+const BRAND_DK = C.primaryDark;
 const INK = "#1A202C";
 const MUTED = "#718096";
 const LINE = "#E2E8F0";
@@ -233,7 +234,7 @@ const DocumentEditor: React.FC<{
               style={{
                 border: `2px dashed ${isDragging ? BRAND : "#CBD5E0"}`,
                 borderRadius: 10, padding: "22px 16px", textAlign: "center",
-                cursor: "pointer", background: isDragging ? "rgba(51,166,205,0.08)" : "#F8FAFC",
+                cursor: "pointer", background: isDragging ? C.primaryBg : "#F8FAFC",
                 transition: "all .15s ease",
               }}
             >
