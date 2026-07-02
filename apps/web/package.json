@@ -14,6 +14,7 @@
     "apexcharts": "^5.7.0",
     "bootstrap": "^5.3.3",
     "formik": "latest",
+    "jspdf": "^4.2.1",
     "lucide-react": "^0.577.0",
     "react": "latest",
     "react-apexcharts": "^2.0.1",
