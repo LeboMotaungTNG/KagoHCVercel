@@ -46,6 +46,8 @@ export interface OrgDocument {
   audience?: "all";
 }
 
+import type { PayslipData } from "./payslipPdf";
+
 export interface PayslipMeta {
   id: string;
   period: string;      // e.g. "October 2025"
@@ -54,7 +56,12 @@ export interface PayslipMeta {
   net: number;
   currency: string;    // e.g. "R"
   fileName: string;
-  dataUrl?: string;    // if omitted, we generate a demo HTML payslip
+  /**
+   * Full structured payslip payload used to render the PDF on demand.
+   * Kept optional for backward compatibility with anything that only
+   * needs the summary fields above.
+   */
+  data?: PayslipData;
 }
 
 /* ─────────────────────────────────────────────────────────────────────────
@@ -224,62 +231,85 @@ export const newId = (): string =>
   `doc_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 8)}`;
 
 /* ─────────────────────────────────────────────────────────────────────────
- * Demo payslip — generated as an HTML data URL so the "View / Download
- * payslip" flow works end-to-end during frontend development without any
- * backend. Replace with a real API call when the backend is ready.
+ * Demo payslip — returns a rich, structured `PayslipData` payload so the
+ * PDF renderer can produce a professional statement end-to-end during
+ * frontend development. When the backend ships, swap `loadLatestPayslip()`
+ * for a real API call and this function can be removed.
  * ────────────────────────────────────────────────────────────────────── */
 
 export const demoPayslip = (employeeName = "Employee"): PayslipMeta => {
   const now = new Date();
-  const monthName = now.toLocaleString(undefined, { month: "long" });
+  const monthName = now.toLocaleString("en-ZA", { month: "long" });
   const year = now.getFullYear();
-  const gross = 28450;
-  const net = 22186.57;
+  const monthIdx = now.getMonth();
+  const monthsPaid = monthIdx + 1;
 
-  const html = `<!doctype html><html><head><meta charset="utf-8"><title>Payslip – ${monthName} ${year}</title>
-<style>
-  body{font-family:'Segoe UI',system-ui,sans-serif;color:#1d2939;padding:40px;max-width:720px;margin:auto}
-  h1{margin:0 0 4px;font-size:22px;color:#111}
-  .muted{color:#667085;font-size:13px}
-  .card{border:1px solid #eef0f3;border-radius:12px;padding:20px;margin-top:20px}
-  table{width:100%;border-collapse:collapse;font-size:14px}
-  td,th{padding:8px 0;border-bottom:1px solid #eef0f3;text-align:left}
-  th{color:#667085;font-weight:600;font-size:12px;text-transform:uppercase;letter-spacing:.05em}
-  .right{text-align:right}
-  .total{font-weight:700;color:#0369A1;font-size:16px}
-  .brand{color:#E6614F;font-weight:800;letter-spacing:.5px}
-</style></head><body>
-  <div class="brand">KAGO HUMAN CAPITAL</div>
-  <h1>Payslip — ${monthName} ${year}</h1>
-  <div class="muted">Issued ${now.toLocaleDateString()} · Reference PS-${now.getTime().toString(36).toUpperCase()}</div>
-  <div class="card">
-    <table>
-      <tr><th>Employee</th><td>${employeeName}</td></tr>
-      <tr><th>Pay period</th><td>${monthName} ${year}</td></tr>
-      <tr><th>Payment date</th><td>${now.toLocaleDateString()}</td></tr>
-    </table>
-  </div>
-  <div class="card">
-    <table>
-      <tr><th>Earnings</th><th class="right">Amount</th></tr>
-      <tr><td>Basic salary</td><td class="right">R ${gross.toLocaleString()}.00</td></tr>
-      <tr><td>Travel allowance</td><td class="right">R 0.00</td></tr>
-      <tr><td class="total">Gross pay</td><td class="right total">R ${gross.toLocaleString()}.00</td></tr>
-    </table>
-  </div>
-  <div class="card">
-    <table>
-      <tr><th>Deductions</th><th class="right">Amount</th></tr>
-      <tr><td>PAYE</td><td class="right">R 5,432.10</td></tr>
-      <tr><td>UIF (1%)</td><td class="right">R 177.72</td></tr>
-      <tr><td>Medical aid</td><td class="right">R 653.61</td></tr>
-      <tr><td class="total">Net pay</td><td class="right total">R ${net.toLocaleString()}</td></tr>
-    </table>
-  </div>
-  <p class="muted" style="margin-top:24px">This is a demo payslip generated for preview purposes. Actual figures will be provided by the payroll system.</p>
-</body></html>`;
+  const basic = 28450;
+  const travel = 1500;
+  const bonus = 0;
+  const overtime = 0;
 
-  const dataUrl = `data:text/html;charset=utf-8,${encodeURIComponent(html)}`;
+  const paye = 5432.10;
+  const uif = 177.72;
+  const medical = 653.61;
+  const pension = basic * 0.075;
+
+  const gross = basic + travel + bonus + overtime;
+  const totalDed = paye + uif + medical + pension;
+  const net = gross - totalDed;
+
+  const periodStart = new Date(year, monthIdx, 1).toISOString();
+  const periodEnd   = new Date(year, monthIdx + 1, 0).toISOString();
+  const payDate     = new Date(year, monthIdx, 25).toISOString();
+  const reference   = `PS-${now.getTime().toString(36).toUpperCase()}`;
+
+  const data: PayslipData = {
+    reference,
+    period: `${monthName} ${year}`,
+    periodStart,
+    periodEnd,
+    payDate,
+    currency: "R",
+    employer: {
+      name: "Kago Human Capital",
+      registrationNo: "2021/123456/07",
+      payeReference: "7010123456",
+      address: "1st Floor, Sandton Central, Johannesburg, 2196",
+    },
+    employee: {
+      name: employeeName,
+      employeeNumber: "EMP-00042",
+      idNumber: "9101015800086",
+      department: "Engineering",
+      position: "Software Engineer",
+      bank: "Standard Bank",
+      accountLast4: "4321",
+      paymentMethod: "EFT",
+    },
+    earnings: [
+      { label: "Basic salary",     amount: basic },
+      { label: "Travel allowance", amount: travel },
+      { label: "Overtime",         amount: overtime },
+      { label: "Bonus",            amount: bonus },
+    ],
+    deductions: [
+      { label: "PAYE",           amount: paye },
+      { label: "UIF (1%)",       amount: uif },
+      { label: "Medical aid",    amount: medical },
+      { label: "Pension (7.5%)", amount: pension },
+    ],
+    ytd: {
+      gross: gross * monthsPaid,
+      tax:   paye * monthsPaid,
+      net:   net * monthsPaid,
+    },
+    leaveBalances: [
+      { label: "Annual",       days: 15 },
+      { label: "Sick",         days: 12 },
+      { label: "Family Resp.", days: 3 },
+    ],
+    notes: "This is a computer-generated payslip and does not require a signature.",
+  };
 
   return {
     id: `ps_${now.getTime()}`,
@@ -288,7 +318,7 @@ export const demoPayslip = (employeeName = "Employee"): PayslipMeta => {
     gross,
     net,
     currency: "R",
-    fileName: `Payslip-${monthName}-${year}.html`,
-    dataUrl,
+    fileName: `Payslip-${monthName}-${year}.pdf`,
+    data,
   };
 };
