@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect, useMemo } from "react";
 import SharedLayout from "./SharedLayout";
+import { C } from "../../shared/utils/employee";
 import {
   type AttendanceStatus,
   type AttendanceRecord,
@@ -152,7 +153,7 @@ const LiveClock: React.FC = () => {
       </div>
       <div style={{ textAlign: "right" }}>
         <p style={{ margin: "0 0 2px", fontSize: 10, color: "rgba(255,255,255,0.35)", textTransform: "uppercase", letterSpacing: 1.2 }}>Current Time</p>
-        <p style={{ margin: 0, fontSize: 38, fontWeight: 800, fontVariantNumeric: "tabular-nums", letterSpacing: -1.5, color: "#E6A79E" }}>
+        <p style={{ margin: 0, fontSize: 38, fontWeight: 800, fontVariantNumeric: "tabular-nums", letterSpacing: -1.5, color: C.primary }}>
           {`${pad2(now.getHours())}:${pad2(now.getMinutes())}:${pad2(now.getSeconds())}`}
         </p>
       </div>
@@ -227,7 +228,7 @@ const ClockPanel: React.FC<ClockPanelProps> = ({ state, onClockIn, onClockOut, l
         {[
           { label: "Clock In",  value: fmtTime(state.clockInTime),  color: "#10b981" },
           { label: "Clock Out", value: fmtTime(state.clockOutTime), color: "#ef4444" },
-          { label: "Elapsed",   value: active ? elapsed : state.sessionHours != null ? `${state.sessionHours.toFixed(2)}h` : "", color: "#E6A79E" },
+          { label: "Elapsed",   value: active ? elapsed : state.sessionHours != null ? `${state.sessionHours.toFixed(2)}h` : "", color: C.primary },
         ].map(({ label, value, color }) => (
           <div key={label} style={{ background: "rgba(255,255,255,0.72)", backdropFilter: "blur(4px)", borderRadius: 12, padding: "14px 16px" }}>
             <p style={{ margin: "0 0 4px", fontSize: 10, color: "#9ca3af", textTransform: "uppercase", letterSpacing: 0.9, fontWeight: 700 }}>{label}</p>

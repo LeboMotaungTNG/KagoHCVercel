@@ -4,6 +4,7 @@ import { Row, Col, Form, Input, FormFeedback, Label } from "reactstrap";
 import { useFormik } from "formik";
 import * as Yup from "yup";
 import { AiOutlineEye, AiOutlineEyeInvisible } from "react-icons/ai";
+import { C } from "../../shared/utils/employee";
 
 import logoKago from "../../assets/images/kago-logo.png";
 import ButtonSubmit from "./ButtonSubmit";
@@ -221,7 +222,7 @@ const ResetPasswordForm = () => {
               <div className="w-100 d-grid mb-3">
                 <ButtonSubmit
                   Title={pending ? "Updating..." : "Reset password"}
-                  BackgroundColor="#33a6cd"
+                  BackgroundColor={C.primary}
                   ColorText="#fff"
                   BorderColor=""
                   borderRadius="20px"

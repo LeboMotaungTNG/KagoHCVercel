@@ -1,6 +1,7 @@
 import React from "react";
 import { Link, useLocation } from "react-router-dom";
 import { Menu } from "lucide-react";
+import { C } from "../utils/employee";
 
 /**
  * MobileBottomNav — the signature mobile-app navigation pattern.
@@ -146,10 +147,10 @@ const BottomNavStyle: React.FC = () => (
       }
 
       .kg-bottom-nav-item.is-active {
-        color: #1f6e8a;
+        color: ${C.primaryDark};
       }
       .kg-bottom-nav-item.is-active .kg-bottom-nav-icon {
-        background: linear-gradient(135deg, #33a6cd 0%, #5cc2e2 100%);
+        background: linear-gradient(135deg, ${C.primary} 0%, ${C.primaryLight} 100%);
         color: #ffffff;
         box-shadow: 0 6px 14px rgba(51, 166, 205, 0.35);
       }

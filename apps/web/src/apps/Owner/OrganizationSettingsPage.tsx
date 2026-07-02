@@ -16,6 +16,7 @@ import {
 } from "react-icons/fa";
 import { ClipboardList } from "lucide-react";
 import DocumentsLibraryTab from "./DocumentsLibraryTab";
+import { C } from "../../shared/utils/employee";
 
 // All cross-cutting types, defaults, API calls and icon mappings now live in
 // shared/utils/organizationSettings. This page just composes them.
@@ -1112,7 +1113,7 @@ const EmployeeBalancesTable = ({ balances, leaveTypes, customLeaveTypes }: { bal
               <tr style={{ cursor: "pointer", backgroundColor: expandedRow === bal.employeeId ? "#F0F9FF" : "white" }} onClick={() => setExpandedRow(expandedRow === bal.employeeId ? null : bal.employeeId)}>
                 <td style={tds}>
                   <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
-                    <div style={{ width: "32px", height: "32px", borderRadius: "50%", backgroundColor: "#33A6CD22", display: "flex", alignItems: "center", justifyContent: "center", color: "#33A6CD", fontWeight: 700, fontSize: "13px" }}>{bal.employeeName.charAt(0)}</div>
+                    <div style={{ width: "32px", height: "32px", borderRadius: "50%", backgroundColor: C.primaryBg, display: "flex", alignItems: "center", justifyContent: "center", color: C.primary, fontWeight: 700, fontSize: "13px" }}>{bal.employeeName.charAt(0)}</div>
                     <div><div style={{ fontWeight: 600, fontSize: "13px" }}>{bal.employeeName}</div><div style={{ fontSize: "11px", color: "#A0AEC0" }}>{bal.position} · {bal.department}</div></div>
                   </div>
                 </td>
@@ -1134,7 +1135,7 @@ const EmployeeBalancesTable = ({ balances, leaveTypes, customLeaveTypes }: { bal
                       <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(170px, 1fr))", gap: "10px" }}>
                         {enabledTypes.map(lt => {
                           const b = getBalance(bal, lt.id); if (!b) return null;
-                          const color = BCEA_META[lt.id]?.color || "#33A6CD";
+                          const color = BCEA_META[lt.id]?.color || C.primary;
                           return (
                             <div key={lt.id} style={{ padding: "12px", borderRadius: "8px", border: `1px solid ${color}22`, backgroundColor: "white" }}>
                               <div style={{ fontSize: "11px", fontWeight: 700, color, marginBottom: "8px" }}>{BCEA_META[lt.id]?.label}</div>
@@ -1480,7 +1481,7 @@ export const OrganizationSettingsPage = () => {
   const [activeTab, setActiveTab] = useState<"company" | "payroll" | "leave" | "documents">("company");
 
   const tabStyle = (isActive: boolean): React.CSSProperties => ({
-    padding: "12px 24px", backgroundColor: isActive ? "#33A6CD" : "transparent",
+    padding: "12px 24px", backgroundColor: isActive ? C.primary : "transparent",
     color: isActive ? "white" : "#4A5568", border: "none", borderRadius: "8px 8px 0 0",
     cursor: "pointer", fontWeight: 500, transition: "all 0.2s ease",
     display: "flex", alignItems: "center", gap: "8px"

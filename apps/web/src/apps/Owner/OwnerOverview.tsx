@@ -6,23 +6,10 @@ import {
   FileText, MessageCircle, PenTool, Plus, Search, Settings,
   Sparkles, Star, Target, TrendingUp, Users, Zap,
 } from "lucide-react";
+import { C as TOKENS } from "../../shared/utils/employee";
 
 /* ─── Design tokens ──────────────────────────────────────────────────────── */
-const C = {
-  // Owner accent: deep indigo (matches their sidebar gradient)
-  accent: "#4f3da3",  accentDk: "#2a2f7a", accentBg: "#eeeaff",
-  coral: "#E6614F",   coralDk: "#c44a38",  coralBg: "#fdf0ee",
-  ink: "#1d2939",     text: "#344054",      muted: "#667085", faint: "#98a2b3",
-  line: "#e4e7ec",    surface: "#ffffff",   surfaceAlt: "#f9f7f5",
-  ok: "#10b981",      okBg: "#ecfdf3",
-  warn: "#f59e0b",    warnBg: "#fffaeb",
-  bad: "#ef4444",     badBg: "#fef2f2",
-  blue: "#3182CE",    blueBg: "#ebf8ff",
-  green: "#48BB78",   greenBg: "#f0fff4",
-  purple: "#805AD5",  purpleBg: "#f3f0ff",
-  amber: "#D97706",   amberBg: "#fffbeb",
-  teal: "#0d9488",    tealBg: "#f0fdfa",
-} as const;
+const C = TOKENS;
 
 const SHADOW   = "0 1px 4px rgba(16,24,40,0.06), 0 2px 8px rgba(16,24,40,0.04)";
 const SHADOW_L = "0 8px 24px rgba(16,24,40,0.12)";
@@ -68,7 +55,7 @@ const SectionHead: React.FC<{ title: string; subtitle?: string; right?: React.Re
   </div>
 );
 
-const AVATAR_COLORS = ["#4f3da3","#3182CE","#48BB78","#805AD5","#D97706","#E6614F","#0d9488"];
+const AVATAR_COLORS = [C.primary, C.blue, C.green, C.purple, C.amber, C.teal, C.muted];
 const avatarBg = (n: string) =>
   AVATAR_COLORS[n.split("").reduce((a, c) => a + c.charCodeAt(0), 0) % AVATAR_COLORS.length];
 const getInitials = (n: string) =>
@@ -168,7 +155,7 @@ const OrgHealthCard: React.FC<{
   return (
     <section style={{
       position: "relative", overflow: "hidden",
-      background: "linear-gradient(135deg, #1a1f5e 0%, #2a2f7a 40%, #4f3da3 100%)",
+      background: `linear-gradient(135deg, ${C.primaryDark} 0%, ${C.primary} 50%, ${C.primaryLight} 100%)`,
       borderRadius: R.hero, padding: 28,
       boxShadow: "0 12px 32px rgba(26,31,94,0.38)", color: "#fff",
     }}>

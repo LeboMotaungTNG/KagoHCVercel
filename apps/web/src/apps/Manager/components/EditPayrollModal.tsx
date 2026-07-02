@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { C } from '../../../shared/utils/employee';
 
 interface PayrollEmployee {
   id: string;
@@ -90,7 +91,7 @@ const EditPayrollModal: React.FC<EditPayrollModalProps> = ({ isOpen, employee, o
               color: '#667085'
             }}
           >
-            ◊
+            ù
           </button>
         </div>
 
@@ -299,7 +300,7 @@ const EditPayrollModal: React.FC<EditPayrollModalProps> = ({ isOpen, employee, o
               padding: '10px 20px',
               borderRadius: 8,
               border: 'none',
-              background: saving ? '#ccc' : '#E6A79E',
+              background: saving ? '#ccc' : C.coral,
               color: '#fff',
               cursor: saving ? 'not-allowed' : 'pointer',
               fontSize: 14,
