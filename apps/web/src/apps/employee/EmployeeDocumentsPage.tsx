@@ -25,6 +25,9 @@ import {
   demoPayslip, downloadDataUrl, formatBytes, formatDate, formatMoney,
   loadLatestPayslip, loadOrgDocuments, saveLatestPayslip,
 } from "../../shared/utils/documentsLibrary";
+import {
+  buildPayslipObjectUrl, downloadPayslipPdf,
+} from "../../shared/utils/payslipPdf";
 
 /* ─────────────────────────────────────────────────────────────────────
  * Helpers
@@ -75,8 +78,10 @@ const EmployeeDocumentsPage: React.FC = () => {
 
   useEffect(() => {
     setDocs(loadOrgDocuments());
+    // Self-heal legacy payslips missing the structured `data` field so the
+    // real-PDF renderer always has something to work with.
     let existing = loadLatestPayslip();
-    if (!existing) {
+    if (!existing || !existing.data) {
       existing = demoPayslip(getCurrentUserName());
       saveLatestPayslip(existing);
     }
@@ -383,14 +388,16 @@ const PayslipHero: React.FC<{ payslip: PayslipMeta; employeeName: string }> = ({
         display: "flex", flexWrap: "wrap", gap: 10, alignItems: "center",
       }}>
         <PrimaryHeroBtn
-          onClick={() => payslip.dataUrl && openInNewTab({
-            title: payslip.period, mimeType: "text/html", dataUrl: payslip.dataUrl,
-          })}
+          onClick={async () => {
+            if (!payslip.data) return;
+            const url = await buildPayslipObjectUrl(payslip.data);
+            window.open(url, "_blank", "noopener,noreferrer");
+          }}
         >
           <Eye size={15} /> View payslip
         </PrimaryHeroBtn>
         <GhostHeroBtn
-          onClick={() => payslip.dataUrl && downloadDataUrl(payslip.dataUrl, payslip.fileName)}
+          onClick={() => { if (payslip.data) void downloadPayslipPdf(payslip.data, payslip.fileName); }}
         >
           <Download size={15} /> Download PDF
         </GhostHeroBtn>
