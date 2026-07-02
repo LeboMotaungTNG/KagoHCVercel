@@ -18,6 +18,7 @@ import {
   MobileSidebarChrome,
 } from "../../shared/components/sidebarStyles";
 import MobileBottomNav from "../../shared/components/MobileBottomNav";
+import { C } from "../../shared/utils/employee";
 // @ts-ignore
 import logoKago from "../../assets/images/logo-black-white.png";
 
@@ -192,7 +193,7 @@ const EmployeeHeader: React.FC = () => {
               <div
                 className="rounded-circle header-profile-user"
                 style={{
-                  backgroundColor: "#E6A79E",
+                  backgroundColor: C.primary,
                   color: "white",
                   display: "flex",
                   alignItems: "center",

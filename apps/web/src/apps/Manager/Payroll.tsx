@@ -4,6 +4,7 @@ import React, { useMemo, useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import SharedLayout from "./SharedLayout";
 import EditPayrollModal from './components/EditPayrollModal';
+import { C } from "../../shared/utils/employee";
 
 type PayrollStatus = "on_payroll" | "not_on_payroll" | "active" | "inactive";
 
@@ -416,7 +417,7 @@ Net Pay: ${formatCurrency(employee.netSalary || employee.basicSalary * 0.81)}
         padding: 20,
       }}
     >
-      <p style={{ margin: 0, fontSize: 13, fontWeight: 500, color: accent || "#E6A79E" }}>{label}</p>
+      <p style={{ margin: 0, fontSize: 13, fontWeight: 500, color: accent || C.coral }}>{label}</p>
       <p style={{ margin: "6px 0 0", fontSize: 24, fontWeight: 700, color: "#1d2939" }}>{value}</p>
       {sub && <p style={{ margin: "2px 0 0", fontSize: 12, color: "#667085" }}>{sub}</p>}
     </div>
@@ -471,10 +472,10 @@ Net Pay: ${formatCurrency(employee.netSalary || employee.basicSalary * 0.81)}
               padding: "12px 18px",
               background: "none",
               border: "none",
-              borderBottom: activeTab === tab ? "2px solid #E6A79E" : "2px solid transparent",
+              borderBottom: activeTab === tab ? `2px solid ${C.coral}` : "2px solid transparent",
               fontSize: 14,
               fontWeight: 500,
-              color: activeTab === tab ? "#E6A79E" : "#667085",
+              color: activeTab === tab ? C.coral : "#667085",
               cursor: "pointer",
               marginRight: 8,
             }}
@@ -606,7 +607,7 @@ Net Pay: ${formatCurrency(employee.netSalary || employee.basicSalary * 0.81)}
                   height: 40,
                   borderRadius: 8,
                   border: "none",
-                  background: "#E6A79E",
+                  background: C.coral,
                   padding: "0 16px",
                   fontSize: 14,
                   fontWeight: 500,
@@ -801,7 +802,7 @@ Net Pay: ${formatCurrency(employee.netSalary || employee.basicSalary * 0.81)}
                               style={{
                                 borderRadius: 8,
                                 border: "none",
-                                background: "#E6A79E",
+                                background: C.coral,
                                 padding: "6px 10px",
                                 fontSize: 12,
                                 fontWeight: 500,
@@ -887,10 +888,10 @@ Net Pay: ${formatCurrency(employee.netSalary || employee.basicSalary * 0.81)}
                           background: isCompleted
                             ? "#16a34a"
                             : isActive
-                            ? "#E6A79E"
+                            ? C.coral
                             : "#e5e7eb",
                           color: isActive || isCompleted ? "#fff" : "#6b7280",
-                          boxShadow: isActive ? "0 0 0 4px rgba(230,167,158,0.28)" : "none",
+                          boxShadow: isActive ? "0 0 0 4px rgba(51,166,205,0.28)" : "none",
                           transition: "all 0.2s ease",
                         }}
                       >
@@ -902,7 +903,7 @@ Net Pay: ${formatCurrency(employee.netSalary || employee.basicSalary * 0.81)}
                           fontSize: 12,
                           textAlign: "center",
                           fontWeight: isActive ? 600 : 500,
-                          color: isActive ? "#E6A79E" : "#667085",
+                          color: isActive ? C.coral : "#667085",
                         }}
                       >
                         {label}
@@ -1118,7 +1119,7 @@ Net Pay: ${formatCurrency(employee.netSalary || employee.basicSalary * 0.81)}
                   style={{
                     borderRadius: 8,
                     border: "none",
-                    background: "#E6A79E",
+                    background: C.coral,
                     padding: "10px 20px",
                     fontSize: 14,
                     fontWeight: 500,
@@ -1244,7 +1245,7 @@ Net Pay: ${formatCurrency(employee.netSalary || employee.basicSalary * 0.81)}
                             padding: 8,
                             borderRadius: 8,
                             border: checked
-                              ? "1px solid #E6A79E"
+                              ? `1px solid ${C.coral}`
                               : "1px solid #e4e7ec",
                             background: checked ? "#fdf6f3" : "#fff",
                             marginBottom: 6,
@@ -1351,7 +1352,7 @@ Net Pay: ${formatCurrency(employee.netSalary || employee.basicSalary * 0.81)}
                   style={{
                     borderRadius: 8,
                     border: "none",
-                    background: "#E6A79E",
+                    background: C.coral,
                     padding: "8px 16px",
                     fontSize: 14,
                     fontWeight: 500,
@@ -1629,7 +1630,7 @@ Net Pay: ${formatCurrency(employee.netSalary || employee.basicSalary * 0.81)}
                     style={{
                       borderRadius: 8,
                       border: "none",
-                      background: "#E6A79E",
+                      background: C.coral,
                       padding: "8px 16px",
                       fontSize: 14,
                       fontWeight: 500,
@@ -2587,7 +2588,7 @@ Net Pay: ${formatCurrency(employee.netSalary || employee.basicSalary * 0.81)}
               style={{
                 borderRadius: 8,
                 border: "none",
-                background: "#E6A79E",
+                background: C.coral,
                 padding: "10px 20px",
                 fontSize: 14,
                 fontWeight: 600,

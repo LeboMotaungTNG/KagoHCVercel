@@ -1,5 +1,6 @@
 import React from "react";
 import { FaCheck } from "react-icons/fa";
+import { C } from "../../shared/utils/employee";
 
 const Styles = {
   container: {
@@ -20,7 +21,7 @@ const Styles = {
     flex: "1",
     padding: "16px",
     borderRadius: "8px",
-    border: "1px solid #33a6cd",
+    border: `1px solid ${C.primary}`,
     position: "relative" as const,
     display: "flex",
     flexDirection: "column" as const,
@@ -29,13 +30,13 @@ const Styles = {
     userSelect: "none" as const,
   },
   selectedPlan: {
-    border: "1px solid #33a6cd",
+    border: `1px solid ${C.primary}`,
   },
   cardIcon: {
     position: "absolute" as const,
     top: "-8px",
     right: "-8px",
-    backgroundColor: "#33a6cd",
+    backgroundColor: C.primary,
     borderRadius: "50%",
     padding: "2px",
     color: "white",
@@ -46,7 +47,7 @@ const Styles = {
     alignItems: "center",
   },
   contactUsPlan: {
-    background: `linear-gradient(to right, #33a6cd, #6FBFE0)`,
+    background: `linear-gradient(to right, ${C.primary}, ${C.primaryLight})`,
     color: "white",
     border: "none",
   },
@@ -104,7 +105,7 @@ const Styles = {
     width: "180px",
     height: "30px",
     backgroundColor: "white",
-    color: "#33a6cd",
+    color: C.primary,
     marginRight: "12px",
     borderRadius: 5,
     borderStyle: "none",
