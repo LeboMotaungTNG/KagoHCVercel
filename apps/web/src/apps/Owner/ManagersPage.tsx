@@ -7,6 +7,7 @@ import {
   AiOutlineWarning, AiOutlineCheckCircle
 } from "react-icons/ai";
 import { refreshUserData, handleRoleChangeRedirect } from "../../shared/utils/employee";
+import { C } from "../../shared/utils/employee";
 
 const API_URL = import.meta.env.VITE_API_URL || "https://employee-evaluation-kago-e63baae4d822.herokuapp.com/api/v1";
 
@@ -343,7 +344,7 @@ function ViewManagerModal({ manager, onClose, onDemote }: { manager: any; onClos
     <div style={{ position: "fixed", inset: 0, zIndex: 9999, display: "flex", alignItems: "center", justifyContent: "center", padding: 24 }}>
       <div onClick={onClose} style={{ position: "absolute", inset: 0, background: "rgba(0,0,0,0.55)", backdropFilter: "blur(6px)" }} />
       <div onClick={e => e.stopPropagation()} style={{ position: "relative", width: "100%", maxWidth: 420, borderRadius: 16, background: "#fff", boxShadow: "0 25px 50px rgba(0,0,0,0.2)", overflow: "hidden" }}>
-        <div style={{ background: "linear-gradient(135deg, #33A6CD 0%, #1a7fa3 100%)", padding: "28px 24px 36px", position: "relative" }}>
+        <div style={{ background: `linear-gradient(135deg, ${C.primary} 0%, ${C.primaryDark} 100%)`, padding: "28px 24px 36px", position: "relative" }}>
           <button onClick={onClose} style={{ position: "absolute", top: 14, right: 14, background: "rgba(255,255,255,0.15)", border: "none", borderRadius: 8, padding: 6, cursor: "pointer", color: "#fff", display: "flex" }}>
             <AiOutlineClose size={18} />
           </button>
@@ -422,7 +423,7 @@ export const ManagersPage = () => {
       name: <span className="font-weight-bold fs-13">Manager Name</span>,
       cell: (row: any) => (
         <div className="w-100 d-flex align-items-center gap-2">
-          <div className="d-flex justify-content-center align-items-center" style={{ width: 35, height: 35, borderRadius: "50%", background: "#33A6CD", flexShrink: 0 }}>
+          <div className="d-flex justify-content-center align-items-center" style={{ width: 35, height: 35, borderRadius: "50%", background: C.primary, flexShrink: 0 }}>
             <AiOutlineUser color="white" size={19} />
           </div>
           <div>
@@ -464,7 +465,7 @@ export const ManagersPage = () => {
     {
       name: <span className="font-weight-bold fs-13">Action</span>,
       cell: (row: any) => (
-        <AiFillEye size={20} style={{ cursor: "pointer", color: "#33A6CD" }} onClick={() => setViewManager(row)} />
+        <AiFillEye size={20} style={{ cursor: "pointer", color: C.primary }} onClick={() => setViewManager(row)} />
       ),
     },
   ];

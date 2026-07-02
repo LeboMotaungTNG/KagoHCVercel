@@ -2,6 +2,7 @@ import React from "react";
 import { createPortal } from "react-dom";
 import { useLocation } from "react-router-dom";
 import { LogOut, X } from "lucide-react";
+import { C, SIDEBAR_ACCENT } from "../utils/employee";
 
 /**
  * Shared sidebar style helpers.
@@ -10,14 +11,16 @@ import { LogOut, X } from "lucide-react";
  * share the same active-tab highlight and hover behaviour.
  *
  * Behaviour:
- *  - Active items get a persistent brand-blue tint, a 3 px left rail
+ *  - Active items get a persistent primary-brand tint, a 3 px left rail
  *    and brighter white text.
  *  - Inactive items get a soft hover, but the active item's highlight
  *    always wins (the `.sb-active` CSS class is excluded from the
  *    `:hover` rule) so the "hover-look" stays on the open tab.
  */
 
-export const SIDEBAR_ACCENT = "#33A6CD";
+export { SIDEBAR_ACCENT };
+
+const SIDEBAR_ACTIVE_BG = C.primaryBg;
 
 export const sidebarItemStyle = (active: boolean): React.CSSProperties => ({
   color: active ? "#ffffff" : "rgba(255, 255, 255, 0.75)",
@@ -25,7 +28,7 @@ export const sidebarItemStyle = (active: boolean): React.CSSProperties => ({
   alignItems: "center",
   padding: "10px 20px",
   cursor: "pointer",
-  background: active ? "rgba(51, 166, 205, 0.18)" : "transparent",
+  background: active ? SIDEBAR_ACTIVE_BG : "transparent",
   borderLeft: `3px solid ${active ? SIDEBAR_ACCENT : "transparent"}`,
   paddingLeft: active ? 17 : 20,
   fontWeight: active ? 600 : 400,
@@ -39,7 +42,7 @@ export const sidebarSubItemStyle = (active: boolean): React.CSSProperties => ({
   display: "block",
   fontSize: 14,
   borderRadius: 6,
-  background: active ? "rgba(51, 166, 205, 0.18)" : "transparent",
+  background: active ? SIDEBAR_ACTIVE_BG : "transparent",
   fontWeight: active ? 600 : 400,
   textDecoration: "none",
   transition: "background-color .15s ease, color .15s ease",

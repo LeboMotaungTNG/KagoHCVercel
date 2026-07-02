@@ -1,5 +1,5 @@
 /**
- * EmployeeProfile – rich profile view for a single employee.
+ * EmployeeProfile  rich profile view for a single employee.
  *
  * Fetches and presents personal details, employment info and
  * related records in a manager-friendly layout via `SharedLayout`.
@@ -7,6 +7,7 @@
 import React, { useState, useEffect, useRef, useCallback } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import SharedLayout from "./SharedLayout";
+import { C } from "../../shared/utils/employee";
 
 // --- Types (previously from admin/employee-profile.types) --------------------
 
@@ -877,7 +878,7 @@ function EmployeeProfileContent() {
                     href="/manager/manage-employees"
                     style={{
                       display: "flex", alignItems: "center", gap: 8, borderRadius: 8,
-                      background: "#E6A79E", padding: "10px 16px", fontSize: 14,
+                      background: C.coral, padding: "10px 16px", fontSize: 14,
                       fontWeight: 500, color: "#fff", textDecoration: "none"
                     }}
                   >
@@ -893,7 +894,7 @@ function EmployeeProfileContent() {
                   <div style={{ display: "flex", alignItems: "center", justifyContent: "center" }}>
                   <div style={{
                     width: 24, height: 24, borderRadius: "50%",
-                    border: "2px solid #E6A79E", borderTopColor: "transparent",
+                    border: `2px solid ${C.coral}`, borderTopColor: "transparent",
                     animation: "spin 1s linear infinite"
                   }}></div>
                   <span style={{ marginLeft: 8, fontSize: 14, color: "#667085" }}>
@@ -907,7 +908,7 @@ function EmployeeProfileContent() {
             {!isLoading && employee.id && isEditMode ? (
               <div style={{ borderRadius: 12, border: "1px solid #e4e7ec", background: "#fff" }}>
                 <div style={{
-                  borderBottom: "1px solid #e4e7ec", background: "linear-gradient(135deg, #E6A79E 0%, #d88574 100%)",
+                  borderBottom: "1px solid #e4e7ec", background: `linear-gradient(135deg, ${C.coral} 0%, ${C.coralDk} 100%)`,
                   padding: "16px 24px", borderTopLeftRadius: 12, borderTopRightRadius: 12
                 }}>
                   <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
@@ -1310,7 +1311,7 @@ function EmployeeProfileContent() {
                         disabled={isSaving}
                         style={{
                           display: "flex", alignItems: "center", gap: 8, borderRadius: 8,
-                          background: "#E6A79E", border: "none", padding: "10px 24px",
+                          background: C.coral, border: "none", padding: "10px 24px",
                           fontSize: 14, fontWeight: 500, color: "#fff", cursor: isSaving ? "not-allowed" : "pointer",
                           opacity: isSaving ? 0.6 : 1
                         }}
@@ -1502,8 +1503,8 @@ function EmployeeProfileContent() {
                             onClick={() => showTab(tab)}
                             style={{
                               padding: "12px 16px", background: "none", border: "none",
-                              borderBottom: activeTab === tab ? "2px solid #E6A79E" : "2px solid transparent",
-                              fontSize: 14, fontWeight: 500, color: activeTab === tab ? "#E6A79E" : "#667085",
+                              borderBottom: activeTab === tab ? `2px solid ${C.coral}` : "2px solid transparent",
+                              fontSize: 14, fontWeight: 500, color: activeTab === tab ? C.coral : "#667085",
                               cursor: "pointer"
                             }}
                           >
@@ -1774,7 +1775,7 @@ function EmployeeProfileContent() {
                     href="/manager/manage-employees"
                     style={{
                       display: "inline-flex", alignItems: "center", gap: 8, borderRadius: 8,
-                      background: "#E6A79E", padding: "10px 16px", fontSize: 14,
+                      background: C.coral, padding: "10px 16px", fontSize: 14,
                       fontWeight: 500, color: "#fff", textDecoration: "none"
                     }}
                   >

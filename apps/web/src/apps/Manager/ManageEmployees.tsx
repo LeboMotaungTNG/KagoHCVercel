@@ -8,6 +8,7 @@ import React, { useState, useEffect, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import SharedLayout from "./SharedLayout";
 import PhoneInput from "../../shared/components/PhoneInput";
+import { C } from "../../shared/utils/employee";
 
 function generateRandomEmployeeCode(): string {
   const year = new Date().getFullYear();
@@ -467,7 +468,7 @@ function QueueItemComponent({ item, index, onRemove }: QueueItemProps) {
   return (
     <div style={{
       background: "#f9fafb", padding: 16, borderRadius: 12, marginBottom: 12,
-      borderLeft: "3px solid #E6A79E", border: "1px solid #e4e7ec", transition: "all 0.2s ease"
+      borderLeft: `3px solid ${C.coral}`, border: "1px solid #e4e7ec", transition: "all 0.2s ease"
     }}>
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10 }}>
         <span style={{ fontWeight: 600, color: "#1d2939", fontSize: 14 }}>{item.full_name || 'New Employee'}</span>
@@ -1011,20 +1012,20 @@ function ManageEmployeesContent() {
               onClick={() => setMode(m)}
                 style={{
                   display: "flex", flexDirection: "column", alignItems: "center",
-                  gap: 8, padding: 16, border: `1px solid ${mode === m ? '#E6A79E' : '#d0d5dd'}`,
+                  gap: 8, padding: 16, border: `1px solid ${mode === m ? C.coral : '#d0d5dd'}`,
                   borderRadius: 8, cursor: "pointer", background: "#fff",
                   transition: "all 0.2s ease",
-                  boxShadow: mode === m ? '0 0 0 4px rgba(230,167,158,0.25)' : 'none'
+                  boxShadow: mode === m ? '0 0 0 4px rgba(51,166,205,0.25)' : 'none'
                 }}
             >
-              <span style={{ color: mode === m ? '#E6A79E' : '#667085' }}>
+              <span style={{ color: mode === m ? C.coral : '#667085' }}>
                 {m === 'form' && <IconEdit />}
                 {m === 'table' && <IconGrid />}
                 {m === 'upload' && <IconUpload />}
               </span>
               <span style={{
                 fontSize: 14, fontWeight: 500,
-                color: mode === m ? '#E6A79E' : '#344054'
+                color: mode === m ? C.coral : '#344054'
               }}>
                 {m === 'form' && 'Form Mode'}
                 {m === 'table' && 'Table Mode'}
@@ -1074,17 +1075,17 @@ function ManageEmployeesContent() {
                     }}>
                       <div style={{
                         width: 40, height: 40, borderRadius: "50%",
-                        background: currentStep >= step ? "#E6A79E" : "#f2f4f7",
+                        background: currentStep >= step ? C.coral : "#f2f4f7",
                         color: currentStep >= step ? "#fff" : "#98a2b3",
                         display: "flex", alignItems: "center", justifyContent: "center",
                         fontWeight: 700, fontSize: 16,
                         border: currentStep >= step ? "none" : "2px solid #e4e7ec",
-                        boxShadow: currentStep === step ? "0 0 0 4px rgba(230,167,158,0.3)" : "none"
+                        boxShadow: currentStep === step ? "0 0 0 4px rgba(51,166,205,0.3)" : "none"
                       }}>
                         {step}
                       </div>
                       <span style={{
-                        fontSize: 12, color: currentStep >= step ? "#E6A79E" : "#667085",
+                        fontSize: 12, color: currentStep >= step ? C.coral : "#667085",
                         fontWeight: currentStep >= step ? 600 : 500
                       }}>
                         {step === 1 && 'Personal'}
@@ -1342,7 +1343,7 @@ function ManageEmployeesContent() {
                         display: "inline-flex", alignItems: "center", gap: 8,
                         padding: "10px 16px", border: "none", borderRadius: 8,
                         fontSize: 14, fontWeight: 500, cursor: "pointer",
-                        background: "#E6A79E", color: "#fff"
+                        background: C.coral, color: "#fff"
                       }}
                     >
                       Next: Employment Info <IconArrowRight />
@@ -1566,7 +1567,7 @@ function ManageEmployeesContent() {
                         display: "inline-flex", alignItems: "center", gap: 8,
                         padding: "10px 16px", border: "none", borderRadius: 8,
                         fontSize: 14, fontWeight: 500, cursor: "pointer",
-                        background: "#E6A79E", color: "#fff"
+                        background: C.coral, color: "#fff"
                       }}
                     >
                       Next: Account Setup <IconArrowRight />
@@ -1665,8 +1666,8 @@ function ManageEmployeesContent() {
                       />
                       <span style={{
                         position: "absolute", left: 0, height: 20, width: 20,
-                        backgroundColor: formData.create_account ? "#E6A79E" : "#fff",
-                        border: `1.5px solid ${formData.create_account ? '#E6A79E' : '#d0d5dd'}`,
+                        backgroundColor: formData.create_account ? C.coral : "#fff",
+                        border: `1.5px solid ${formData.create_account ? C.coral : '#d0d5dd'}`,
                         borderRadius: 6, transition: "all 0.2s ease"
                       }} />
                       <span style={{ fontSize: 14, color: "#344054", fontWeight: 500 }}>
@@ -1699,7 +1700,7 @@ function ManageEmployeesContent() {
                         display: "flex", alignItems: "center", gap: 8, width: "100%",
                         padding: "10px 16px", border: "none", borderRadius: 8,
                         fontSize: 14, fontWeight: 500, cursor: "pointer",
-                        background: "#E6A79E", color: "#fff"
+                        background: C.coral, color: "#fff"
                       }}
                     >
                       <IconPlusCircle /> Add to Queue
@@ -1710,7 +1711,7 @@ function ManageEmployeesContent() {
                         display: "flex", alignItems: "center", gap: 8, width: "100%",
                         padding: "10px 16px", border: "none", borderRadius: 8,
                         fontSize: 14, fontWeight: 500, cursor: "pointer",
-                        background: "#E6A79E", color: "#fff"
+                        background: C.coral, color: "#fff"
                       }}
                     >
                       <IconRepeat /> Add to Queue & Continue
@@ -1747,7 +1748,7 @@ function ManageEmployeesContent() {
                     display: "inline-flex", alignItems: "center", gap: 8,
                     padding: "8px 14px", border: "none", borderRadius: 6,
                     fontSize: 13, fontWeight: 500, cursor: "pointer",
-                    background: "#E6A79E", color: "#fff"
+                    background: C.coral, color: "#fff"
                   }}
                 >
                   <IconPlus /> Add Row
@@ -1868,7 +1869,7 @@ function ManageEmployeesContent() {
                       display: "inline-flex", alignItems: "center", gap: 8,
                       padding: "8px 14px", border: "none", borderRadius: 6,
                       fontSize: 13, fontWeight: 500, cursor: "pointer",
-                      background: "#E6A79E", color: "#fff"
+                      background: C.coral, color: "#fff"
                     }}
                   >
                     <IconCheck /> Apply to Empty Cells
@@ -1897,7 +1898,7 @@ function ManageEmployeesContent() {
                     display: "inline-flex", alignItems: "center", gap: 8,
                     padding: "10px 16px", border: "none", borderRadius: 8,
                     fontSize: 14, fontWeight: 500, cursor: "pointer",
-                    background: "#E6A79E", color: "#fff"
+                    background: C.coral, color: "#fff"
                   }}
                 >
                   Add All to Queue <IconArrowRight />
@@ -1963,7 +1964,7 @@ function ManageEmployeesContent() {
                     display: "inline-flex", alignItems: "center", gap: 8,
                     padding: "10px 16px", border: "none", borderRadius: 8,
                     fontSize: 14, fontWeight: 500, cursor: "pointer",
-                    background: "#E6A79E", color: "#fff"
+                    background: C.coral, color: "#fff"
                   }}
                 >
                   <IconUpload /> Choose File
@@ -1988,13 +1989,13 @@ function ManageEmployeesContent() {
           }}>
             <h3 style={{ fontSize: 16, fontWeight: 600, color: "#1d2939" }}>Queue</h3>
             <span style={{
-              background: "#E6A79E", color: "#fff",
+                      background: C.coral, color: "#fff",
               padding: "4px 12px", borderRadius: 12, fontSize: 12, fontWeight: 600
             }}>{queue.length}</span>
           </div>
 
           <div style={{
-            background: "linear-gradient(135deg, #E6A79E, #d88574)",
+            background: `linear-gradient(135deg, ${C.coral}, ${C.coralDk})`,
             padding: "16px 24px", margin: "0 24px 20px 24px",
             borderRadius: 12, color: "#fff", display: "flex",
             alignItems: "center", gap: 16, boxShadow: "0 4px 8px -2px rgba(16,24,40,0.1)"

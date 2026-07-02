@@ -14,11 +14,21 @@ export const API_URL =
 
 /* ─────────────────────────────────────────────────────────────────────────────
  * Design tokens (KagoHC brand)
+ * Primary: base #33A6CD · light #66C5E3 · dark #226F8D
+ * Neutrals: black, grey scale, white
  * ────────────────────────────────────────────────────────────────────────── */
 export const C = {
-  coral:    "#E6A79E",
-  coralDk:  "#d88a7f",
-  coralBg:  "rgba(230,167,158,0.12)",
+  primary:      "#33A6CD",
+  primaryLight: "#66C5E3",
+  primaryDark:  "#226F8D",
+  primaryBg:    "rgba(51, 166, 205, 0.12)",
+  primaryTint:  "#e7f4fa",
+
+  /** @deprecated use `primary` — kept for existing dashboard components */
+  coral:    "#33A6CD",
+  coralDk:  "#226F8D",
+  coralBg:  "rgba(51, 166, 205, 0.12)",
+
   green:    "#7DC695",
   greenBg:  "rgba(125,198,149,0.12)",
   blue:     "#6B96E1",
@@ -30,6 +40,15 @@ export const C = {
   purple:   "#8b5cf6",
   purpleBg: "rgba(139,92,246,0.10)",
 
+  accent:    "#33A6CD",
+  accentDk:  "#226F8D",
+  accentMid: "#66C5E3",
+  accentBg:  "#e7f4fa",
+  teal:      "#0d9488",
+  tealBg:    "#f0fdfa",
+
+  black:    "#000000",
+  white:    "#ffffff",
   ink:      "#1d2939",
   text:     "#344054",
   muted:    "#667085",
@@ -39,12 +58,18 @@ export const C = {
   surfaceAlt:"#f9fafb",
 
   ok:       "#10b981",
+  okBg:     "#ecfdf3",
   warn:     "#f59e0b",
+  warnBg:   "#fffaeb",
   bad:      "#ef4444",
+  badBg:    "#fef2f2",
 } as const;
 
+/** Sidebar active-tab highlight — KagoHC primary base */
+export const SIDEBAR_ACCENT = C.primary;
+
 export const SHADOW   = "0 1px 2px rgba(16,24,40,0.04), 0 1px 3px rgba(16,24,40,0.06)";
-export const SHADOW_L = "0 10px 30px rgba(216,138,127,0.28)";
+export const SHADOW_L = "0 10px 30px rgba(51,166,205,0.28)";
 export const R        = { sm: 10, md: 14, lg: 18, xl: 22, hero: 28 } as const;
 export const FONT_NUM: React.CSSProperties = { fontVariantNumeric: "tabular-nums" };
 

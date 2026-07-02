@@ -13,6 +13,7 @@ import {
   isWeekend,
   useManagerAttendance,
 } from "../../shared/utils/attendance";
+import { API_URL, C } from "../../shared/utils/employee";
 
 // ─── Utilities ────────────────────────────────────────────────────────────────
 
@@ -46,12 +47,10 @@ const INPUT: React.CSSProperties = {
 };
 
 const AVATAR_COLORS = [
-  "#E6A79E", "#7C3AED", "#2563EB", "#059669", "#D97706",
+  C.coral, "#7C3AED", "#2563EB", "#059669", "#D97706",
   "#DC2626", "#0891B2", "#4F46E5", "#9333EA", "#C026D3",
   "#0D9488", "#CA8A04", "#DB2777", "#EA580C", "#65A30D",
 ];
-
-const API_URL = 'https://employee-evaluation-kago-e63baae4d822.herokuapp.com/api/v1';
 
 // ─── Icons ────────────────────────────────────────────────────────────────────
 
@@ -169,7 +168,7 @@ const LiveClock: React.FC = () => {
       </div>
       <div style={{ textAlign: "right" }}>
         <p style={{ margin: "0 0 2px", fontSize: 10, color: "rgba(255,255,255,0.35)", textTransform: "uppercase", letterSpacing: 1.2 }}>Current Time</p>
-        <p style={{ margin: 0, fontSize: 38, fontWeight: 800, fontVariantNumeric: "tabular-nums", letterSpacing: -1.5, color: "#E6A79E" }}>{`${pad2(now.getHours())}:${pad2(now.getMinutes())}:${pad2(now.getSeconds())}`}</p>
+        <p style={{ margin: 0, fontSize: 38, fontWeight: 800, fontVariantNumeric: "tabular-nums", letterSpacing: -1.5, color: C.coral }}>{`${pad2(now.getHours())}:${pad2(now.getMinutes())}:${pad2(now.getSeconds())}`}</p>
       </div>
     </div>
   );
@@ -308,7 +307,7 @@ function DetailsModal({ row, onClose, onExport }: { row: ManagerAttendanceRecord
       <div onClick={e => e.stopPropagation()} style={{ position: "relative", width: "100%", maxWidth: 440, borderRadius: 20, background: "#fff", boxShadow: "0 25px 50px rgba(0,0,0,0.2)", overflow: "hidden" }}>
         <div style={{ background: "linear-gradient(135deg, #1a1a1a 0%, #2d2d2d 100%)", padding: "24px 24px 32px", position: "relative" }}>
           <button onClick={onClose} style={{ position: "absolute", top: 16, right: 16, background: "rgba(255,255,255,0.1)", border: "none", borderRadius: 8, padding: 6, cursor: "pointer", color: "#fff", display: "flex" }}><Icon.Close /></button>
-          <div style={{ width: 60, height: 60, borderRadius: "50%", background: "#E6A79E", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 22, fontWeight: 800, color: "#fff", marginBottom: 12 }}>
+          <div style={{ width: 60, height: 60, borderRadius: "50%", background: C.coral, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 22, fontWeight: 800, color: "#fff", marginBottom: 12 }}>
             {getInitials(row.full_name)}
           </div>
           <h2 style={{ margin: 0, fontSize: 20, fontWeight: 700, color: "#fff" }}>{asText(row.full_name)}</h2>
@@ -440,7 +439,7 @@ function AttendanceContent() {
 
       {loading ? (
         <div style={{ padding: "80px 0", textAlign: "center" }}>
-          <div style={{ display: "inline-block", width: 44, height: 44, border: "4px solid #f3f4f6", borderTopColor: "#E6A79E", borderRadius: "50%", animation: "spin 0.8s linear infinite" }} />
+          <div style={{ display: "inline-block", width: 44, height: 44, border: "4px solid #f3f4f6", borderTopColor: C.coral, borderRadius: "50%", animation: "spin 0.8s linear infinite" }} />
           <style>{`@keyframes spin{to{transform:rotate(360deg)}}`}</style>
           <p style={{ marginTop: 18, color: "#9ca3af", fontSize: 14, fontWeight: 500 }}>Loading attendance data...</p>
         </div>

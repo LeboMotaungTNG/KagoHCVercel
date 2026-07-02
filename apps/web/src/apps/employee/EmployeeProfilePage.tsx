@@ -81,10 +81,10 @@ const valueStyle: React.CSSProperties = {
 };
 const primaryBtn: React.CSSProperties = {
   padding: "10px 18px", borderRadius: 10, border: "none",
-  background: "#0d9488", color: "#fff",
+  background: C.primary, color: "#fff",
   fontWeight: 600, fontSize: 13, cursor: "pointer",
   display: "inline-flex", alignItems: "center", gap: 8,
-  boxShadow: "0 4px 12px rgba(13,148,136,0.28)",
+  boxShadow: "0 4px 12px rgba(51,166,205,0.28)",
 };
 const secondaryBtn: React.CSSProperties = {
   padding: "10px 18px", borderRadius: 10,
@@ -100,10 +100,9 @@ const ghostBtn: React.CSSProperties = {
 };
 const dash = <span style={{ color: C.faint }}>—</span>;
 
-// Page-local accent: deep teal — more grounded/professional than the soft
-// coral used by the rest of the employee app, while still complementing it.
-const ACCENT    = "#0d9488";
-const ACCENT_DK = "#0f766e";
+// KagoHC primary brand accent
+const ACCENT    = C.primary;
+const ACCENT_DK = C.primaryDark;
 
 /* ──────────────────────────────────────────────────────────────────────────
  * Section primitives – mirror the onboarding card pattern

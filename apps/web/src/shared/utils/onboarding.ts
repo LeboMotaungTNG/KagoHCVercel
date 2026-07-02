@@ -1,12 +1,19 @@
-import { API_URL, safeJson, unwrapArray, unwrapSuccessData } from "./employee";
+/**
+ * onboarding – frontend utilities for the Owner onboarding wizard.
+ *
+ * Holds types, constants, the brand palette and all the API calls the page
+ * needs so the UI file stays focused on layout/render.
+ */
+
+import { API_URL, C, safeJson, unwrapArray, unwrapSuccessData } from "./employee";
 
 /* ─────────────────────────────────────────────────────────────────────────
  * Owner brand tokens (mirrors OwnerOverview.tsx so the wizard fits in)
  * ────────────────────────────────────────────────────────────────────── */
 
 export const OC = {
-  accent:    "#4f3da3", accentDk: "#2a2f7a", accentBg: "#eeeaff",
-  coral:     "#E6614F", coralBg:  "#fdf0ee",
+  accent:    C.primary, accentDk: C.primaryDark, accentBg: C.primaryTint,
+  coral:     C.primary, coralDk: C.primaryDark, coralBg: C.primaryBg,
   ink:       "#1d2939", text:     "#344054",
   muted:     "#667085", faint:    "#98a2b3",
   line:      "#e4e7ec", surface:  "#ffffff", surfaceAlt: "#f9f7f5",

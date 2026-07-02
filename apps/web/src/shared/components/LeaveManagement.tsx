@@ -1,6 +1,6 @@
-
 import React, { useState, useEffect, useRef, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
+import { C } from "../utils/employee";
 import {
   PAGE_SIZE,
   LEAVE_TYPE_LABELS,
@@ -127,7 +127,7 @@ function LeaveDetailsModal({
               {leave.attachment_path && (
                 <div style={{ gridColumn: "1 / -1" }}>
                   <p style={{ margin: "0 0 4px", fontSize: 11, color: "#98a2b3", textTransform: "uppercase", letterSpacing: .3 }}>Document</p>
-                  <a href={leave.attachment_path} target="_blank" rel="noopener noreferrer" style={{ fontSize: 13, color: "#E6A79E", fontWeight: 500, textDecoration: "none" }}>
+                  <a href={leave.attachment_path} target="_blank" rel="noopener noreferrer" style={{ fontSize: 13, color: C.primary, fontWeight: 500, textDecoration: "none" }}>
                     📎 View attachment
                   </a>
                 </div>
@@ -289,7 +289,7 @@ export interface LeaveManagementProps {
   subtitle?: string;
 }
 
-export function LeaveManagement({ accent = "#E6A79E", canReview = true, title = "Leave Requests Management", subtitle = "Home › Leave Requests" }: LeaveManagementProps) {
+export function LeaveManagement({ accent = C.primary, canReview = true, title = "Leave Requests Management", subtitle = "Home › Leave Requests" }: LeaveManagementProps) {
   const navigate = useNavigate();
 
   useEffect(() => {

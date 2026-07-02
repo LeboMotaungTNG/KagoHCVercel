@@ -14,28 +14,12 @@ import {
 } from "lucide-react";
 import SharedLayout from "./SharedLayout";
 import { useManagerAttendance, badgeStyle, statusLabel } from "../../shared/utils/attendance";
+import {
+  API_URL, C, FONT_NUM, R, SHADOW, SHADOW_L,
+  avatarBg, getInitials,
+} from "../../shared/utils/employee";
 
-/* ─── Design tokens ──────────────────────────────────────────────────────── */
-const C = {
-  coral: "#E6614F", coralDk: "#c44a38", coralBg: "#fdf0ee",
-  ink: "#1d2939",   text: "#344054",    muted: "#667085", faint: "#98a2b3",
-  line: "#e4e7ec",  surface: "#ffffff", surfaceAlt: "#f9f7f5",
-  ok: "#10b981",  okBg: "#ecfdf3",
-  warn: "#f59e0b", warnBg: "#fffaeb",
-  bad: "#ef4444",  badBg: "#fef2f2",
-  blue: "#3182CE", blueBg: "#ebf8ff",
-  green: "#48BB78", greenBg: "#f0fff4",
-  purple: "#805AD5", purpleBg: "#f3f0ff",
-  amber: "#D97706", amberBg: "#fffbeb",
-} as const;
-
-const SHADOW   = "0 1px 4px rgba(16,24,40,0.06), 0 2px 8px rgba(16,24,40,0.04)";
-const SHADOW_L = "0 8px 24px rgba(16,24,40,0.12)";
-const R        = { sm: 8, md: 12, lg: 16, xl: 20, hero: 24 } as const;
-const FONT_NUM: React.CSSProperties = { fontVariantNumeric: "tabular-nums" };
-
-const API_URL = import.meta.env.VITE_API_URL || "https://employee-evaluation-kago-e63baae4d822.herokuapp.com/api/v1";
-const token   = () => localStorage.getItem("token") || "";
+const token = () => localStorage.getItem("token") || "";
 
 /* ─── Primitives ─────────────────────────────────────────────────────────── */
 const Card: React.FC<React.PropsWithChildren<{ style?: React.CSSProperties; pad?: number }>> = (
@@ -72,12 +56,6 @@ const SectionHead: React.FC<{ title: string; subtitle?: string; right?: React.Re
     {right}
   </div>
 );
-
-const AVATAR_COLORS = ["#E6614F","#3182CE","#48BB78","#805AD5","#D97706","#d53f8c","#2a8a7a"];
-const avatarBg = (n: string) =>
-  AVATAR_COLORS[n.split("").reduce((a, c) => a + c.charCodeAt(0), 0) % AVATAR_COLORS.length];
-const getInitials = (n: string) =>
-  n.split(" ").map(w => w[0] || "").slice(0, 2).join("").toUpperCase() || "?";
 
 const Avatar: React.FC<{ name: string; size?: number }> = ({ name, size = 38 }) => (
   <div style={{
@@ -173,7 +151,7 @@ const TeamOpsCard: React.FC<{
   return (
     <section style={{
       position: "relative", overflow: "hidden",
-      background: "linear-gradient(135deg, #2a2f7a 0%, #4f3da3 60%, #6a5cd8 100%)",
+      background: `linear-gradient(135deg, ${C.primaryDark} 0%, ${C.primary} 60%, ${C.primaryLight} 100%)`,
       borderRadius: R.hero, padding: 28,
       boxShadow: "0 12px 32px rgba(42,47,122,0.35)", color: "#fff",
     }}>

@@ -2,6 +2,7 @@ import React, { useState, useEffect } from "react";
 import { Helmet } from "react-helmet-async";
 import { Calendar, Plus, Clock, CheckCircle, XCircle } from "lucide-react";
 import SharedLayout from "./SharedLayout";
+import { C } from "../../shared/utils/employee";
 
 const API_URL = import.meta.env.VITE_API_URL || 'https://employee-evaluation-kago-e63baae4d822.herokuapp.com/api/v1';
 
@@ -104,38 +105,38 @@ const EmployeeLeave: React.FC = () => {
           let label = '';
           let total = 0;
           let icon = '📅';
-          let color = '#E6A79E';
+          let color: string = C.primary;
           
           switch(policy.type) {
             case 'annual':
               label = 'Annual Leave';
               total = policy.entitlementDays || 15;
               icon = '🏖️';
-              color = '#E6A79E';
+              color = C.primary;
               break;
             case 'sick':
               label = 'Sick Leave';
               total = policy.entitlementDays || 30;
               icon = '🏥';
-              color = '#7DC695';
+              color = C.green;
               break;
             case 'family':
               label = 'Family Responsibility Leave';
               total = policy.entitlementDays || 3;
               icon = '👨‍👩‍👧';
-              color = '#6B96E1';
+              color = C.blue;
               break;
             case 'maternity':
               label = 'Maternity Leave';
               total = policy.entitlementDays || 88;
               icon = '👶';
-              color = '#8B5CF6';
+              color = C.purple;
               break;
             case 'parental':
               label = 'Parental Leave';
               total = policy.entitlementDays || 10;
               icon = '👨‍👦';
-              color = '#10B981';
+              color = C.ok;
               break;
             default:
               label = policy.name || policy.type;
@@ -526,7 +527,7 @@ const EmployeeLeave: React.FC = () => {
 
   const getLeaveTypeColor = (type: string) => {
     const colorMap: { [key: string]: string } = {
-      annual: '#E6A79E',
+      annual: C.primary,
       sick: '#7DC695',
       family: '#6B96E1',
       maternity: '#8B5CF6',
@@ -669,11 +670,11 @@ const EmployeeLeave: React.FC = () => {
                   width: 40,
                   height: 40,
                   borderRadius: 10,
-                  background: "rgba(230,167,158,0.1)",
+                  background: C.primaryBg,
                   display: "flex",
                   alignItems: "center",
                   justifyContent: "center",
-                  color: "#E6A79E",
+                  color: C.primary,
                 }}
               >
                 <Calendar size={20} />
@@ -874,7 +875,7 @@ const EmployeeLeave: React.FC = () => {
                     borderRadius: 999,
                     border: "none",
                     padding: "10px 20px",
-                    background: "#E6A79E",
+                    background: C.primary,
                     color: "#fff",
                     fontSize: 14,
                     fontWeight: 600,

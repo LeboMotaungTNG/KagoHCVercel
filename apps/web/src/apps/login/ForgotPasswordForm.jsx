@@ -6,6 +6,7 @@ import * as Yup from "yup";
 
 import logoKago from "../../assets/images/kago-logo.png";
 import ButtonSubmit from "./ButtonSubmit";
+import { C } from "../../shared/utils/employee";
 
 const API_URL =
   import.meta.env.VITE_API_URL ||
@@ -113,7 +114,7 @@ const ForgotPasswordForm = () => {
                   fontWeight: 600,
                   color: "#fff",
                   borderRadius: "20px",
-                  backgroundColor: "#33a6cd",
+                  backgroundColor: C.primary,
                   padding: "10px 16px",
                   textDecoration: "none",
                 }}
@@ -160,7 +161,7 @@ const ForgotPasswordForm = () => {
                 <div className="w-100 d-grid mb-3">
                   <ButtonSubmit
                     Title={pending ? "Sending..." : "Send reset link"}
-                    BackgroundColor="#33a6cd"
+                    BackgroundColor={C.primary}
                     ColorText="#fff"
                     BorderColor=""
                     borderRadius="20px"

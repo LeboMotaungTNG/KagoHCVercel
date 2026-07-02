@@ -19,8 +19,9 @@
  * ────────────────────────────────────────────────────────────────────── */
 
 export const BRAND = {
-  primary:      "#33A6CD",   // system blue — sibling Human Capital pages
-  primaryDark:  "#1a7fa3",   // hover / modal hero gradient end
+  primary:      "#33A6CD",
+  primaryLight: "#66C5E3",
+  primaryDark:  "#226F8D",
   primaryDeep:  "#0f6b8e",   // text on tinted chips
   tint50:       "#f4fafd",   // page background tint
   tint100:      "#e7f4fa",   // soft chip background
