@@ -7,10 +7,8 @@ import React, { useState, useEffect } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import logoKago from "../../assets/images/kago-logo.png";
 
-import { C } from "../../shared/utils/employee";
-
-const API = import.meta.env.VITE_API_URL || "http://localhost:3000/api/v1";
-const BRAND = C.primary;
+const API = import.meta.env.VITE_API_URL || "http://localhost:4000/api/v1";
+const BRAND = "#E6A79E";
 
 // ─── Password strength ────────────────────────────────────────────────────────
 function passwordStrength(pw: string): { score: number; label: string } {

@@ -5,7 +5,6 @@ import { useFormik } from "formik";
 import * as Yup from "yup";
 import { AiOutlineEye, AiOutlineEyeInvisible } from "react-icons/ai";
 import { Lock } from "lucide-react";
-import { C } from "../../shared/utils/employee";
 
 import logoKago from "../../assets/images/kago-logo.png";
 import ButtonSubmit from "./ButtonSubmit";
@@ -63,9 +62,12 @@ const LoginForm = () => {
           localStorage.setItem('user', JSON.stringify(data.data.user));
           
           // Navigate based on role
-           if (data.data.user.role === 'owner') {
+          const role = data.data.user.role;
+          if (role === 'platform_admin') {
+            navigate("/platform");
+          } else if (role === 'owner') {
             navigate("/owner");
-          } else if (data.data.user.role === 'admin') {
+          } else if (role === 'manager' || role === 'admin' || role === 'hr') {
             navigate("/manager");
           } else {
             navigate("/employee");
@@ -196,7 +198,7 @@ const LoginForm = () => {
               <div className="w-100 d-grid">
                 <ButtonSubmit
                   Title={pending ? "Logging in..." : "Login"}
-                  BackgroundColor={C.primary}
+                  BackgroundColor="#33a6cd"
                   ColorText="#fff"
                   BorderColor=""
                   borderRadius="20px"
