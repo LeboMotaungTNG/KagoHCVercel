@@ -5,8 +5,7 @@
 import React, { useState, useEffect, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 
-import { API_BASE } from "../../shared/utils/apiBase";
-const API = API_BASE;
+const API = import.meta.env.VITE_API_URL || "http://localhost:4000/api/v1";
 const BRAND = "#E6A79E";
 const BRAND_DARK = "#c47b72";
 
@@ -217,6 +216,11 @@ const PlatformAdminPage: React.FC = () => {
   const [copied, setCopied] = useState(false);
   const [resendingId, setResendingId] = useState<string | null>(null);
   const [statusFilter, setStatusFilter] = useState("all");
+  const [busyId, setBusyId] = useState<string | null>(null);
+  const [confirm, setConfirm] = useState<{
+    company: Company;
+    action: "suspend" | "reactivate" | "deactivate" | "delete";
+  } | null>(null);
 
   const [form, setForm] = useState({
     companyName: "",
@@ -307,6 +311,67 @@ const PlatformAdminPage: React.FC = () => {
       setError("Failed to resend invite.");
     } finally {
       setResendingId(null);
+    }
+  };
+
+  const changeStatus = async (companyId: string, status: "Active" | "Inactive" | "Suspended") => {
+    setBusyId(companyId);
+    try {
+      const res = await fetch(`${API}/platform/companies/${companyId}/status`, {
+        method: "PATCH",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({ status }),
+      });
+      const data = await res.json();
+      if (data.success) {
+        fetchCompanies();
+      } else {
+        setError(data.message || "Failed to update company status.");
+      }
+    } catch {
+      setError("Couldn't update company status.");
+    } finally {
+      setBusyId(null);
+    }
+  };
+
+  const deleteCompany = async (companyId: string, hasOwner: boolean) => {
+    setBusyId(companyId);
+    try {
+      const qs = hasOwner ? "?force=true" : "";
+      const res = await fetch(`${API}/platform/companies/${companyId}${qs}`, {
+        method: "DELETE",
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      const data = await res.json();
+      if (data.success) {
+        fetchCompanies();
+      } else {
+        setError(data.message || "Failed to delete company.");
+      }
+    } catch {
+      setError("Couldn't delete company.");
+    } finally {
+      setBusyId(null);
+    }
+  };
+
+  const runConfirmed = async () => {
+    if (!confirm) return;
+    const { company, action } = confirm;
+    setConfirm(null);
+    switch (action) {
+      case "suspend":
+        return changeStatus(company.id, "Suspended");
+      case "deactivate":
+        return changeStatus(company.id, "Inactive");
+      case "reactivate":
+        return changeStatus(company.id, "Active");
+      case "delete":
+        return deleteCompany(company.id, company.hasOwner);
     }
   };
 
@@ -490,7 +555,7 @@ const PlatformAdminPage: React.FC = () => {
               <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
                 <thead>
                   <tr style={{ background: "#f9fafb" }}>
-                    {["Company", "Owner email", "Country", "Status", "Created", ""].map((h) => (
+                    {["Company", "Owner email", "Country", "Status", "Created", "Actions"].map((h) => (
                       <th key={h} style={{
                         padding: "10px 16px", textAlign: "left", fontWeight: 600,
                         color: "#344054", borderBottom: "1px solid #e4e7ec", whiteSpace: "nowrap",
@@ -526,16 +591,55 @@ const PlatformAdminPage: React.FC = () => {
                         {formatDate(c.createdAt)}
                       </td>
                       <td style={{ padding: "12px 16px", borderBottom: "1px solid #f2f4f7" }}>
-                        {c.status === "pending_owner" && (
+                        <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
+                          {c.status === "pending_owner" && (
+                            <button
+                              onClick={() => handleResend(c.id)}
+                              disabled={resendingId === c.id}
+                              style={{ ...S.btn("secondary", resendingId === c.id), whiteSpace: "nowrap" }}
+                            >
+                              <Icon.Refresh />
+                              {resendingId === c.id ? "Resending..." : "Resend invite"}
+                            </button>
+                          )}
+                          {c.status === "Active" && (
+                            <>
+                              <button
+                                onClick={() => setConfirm({ company: c, action: "deactivate" })}
+                                disabled={busyId === c.id}
+                                style={{ ...S.btn("secondary", busyId === c.id), whiteSpace: "nowrap" }}
+                                title="Pause this tenant (reversible)"
+                              >
+                                Deactivate
+                              </button>
+                              <button
+                                onClick={() => setConfirm({ company: c, action: "suspend" })}
+                                disabled={busyId === c.id}
+                                style={{ ...S.btn("danger", busyId === c.id), whiteSpace: "nowrap" }}
+                                title="Block this tenant"
+                              >
+                                Suspend
+                              </button>
+                            </>
+                          )}
+                          {(c.status === "Inactive" || c.status === "Suspended") && (
+                            <button
+                              onClick={() => setConfirm({ company: c, action: "reactivate" })}
+                              disabled={busyId === c.id}
+                              style={{ ...S.btn("primary", busyId === c.id), whiteSpace: "nowrap" }}
+                            >
+                              Reactivate
+                            </button>
+                          )}
                           <button
-                            onClick={() => handleResend(c.id)}
-                            disabled={resendingId === c.id}
-                            style={{ ...S.btn("secondary", resendingId === c.id), whiteSpace: "nowrap" }}
+                            onClick={() => setConfirm({ company: c, action: "delete" })}
+                            disabled={busyId === c.id}
+                            style={{ ...S.btn("danger", busyId === c.id), whiteSpace: "nowrap" }}
+                            title="Permanently delete this tenant"
                           >
-                            <Icon.Refresh />
-                            {resendingId === c.id ? "Resending..." : "Resend invite"}
+                            Delete
                           </button>
-                        )}
+                        </div>
                       </td>
                     </tr>
                   ))}
@@ -545,6 +649,71 @@ const PlatformAdminPage: React.FC = () => {
           )}
         </div>
       </div>
+
+      {/* Confirmation modal */}
+      {confirm && (() => {
+        const { company, action } = confirm;
+        const copy = {
+          suspend: {
+            title: `Suspend ${company.name}?`,
+            body: "Users of this tenant will be blocked from signing in. You can reactivate the tenant later — no data is deleted.",
+            btn: "Suspend tenant",
+            variant: "danger" as const,
+          },
+          deactivate: {
+            title: `Deactivate ${company.name}?`,
+            body: "The tenant will be marked inactive. This is intended for tenants that are paused (e.g. non-payment). Reversible.",
+            btn: "Deactivate",
+            variant: "secondary" as const,
+          },
+          reactivate: {
+            title: `Reactivate ${company.name}?`,
+            body: "The tenant will be moved back to Active status.",
+            btn: "Reactivate",
+            variant: "primary" as const,
+          },
+          delete: {
+            title: `Delete ${company.name}?`,
+            body: company.hasOwner
+              ? "This tenant already has an owner attached. Deleting will permanently remove the company record and all outstanding invites. Users and their data will NOT be deleted automatically. This action cannot be undone."
+              : "This will permanently remove the company shell and any outstanding invites. This action cannot be undone.",
+            btn: "Delete permanently",
+            variant: "danger" as const,
+          },
+        }[action];
+        return (
+          <div
+            onClick={() => setConfirm(null)}
+            style={{
+              position: "fixed", inset: 0, background: "rgba(16,24,40,0.55)",
+              display: "flex", alignItems: "center", justifyContent: "center",
+              padding: 20, zIndex: 100,
+            }}
+          >
+            <div
+              onClick={(e) => e.stopPropagation()}
+              style={{
+                ...S.card, maxWidth: 460, width: "100%", padding: 24,
+              }}
+            >
+              <p style={{ fontSize: 17, fontWeight: 700, color: "#1d2939", margin: "0 0 8px" }}>
+                {copy.title}
+              </p>
+              <p style={{ fontSize: 13, color: "#475467", margin: "0 0 20px", lineHeight: 1.5 }}>
+                {copy.body}
+              </p>
+              <div style={{ display: "flex", gap: 8, justifyContent: "flex-end" }}>
+                <button onClick={() => setConfirm(null)} style={S.btn("secondary")}>
+                  Cancel
+                </button>
+                <button onClick={runConfirmed} style={S.btn(copy.variant)}>
+                  {copy.btn}
+                </button>
+              </div>
+            </div>
+          </div>
+        );
+      })()}
 
       {/* Footer tip */}
       <div style={{
