@@ -5,7 +5,8 @@
 import React, { useState, useEffect, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 
-const API = import.meta.env.VITE_API_URL || "http://localhost:4000/api/v1";
+import { API_BASE } from "../../shared/utils/apiBase";
+const API = API_BASE;
 const BRAND = "#E6A79E";
 const BRAND_DARK = "#c47b72";
 
