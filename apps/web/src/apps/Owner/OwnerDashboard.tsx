@@ -1,13 +1,14 @@
 import React, { useState } from "react";
 import { Link, useNavigate, Routes, Route, useLocation } from "react-router-dom";
 import {
-  Users, Building2, Home, PenTool, Menu, Bell, LogOut, Award, ChevronDown, ChevronRight, Rocket,
+  Users, Building2, Home, PenTool, Menu, LogOut, Award, ChevronDown, ChevronRight, Rocket,
 } from "lucide-react";
 import {
   sidebarItemStyle,
   sidebarSubItemStyle,
   SidebarHoverStyle,
 } from "../../shared/components/sidebarStyles";
+import NotificationBell from "../../shared/components/NotificationBell";
 // @ts-ignore
 import logoKago from "../../assets/images/logo-black-white.png";
 
@@ -206,15 +207,7 @@ const OwnerHeader = () => {
         </div>
 
         <div className="d-flex">
-          <div className="dropdown d-inline-block">
-            <button
-              type="button"
-              className="btn header-item noti-icon waves-effect"
-            >
-              <Bell size={22} />
-              <span className="noti-dot" style={{ position: "absolute", height: "6px", width: "6px", backgroundColor: "#f46a6a", borderRadius: "50%", top: "20px", right: "14px" }}></span>
-            </button>
-          </div>
+          <NotificationBell role="owner" />
 
           <div className="dropdown d-inline-block user-dropdown">
             <button

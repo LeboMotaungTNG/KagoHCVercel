@@ -9,7 +9,6 @@ import {
   TrendingUp,
   Settings,
   Menu,
-  Bell,
   LogOut,
 } from "lucide-react";
 import {
@@ -17,6 +16,7 @@ import {
   SidebarHoverStyle,
   MobileSidebarChrome,
 } from "../../shared/components/sidebarStyles";
+import NotificationBell from "../../shared/components/NotificationBell";
 import MobileBottomNav from "../../shared/components/MobileBottomNav";
 import { C } from "../../shared/utils/employee";
 // @ts-ignore
@@ -158,26 +158,10 @@ const EmployeeHeader: React.FC = () => {
         </div>
 
         <div className="d-flex">
-          <div className="dropdown d-inline-block">
-            <button
-              type="button"
-              className="btn header-item noti-icon waves-effect"
-            >
-              <Bell size={22} />
-              <span
-                className="noti-dot"
-                style={{
-                  position: "absolute",
-                  height: "6px",
-                  width: "6px",
-                  backgroundColor: "#f46a6a",
-                  borderRadius: "50%",
-                  top: "20px",
-                  right: "14px",
-                }}
-              />
-            </button>
-          </div>
+          <NotificationBell
+            role="employee"
+            settingsPath="/employee/settings?section=notifications"
+          />
 
           <div className="dropdown d-inline-block user-dropdown">
             <button
