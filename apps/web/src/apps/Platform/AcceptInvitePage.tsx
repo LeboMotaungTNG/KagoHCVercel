@@ -7,7 +7,8 @@ import React, { useState, useEffect } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import logoKago from "../../assets/images/kago-logo.png";
 
-const API = import.meta.env.VITE_API_URL || "http://localhost:4000/api/v1";
+import { API_BASE } from "../../shared/utils/apiBase";
+const API = API_BASE;
 const BRAND = "#E6A79E";
 
 // ─── Password strength ────────────────────────────────────────────────────────

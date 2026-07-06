@@ -8,9 +8,9 @@ import { Lock } from "lucide-react";
 
 import logoKago from "../../assets/images/kago-logo.png";
 import ButtonSubmit from "./ButtonSubmit";
+import { API_BASE } from "../../shared/utils/apiBase";
 
-// API URL - connects to your backend
-const API_URL = import.meta.env.VITE_API_URL || "https://employee-evaluation-kago-e63baae4d822.herokuapp.com/api/v1";
+const API_URL = API_BASE;
 
 const loginSchema = Yup.object({
   email: Yup.string()
