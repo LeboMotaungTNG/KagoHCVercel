@@ -5,11 +5,9 @@
 import React, { useState, useEffect, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 
-import { C } from "../../shared/utils/employee";
-
-const API = import.meta.env.VITE_API_URL || "http://localhost:3000/api/v1";
-const BRAND = C.primary;
-const BRAND_DARK = C.primaryDark;
+const API = import.meta.env.VITE_API_URL || "http://localhost:4000/api/v1";
+const BRAND = "#E6A79E";
+const BRAND_DARK = "#c47b72";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 interface Company {
