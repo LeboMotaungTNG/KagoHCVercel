@@ -8,7 +8,6 @@ import {
   Building2,
   Award,
   Menu,
-  Bell,
   LogOut,
   ChevronDown,
   ChevronRight,
@@ -17,6 +16,7 @@ import {
   SidebarHoverStyle,
   MobileSidebarChrome,
 } from "../../shared/components/sidebarStyles";
+import NotificationBell from "../../shared/components/NotificationBell";
 import MobileBottomNav from "../../shared/components/MobileBottomNav";
 // @ts-ignore
 import logoKago from "../../assets/images/logo-black-white.png";
@@ -256,26 +256,7 @@ const OwnerHeader: React.FC = () => {
         </div>
 
         <div className="d-flex">
-          <div className="dropdown d-inline-block">
-            <button
-              type="button"
-              className="btn header-item noti-icon waves-effect"
-            >
-              <Bell size={22} />
-              <span
-                className="noti-dot"
-                style={{
-                  position: "absolute",
-                  height: "6px",
-                  width: "6px",
-                  backgroundColor: "#f46a6a",
-                  borderRadius: "50%",
-                  top: "20px",
-                  right: "14px",
-                }}
-              />
-            </button>
-          </div>
+          <NotificationBell role="owner" />
 
           <div className="dropdown d-inline-block user-dropdown">
             <button
