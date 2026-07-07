@@ -18,6 +18,7 @@
 
 import React, { useEffect, useState } from "react";
 import { Navigate, useLocation } from "react-router-dom";
+import { clearSession, isJwtExpired } from "../utils/auth";
 
 /**
  * Roles recognised by the frontend. We accept "user" as an alias for
@@ -45,18 +46,6 @@ interface CurrentUser {
   role?: AppRole | string;
   [k: string]: unknown;
 }
-
-const isJwtExpired = (token: string): boolean => {
-  try {
-    const [, payload] = token.split(".");
-    if (!payload) return false; // Not a JWT — let the server decide.
-    const json = JSON.parse(atob(payload.replace(/-/g, "+").replace(/_/g, "/")));
-    if (typeof json.exp !== "number") return false;
-    return json.exp * 1000 < Date.now();
-  } catch {
-    return false;
-  }
-};
 
 const readUser = (): CurrentUser | null => {
   try {
@@ -100,8 +89,7 @@ const RequireAuth: React.FC<RequireAuthProps> = ({ children, requireRoles }) => 
   // No token, or expired JWT → clear the stale session and bounce to login.
   if (!token || isJwtExpired(token)) {
     if (typeof window !== "undefined" && token) {
-      window.localStorage.removeItem("token");
-      window.localStorage.removeItem("user");
+      clearSession();
     }
     return (
       <Navigate
