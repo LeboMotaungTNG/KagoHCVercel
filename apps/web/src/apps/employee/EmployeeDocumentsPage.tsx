@@ -23,7 +23,7 @@ import {
   CATEGORY_META, CATEGORY_ORDER,
   type DocCategory, type OrgDocument, type PayslipMeta,
   demoPayslip, downloadDataUrl, formatBytes, formatDate, formatMoney,
-  loadLatestPayslip, loadOrgDocuments, saveLatestPayslip,
+  loadLatestPayslip, loadOrgDocumentsAsync, saveLatestPayslip,
 } from "../../shared/utils/documentsLibrary";
 import {
   buildPayslipObjectUrl, downloadPayslipPdf,
@@ -77,7 +77,13 @@ const EmployeeDocumentsPage: React.FC = () => {
   const [filter, setFilter] = useState<DocCategory | "All">("All");
 
   useEffect(() => {
-    setDocs(loadOrgDocuments());
+    const loadDocs = async () => {
+      const result = await loadOrgDocumentsAsync();
+      setDocs(result);
+    };
+
+    loadDocs();
+
     // Self-heal legacy payslips missing the structured `data` field so the
     // real-PDF renderer always has something to work with.
     let existing = loadLatestPayslip();
