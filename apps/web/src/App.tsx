@@ -2,6 +2,7 @@ import React from "react";
 import { Routes, Route, Navigate } from "react-router-dom";
 import { CountryProvider } from "./shared/contexts/CountryContext";
 import RequireAuth from "./shared/components/RequireAuth";
+import SessionProvider from "./shared/components/SessionProvider";
 import Login from "./apps/login/Login";
 import ForgotPassword from "./apps/login/ForgotPassword";
 import ResetPassword from "./apps/login/ResetPassword";
@@ -36,6 +37,7 @@ const Guard: React.FC<{ roles?: readonly string[]; children: React.ReactNode }> 
 
 const App: React.FC = () => (
   <CountryProvider>
+    <SessionProvider>
     <Routes>
       {/* ── Public auth pages ─────────────────────────────────────── */}
       <Route path="/"                      element={<Login />} />
@@ -72,6 +74,7 @@ const App: React.FC = () => (
       {/* ── Catch-all → login ─────────────────────────────────────── */}
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>
+    </SessionProvider>
   </CountryProvider>
 );
 
