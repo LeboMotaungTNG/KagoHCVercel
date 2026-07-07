@@ -12,11 +12,179 @@
  * swapped to fetch/mutate over HTTP — the UI code stays untouched.
  */
 
+import { API_URL } from "./employee";
 import type React from "react";
 import {
   FileText, ShieldCheck, HeartHandshake, GraduationCap,
   Landmark, Receipt, FileArchive,
 } from "lucide-react";
+
+/* ─────────────────────────────────────────────────────────────────────────
+ * API Integration (NEW)
+ * ─────────────────────────────────────────────────────────────────────────
+ */
+
+const getToken = (): string | null => {
+  if (typeof window === "undefined") return null;
+  return localStorage.getItem("token");
+};
+
+const apiRequest = async (endpoint: string, options: RequestInit = {}): Promise<any> => {
+  const token = getToken();
+  const headers: HeadersInit = {
+    "Content-Type": "application/json",
+    ...options.headers,
+  };
+
+  if (token) {
+    headers["Authorization"] = `Bearer ${token}`;
+  }
+
+  const response = await fetch(`${API_URL}${endpoint}`, {
+    ...options,
+    headers,
+  });
+
+  if (!response.ok) {
+    const error = await response.json().catch(() => ({ message: "API request failed" }));
+    throw new Error(error.message || "API request failed");
+  }
+
+  return response.json();
+};
+
+export const loadOrgDocumentsAsync = async (): Promise<OrgDocument[]> => {
+  try {
+    const result = await apiRequest("/documents/employee");
+    return (result.data || []).map((doc: any) => ({
+      id: doc._id || doc.id,
+      _id: doc._id,
+      title: doc.title,
+      description: doc.description,
+      category: doc.category || "Other",
+      fileName: doc.fileName,
+      mimeType: doc.mimeType,
+      size: doc.fileSize || doc.size || 0,
+      dataUrl: doc.dataUrl || "",
+      uploadedAt: doc.uploadedAt || doc.createdAt,
+      uploadedBy: doc.uploadedBy?.firstName
+        ? `${doc.uploadedBy.firstName} ${doc.uploadedBy.lastName}`
+        : "HR",
+      audience: "all",
+    }));
+  } catch (error) {
+    console.error("[documentsLibrary] Error loading employee documents:", error);
+    return [];
+  }
+};
+
+export const getEmployeeDocument = async (id: string): Promise<OrgDocument | null> => {
+  try {
+    const result = await apiRequest(`/documents/employee/${encodeURIComponent(id)}`);
+    const doc = result.data;
+    if (!doc) return null;
+
+    return {
+      id: doc._id || doc.id,
+      _id: doc._id,
+      title: doc.title,
+      description: doc.description,
+      category: doc.category || "Other",
+      fileName: doc.fileName,
+      mimeType: doc.mimeType,
+      size: doc.fileSize || doc.size || 0,
+      dataUrl: doc.dataUrl || "",
+      uploadedAt: doc.uploadedAt || doc.createdAt,
+      uploadedBy: doc.uploadedBy?.firstName
+        ? `${doc.uploadedBy.firstName} ${doc.uploadedBy.lastName}`
+        : "HR",
+      audience: "all",
+    };
+  } catch (error) {
+    console.error("[documentsLibrary] Error getting document:", error);
+    return null;
+  }
+};
+
+export const loadOrgDocumentsOwner = async (): Promise<OrgDocument[]> => {
+  try {
+    const result = await apiRequest("/documents");
+    return (result.data || []).map((doc: any) => ({
+      id: doc._id || doc.id,
+      _id: doc._id,
+      title: doc.title,
+      description: doc.description,
+      category: doc.category || "Other",
+      fileName: doc.fileName,
+      mimeType: doc.mimeType,
+      size: doc.fileSize || doc.size || 0,
+      dataUrl: doc.dataUrl || "",
+      uploadedAt: doc.uploadedAt || doc.createdAt,
+      uploadedBy: doc.uploadedBy?.firstName
+        ? `${doc.uploadedBy.firstName} ${doc.uploadedBy.lastName}`
+        : "System",
+      audience: "all",
+    }));
+  } catch (error) {
+    console.error("[documentsLibrary] Error loading documents:", error);
+    return [];
+  }
+};
+
+export const uploadDocument = async (
+  file: File,
+  title: string,
+  description: string,
+  category: DocCategory,
+): Promise<OrgDocument> => {
+  const formData = new FormData();
+  formData.append("file", file);
+  formData.append("title", title);
+  formData.append("description", description || "");
+  formData.append("category", category);
+
+  const token = getToken();
+  const response = await fetch(`${API_URL}/documents/upload`, {
+    method: "POST",
+    headers: token ? { Authorization: `Bearer ${token}` } : {},
+    body: formData,
+  });
+
+  if (!response.ok) {
+    const error = await response.json().catch(() => ({ message: "Upload failed" }));
+    throw new Error(error.message || "Upload failed");
+  }
+
+  const result = await response.json();
+  const doc = result.data;
+
+  return {
+    id: doc._id || doc.id,
+    _id: doc._id,
+    title: doc.title,
+    description: doc.description,
+    category: doc.category || "Other",
+    fileName: doc.fileName,
+    mimeType: doc.mimeType,
+    size: doc.fileSize || doc.size || 0,
+    dataUrl: doc.dataUrl || "",
+    uploadedAt: doc.uploadedAt || doc.createdAt,
+    uploadedBy: "You",
+    audience: "all",
+  };
+};
+
+export const deleteDocument = async (id: string): Promise<boolean> => {
+  try {
+    const result = await apiRequest(`/documents/${encodeURIComponent(id)}`, {
+      method: "DELETE",
+    });
+    return result.success !== false;
+  } catch (error) {
+    console.error("[documentsLibrary] Error deleting document:", error);
+    return false;
+  }
+};
 
 /* ─────────────────────────────────────────────────────────────────────────
  * Types
@@ -33,6 +201,7 @@ export type DocCategory =
 
 export interface OrgDocument {
   id: string;
+  _id?: string;
   title: string;
   description?: string;
   category: DocCategory;
