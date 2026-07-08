@@ -392,6 +392,37 @@ export const saveLatestPayslip = (slip: PayslipMeta | null): void => {
   }
 };
 
+export const loadLatestPayslipAsync = async (): Promise<PayslipMeta | null> => {
+  try {
+    const result = await apiRequest("/payroll/employee/payslips/latest");
+    const doc = result.data;
+    if (!doc) return null;
+
+    return {
+      id: doc.id || doc._id || "",
+      title: doc.title || "Latest payslip",
+      description: doc.description,
+      category: "Payslip",
+      fileName: doc.fileName || "latest-payslip.pdf",
+      mimeType: doc.mimeType || "application/pdf",
+      size: doc.size || doc.fileSize || 0,
+      dataUrl: doc.dataUrl || "",
+      uploadedAt: doc.uploadedAt || doc.issueDate || doc.createdAt || new Date().toISOString(),
+      uploadedBy: doc.uploadedBy || "Payroll",
+      audience: "all",
+      period: doc.period || "",
+      issueDate: doc.issueDate || doc.uploadedAt || new Date().toISOString(),
+      gross: doc.gross || 0,
+      net: doc.net || 0,
+      currency: doc.currency || "R",
+      data: doc.data,
+    } as PayslipMeta;
+  } catch (error) {
+    console.error("[documentsLibrary] Error loading latest payslip:", error);
+    return null;
+  }
+};
+
 /* ─────────────────────────────────────────────────────────────────────────
  * ID generation
  * ────────────────────────────────────────────────────────────────────── */
