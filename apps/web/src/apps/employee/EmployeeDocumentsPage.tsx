@@ -23,7 +23,7 @@ import {
   CATEGORY_META, CATEGORY_ORDER,
   type DocCategory, type OrgDocument, type PayslipMeta,
   demoPayslip, downloadDataUrl, formatBytes, formatDate, formatMoney,
-  loadLatestPayslip, loadOrgDocumentsAsync, saveLatestPayslip,
+  loadLatestPayslip, loadLatestPayslipAsync, loadOrgDocumentsAsync, saveLatestPayslip,
 } from "../../shared/utils/documentsLibrary";
 import {
   buildPayslipObjectUrl, downloadPayslipPdf,
@@ -77,21 +77,22 @@ const EmployeeDocumentsPage: React.FC = () => {
   const [filter, setFilter] = useState<DocCategory | "All">("All");
 
   useEffect(() => {
-    const loadDocs = async () => {
-      const result = await loadOrgDocumentsAsync();
-      setDocs(result);
+    const loadData = async () => {
+      const [docsResult, latestPayslip] = await Promise.all([
+        loadOrgDocumentsAsync(),
+        loadLatestPayslipAsync(),
+      ]);
+      setDocs(docsResult);
+
+      let existing = latestPayslip ?? loadLatestPayslip();
+      if (!existing || !existing.data) {
+        existing = demoPayslip(getCurrentUserName());
+      }
+      saveLatestPayslip(existing);
+      setPayslip(existing);
     };
 
-    loadDocs();
-
-    // Self-heal legacy payslips missing the structured `data` field so the
-    // real-PDF renderer always has something to work with.
-    let existing = loadLatestPayslip();
-    if (!existing || !existing.data) {
-      existing = demoPayslip(getCurrentUserName());
-      saveLatestPayslip(existing);
-    }
-    setPayslip(existing);
+    void loadData();
   }, []);
 
   const grouped = useMemo(() => {
