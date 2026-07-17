@@ -5,7 +5,7 @@
 
 import React, { useEffect, useMemo, useState } from "react";
 import { Helmet } from "react-helmet-async";
-import { Link, useNavigate } from "react-router-dom";
+import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import {
   Bell, CheckCircle2, ChevronRight, Globe2, Lock, LogOut,
   Mail, Save, Settings, Shield, User as UserIcon, X,
@@ -22,6 +22,7 @@ import {
   loadEmployeeSettings,
   saveEmployeeSettings,
 } from "../../shared/utils/employeeSettings";
+import { dispatchNotificationsUpdated } from "../../shared/utils/notifications";
 
 /* ──────────────────────────────────────────────────────────────────────────
  * Styles (match EmployeeProfilePage)
@@ -360,13 +361,23 @@ const HeroBanner: React.FC<{
 
 const EmployeeSettingsPage: React.FC = () => {
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const { country, setCountry } = useCountry();
+
+  const sectionFromUrl = searchParams.get("section");
+  const initialSection: SettingsSectionId =
+    sectionFromUrl === "account" ||
+    sectionFromUrl === "security" ||
+    sectionFromUrl === "notifications" ||
+    sectionFromUrl === "preferences"
+      ? sectionFromUrl
+      : "account";
 
   const storedUser = useMemo(userFromStorage, []);
   const [user, setUser] = useState<StoredUser>(storedUser);
   const [settings, setSettings] = useState<EmployeeSettings>(() => loadEmployeeSettings(storedUser.email));
   const [draft, setDraft] = useState<EmployeeSettings>(settings);
-  const [activeSection, setActiveSection] = useState<SettingsSectionId>("account");
+  const [activeSection, setActiveSection] = useState<SettingsSectionId>(initialSection);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [toast, setToast] = useState<{ message: string; type: "success" | "error" } | null>(null);
@@ -390,6 +401,18 @@ const EmployeeSettingsPage: React.FC = () => {
     () => getInitials(name),
     [name],
   );
+
+  useEffect(() => {
+    const section = searchParams.get("section");
+    if (
+      section === "account" ||
+      section === "security" ||
+      section === "notifications" ||
+      section === "preferences"
+    ) {
+      setActiveSection(section);
+    }
+  }, [searchParams]);
 
   useEffect(() => {
     (async () => {
@@ -428,6 +451,7 @@ const EmployeeSettingsPage: React.FC = () => {
     try {
       saveEmployeeSettings(draft, user.email);
       setSettings(draft);
+      dispatchNotificationsUpdated();
       showToast("Settings saved.", "success");
     } catch {
       showToast("Could not save settings.", "error");

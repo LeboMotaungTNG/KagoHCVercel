@@ -30,6 +30,13 @@ export type AttendanceStatus =
 export type AlertType = "success" | "error" | "info";
 export type DateRangeKey = "all" | "today" | "week" | "month" | "last_month" | "year";
 
+export interface AttendanceBreak {
+  type:     string;
+  start:    string | null;
+  end:      string | null;
+  duration: number;
+}
+
 export interface AttendanceRecord {
   id:         number;
   date:       string;
@@ -38,6 +45,8 @@ export interface AttendanceRecord {
   clock_out:  string | null;
   work_hours: number | null;
   note?:      string;
+  breaks?:            AttendanceBreak[];
+  total_break_time?:  number;
 }
 
 export interface ClockState {
@@ -69,6 +78,8 @@ export interface ManagerAttendanceRecord {
   clock_out:     string | null;
   work_hours:    number | null;
   date:          string;
+  breaks:            AttendanceBreak[];
+  total_break_time:  number;
 }
 
 export interface Employee {
@@ -169,9 +180,113 @@ export function calcWorkHours(clockIn: string, clockOut: string): number {
   return parseFloat(((oh * 60 + om - ih * 60 - im) / 60).toFixed(2));
 }
 
-export function deriveStatus(clockInTime: string): AttendanceStatus {
-  const [h] = clockInTime.split(":").map(Number);
-  return h >= 9 ? "late" : "present";
+/* ─────────────────────────────────────────────────────────────────────────
+ * Work schedule (frontend-only, per-browser).
+ *
+ * Lets a Manager pin the expected arrival / departure time so that
+ * any employee whose clock-in is later than `arrivalTime + graceMinutes`
+ * is automatically reclassified as "late" in the Manager Attendance UI.
+ *
+ * Stored in localStorage under "kago.workSchedule" and exposed via
+ * `useWorkSchedule()` with a custom event so all subscribed components
+ * (Manager dashboards, employee attendance views) re-render together.
+ * ────────────────────────────────────────────────────────────────────── */
+
+export interface WorkSchedule {
+  arrivalTime:   string; // HH:MM (24h) — expected clock-in
+  departureTime: string; // HH:MM (24h) — expected clock-out
+  graceMinutes:  number; // grace window after arrivalTime before "late"
+}
+
+export const DEFAULT_WORK_SCHEDULE: WorkSchedule = {
+  arrivalTime:   "08:00",
+  departureTime: "17:00",
+  graceMinutes:  0,
+};
+
+const WORK_SCHEDULE_KEY   = "kago.workSchedule";
+const WORK_SCHEDULE_EVENT = "kago:work-schedule-changed";
+
+export function loadWorkSchedule(): WorkSchedule {
+  if (typeof window === "undefined") return DEFAULT_WORK_SCHEDULE;
+  try {
+    const raw = window.localStorage.getItem(WORK_SCHEDULE_KEY);
+    if (!raw) return DEFAULT_WORK_SCHEDULE;
+    const parsed = JSON.parse(raw) as Partial<WorkSchedule>;
+    return {
+      arrivalTime:   typeof parsed.arrivalTime   === "string" ? parsed.arrivalTime   : DEFAULT_WORK_SCHEDULE.arrivalTime,
+      departureTime: typeof parsed.departureTime === "string" ? parsed.departureTime : DEFAULT_WORK_SCHEDULE.departureTime,
+      graceMinutes:  Number.isFinite(parsed.graceMinutes as number)
+        ? Math.max(0, Math.min(180, parsed.graceMinutes as number))
+        : DEFAULT_WORK_SCHEDULE.graceMinutes,
+    };
+  } catch {
+    return DEFAULT_WORK_SCHEDULE;
+  }
+}
+
+export function saveWorkSchedule(s: WorkSchedule): void {
+  if (typeof window === "undefined") return;
+  window.localStorage.setItem(WORK_SCHEDULE_KEY, JSON.stringify(s));
+  window.dispatchEvent(new CustomEvent<WorkSchedule>(WORK_SCHEDULE_EVENT, { detail: s }));
+}
+
+export function useWorkSchedule(): [WorkSchedule, (next: WorkSchedule) => void] {
+  const [schedule, setSchedule] = useState<WorkSchedule>(() => loadWorkSchedule());
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const onChange = (e: Event) => {
+      const detail = (e as CustomEvent<WorkSchedule>).detail;
+      if (detail) setSchedule(detail);
+    };
+    const onStorage = (e: StorageEvent) => {
+      if (e.key === WORK_SCHEDULE_KEY) setSchedule(loadWorkSchedule());
+    };
+    window.addEventListener(WORK_SCHEDULE_EVENT, onChange as EventListener);
+    window.addEventListener("storage", onStorage);
+    return () => {
+      window.removeEventListener(WORK_SCHEDULE_EVENT, onChange as EventListener);
+      window.removeEventListener("storage", onStorage);
+    };
+  }, []);
+  const set = useCallback((next: WorkSchedule) => {
+    saveWorkSchedule(next);
+    setSchedule(next);
+  }, []);
+  return [schedule, set];
+}
+
+function timeToMinutes(t: string): number {
+  if (!t) return 0;
+  const [h, m] = t.split(":").map(Number);
+  if (Number.isNaN(h)) return 0;
+  return h * 60 + (Number.isFinite(m) ? m : 0);
+}
+
+export function isClockInLate(clockIn: string, schedule: WorkSchedule): boolean {
+  return timeToMinutes(clockIn) > timeToMinutes(schedule.arrivalTime) + schedule.graceMinutes;
+}
+
+/** Re-derive a record's status from its clock-in against the schedule.
+ *  Only flips between "present" ↔ "late" — absent/leave/holiday/half_day
+ *  are left untouched. */
+export function applyScheduleToStatus<T extends { status: AttendanceStatus; clock_in: string | null }>(
+  rec: T,
+  schedule: WorkSchedule,
+): T {
+  if (!rec.clock_in) return rec;
+  if (rec.status !== "present" && rec.status !== "late") return rec;
+  const late = isClockInLate(rec.clock_in, schedule);
+  if (late && rec.status === "late") return rec;
+  if (!late && rec.status === "present") return rec;
+  return { ...rec, status: late ? "late" : "present" };
+}
+
+export function deriveStatus(
+  clockInTime: string,
+  schedule: WorkSchedule = DEFAULT_WORK_SCHEDULE,
+): AttendanceStatus {
+  return isClockInLate(clockInTime, schedule) ? "late" : "present";
 }
 
 export function isCurrentMonth(dateStr: string): boolean {
@@ -236,21 +351,26 @@ function triggerDownload(filename: string, content: string, mimeType: string): v
   URL.revokeObjectURL(url);
 }
 
+function formatBreakDetails(breaks: AttendanceBreak[] | undefined): string {
+  if (!Array.isArray(breaks) || breaks.length === 0) return "";
+  return breaks.map(b => `${b.type || "break"}:${b.duration || 0}m`).join("; ");
+}
+
 export function exportEmployeeCSV(records: AttendanceRecord[]): void {
-  const header = "Date,Status,Clock In,Clock Out,Work Hours,Note";
+  const header = "Date,Status,Clock In,Clock Out,Work Hours,Total Break Time (minutes),Break Details,Note";
   const rows = records.map(r =>
     [r.date, r.status, r.clock_in ?? "N/A", r.clock_out ?? "N/A",
-     r.work_hours ?? "N/A", r.note ?? ""].map(v => `"${v}"`).join(",")
+     r.work_hours ?? "N/A", r.total_break_time ?? 0, formatBreakDetails(r.breaks), r.note ?? ""].map(v => `"${v}"`).join(",")
   );
   triggerDownload(`my-attendance-${todayISO()}.csv`, [header, ...rows].join("\n"), "text/csv");
 }
 
 export function exportManagerCSV(records: ManagerAttendanceRecord[]): void {
-  const header = "Employee Code,Name,Department,Position,Status,Clock In,Clock Out,Work Hours,Date";
+  const header = "Employee Code,Name,Department,Position,Status,Clock In,Clock Out,Work Hours,Total Break Time (minutes),Break Details,Date";
   const rows = records.map(r =>
     [r.employee_code, r.full_name, r.department, r.position,
      r.status, r.clock_in ?? "N/A", r.clock_out ?? "N/A",
-     r.work_hours ?? "N/A", r.date].map(v => `"${v}"`).join(",")
+     r.work_hours ?? "N/A", r.total_break_time ?? 0, formatBreakDetails(r.breaks), r.date].map(v => `"${v}"`).join(",")
   );
   triggerDownload(`attendance_export_${todayISO()}.csv`, [header, ...rows].join("\n"), "text/csv");
 }
@@ -265,6 +385,8 @@ export function exportSingleRecord(row: ManagerAttendanceRecord): void {
     `Clock In:   ${row.clock_in  ?? "N/A"}`,
     `Clock Out:  ${row.clock_out ?? "N/A"}`,
     `Work Hours: ${row.work_hours != null ? row.work_hours + "h" : "N/A"}`,
+    `Total Break Time: ${row.total_break_time ?? 0}m`,
+    `Break Details: ${formatBreakDetails(row.breaks) || "None"}`,
   ].join("\n");
   triggerDownload(`attendance_${row.employee_code}_${row.date}.txt`, content, "text/plain");
 }
@@ -280,6 +402,7 @@ export function printAttendance(records: ManagerAttendanceRecord[]): boolean {
        <td>${r.clock_in || '—'}</td>
 <td>${r.clock_out || '—'}</td>
        <td>${r.work_hours != null ? r.work_hours + "h" : "_"}</td>
+       <td>${r.total_break_time != null ? r.total_break_time + "m" : "0m"}</td>
      </tr>`).join("");
 
   win.document.write(`<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8">
@@ -299,7 +422,7 @@ export function printAttendance(records: ManagerAttendanceRecord[]): boolean {
     <p>Generated: ${new Date().toLocaleString()} &nbsp;|&nbsp; Records: ${records.length}</p>
     <button class="no-print" onclick="window.print()">Print</button>
     <table><thead>??<th>Employee</th><th>Code</th><th>Department</th>
-      <th>Status</th><th>Clock In</th><th>Clock Out</th><th>Hours</th>
+      <th>Status</th><th>Clock In</th><th>Clock Out</th><th>Hours</th><th>Break Time</th>
      </tr></thead><tbody>${tableRows}</tbody></table>
     </body></html>`);
   win.document.close();
@@ -387,6 +510,8 @@ export function useEmployeeAttendance() {
           clock_in: formatApiTime(item.clock_in || item.clockInTime),
           clock_out: formatApiTime(item.clock_out || item.clockOutTime),
           work_hours: item.totalHours || item.hours_worked,
+          breaks: Array.isArray(item.breaks) ? item.breaks : [],
+          total_break_time: item.total_break_time ?? 0,
         };
       });
       setRecords(transformed);
@@ -550,7 +675,7 @@ export function useEmployeeAttendance() {
         showAlert(data.error?.message || "Failed to clock out", "error");
       }
     } catch (error) {
-      showAlert("Couldn't connect. Please check your internet and try again.", "error");
+      showAlert("Network error", "error");
     } finally {
       setClockLoading(false);
     }
@@ -726,6 +851,8 @@ export function useManagerAttendance() {
             clock_out: formatApiTime(item.clockOutTime || item.clock_out),
             work_hours: item.totalHours ?? item.hours_worked ?? item.work_hours ?? null,
             date: dateStr,
+            breaks: Array.isArray(item.breaks) ? item.breaks : [],
+            total_break_time: item.total_break_time ?? 0,
           };
         });
         
@@ -742,7 +869,9 @@ export function useManagerAttendance() {
             employee_code: r.employee_code,
             department: r.department,
             clock_in: r.clock_in,
-            work_hours: r.work_hours
+            work_hours: r.work_hours,
+            breaks: r.breaks,
+            total_break_time: r.total_break_time
           })));
           console.log('=== END DEBUG ===');
         }
@@ -852,8 +981,37 @@ export function useManagerAttendance() {
     return () => window.clearTimeout(fallback);
   }, [loading, showAlert]);
 
+  // Pull the manager-configured work schedule and re-derive every record's
+  // status based on it, so changing the expected arrival time flips
+  // employees between "present" and "late" everywhere on the page.
+  const [workSchedule, setWorkSchedule] = useWorkSchedule();
+
+  const scheduledTodayAttendance = useMemo(
+    () => todayAttendance.map(r => applyScheduleToStatus(r, workSchedule)),
+    [todayAttendance, workSchedule],
+  );
+  const scheduledAllHistory = useMemo(
+    () => allHistory.map(r => applyScheduleToStatus(r, workSchedule)),
+    [allHistory, workSchedule],
+  );
+
+  const scheduledStats = useMemo<AttendanceStats>(() => {
+    const present = scheduledTodayAttendance.filter(r => r.status === "present" || r.status === "half_day").length;
+    const late    = scheduledTodayAttendance.filter(r => r.status === "late").length;
+    const absent  = scheduledTodayAttendance.filter(r => r.status === "absent").length;
+    const total   = scheduledTodayAttendance.length;
+    return {
+      totalEmployees:  total,
+      todayPresent:    present,
+      todayAbsent:     absent,
+      todayLate:       late,
+      todayPercentage: total ? Math.round(((present + late) / total) * 100) : 0,
+      monthlyAverage:  stats.monthlyAverage,
+    };
+  }, [scheduledTodayAttendance, stats.monthlyAverage]);
+
   const filtered = useMemo(() => {
-    const pool = filters.dateRange === "today" ? todayAttendance : allHistory;
+    const pool = filters.dateRange === "today" ? scheduledTodayAttendance : scheduledAllHistory;
     return pool.filter(r => {
       const matchSearch = !filters.search ||
         r.full_name.toLowerCase().includes(filters.search.toLowerCase()) ||
@@ -863,7 +1021,7 @@ export function useManagerAttendance() {
       const matchDate = matchesDateRange(r.date, filters.dateRange);
       return matchSearch && matchStatus && matchDept && matchDate;
     });
-  }, [todayAttendance, allHistory, filters]);
+  }, [scheduledTodayAttendance, scheduledAllHistory, filters]);
 
   const noClockInList = useMemo(() => {
     const todayIds = new Set(todayAttendance.map(r => r.employee_id));
@@ -937,7 +1095,12 @@ export function useManagerAttendance() {
   }, [showAlert]);
 
   return {
-    loading, todayAttendance, allHistory, employees, departments, stats,
+    loading,
+    todayAttendance: scheduledTodayAttendance,
+    allHistory:      scheduledAllHistory,
+    employees, departments,
+    stats: scheduledStats,
+    workSchedule, setWorkSchedule,
     noClockInList, showNoClockIn, setShowNoClockIn,
     filters, setSearch, setStatus, setDateRange, setDept, clearFilters,
     filtered,
@@ -947,9 +1110,3 @@ export function useManagerAttendance() {
     alert, clearAlert: () => setAlert(null),
   };
 }
-
-
-
-
-
-

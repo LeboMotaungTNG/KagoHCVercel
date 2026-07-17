@@ -5,15 +5,15 @@
  * needs so the UI file stays focused on layout/render.
  */
 
-import { API_URL, C, safeJson, unwrapArray, unwrapSuccessData } from "./employee";
+import { API_URL, safeJson, unwrapArray, unwrapSuccessData } from "./employee";
 
 /* ─────────────────────────────────────────────────────────────────────────
  * Owner brand tokens (mirrors OwnerOverview.tsx so the wizard fits in)
  * ────────────────────────────────────────────────────────────────────── */
 
 export const OC = {
-  accent:    C.primary, accentDk: C.primaryDark, accentBg: C.primaryTint,
-  coral:     C.primary, coralDk: C.primaryDark, coralBg: C.primaryBg,
+  accent:    "#4f3da3", accentDk: "#2a2f7a", accentBg: "#eeeaff",
+  coral:     "#E6614F", coralBg:  "#fdf0ee",
   ink:       "#1d2939", text:     "#344054",
   muted:     "#667085", faint:    "#98a2b3",
   line:      "#e4e7ec", surface:  "#ffffff", surfaceAlt: "#f9f7f5",
@@ -355,12 +355,18 @@ export const deleteDepartment = async (id: string): Promise<void> => {
 };
 
 // Administrators / Owners
-//   POST   /api/v1/owner/create
-//   GET    /api/v1/owner
+//   POST   /api/v1/owner/create           (public signup — creates a NEW
+//                                            owner + NEW company; NOT used
+//                                            for adding admins to an
+//                                            existing company)
+//   GET    /api/v1/owner/administrators    (owner + admins of the CURRENT
+//                                            company only)
+//   POST   /api/v1/owner/administrators    (add an admin to the CURRENT
+//                                            company — owner-only)
 //   POST   /api/v1/owner/onboarding/complete
 
 export const fetchAdministrators = async (): Promise<Administrator[]> => {
-  const data = await safeJson(`${API_URL}/owner`, { headers: authHeaders() });
+  const data = await safeJson(`${API_URL}/owner/administrators`, { headers: authHeaders() });
   return unwrapArray(data).map((u: any) => ({
     id: u._id || u.id,
     firstName: u.firstName || "",
@@ -372,7 +378,7 @@ export const fetchAdministrators = async (): Promise<Administrator[]> => {
 };
 
 export const createAdministrator = async (a: AdministratorDraft): Promise<Administrator> => {
-  const res = await fetch(`${API_URL}/owner/create`, {
+  const res = await fetch(`${API_URL}/owner/administrators`, {
     method: "POST",
     headers: authHeaders(),
     body: JSON.stringify({
@@ -381,7 +387,6 @@ export const createAdministrator = async (a: AdministratorDraft): Promise<Admini
       email:     a.email,
       phone:     a.phone,
       password:  a.password,
-      role:      "admin",
     }),
   });
   const data = await handleJson(res);

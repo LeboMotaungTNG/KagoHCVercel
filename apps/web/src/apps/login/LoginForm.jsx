@@ -10,9 +10,9 @@ import { touchActivity } from "../../shared/utils/auth";
 
 import logoKago from "../../assets/images/kago-logo.png";
 import ButtonSubmit from "./ButtonSubmit";
+import { API_BASE } from "../../shared/utils/apiBase";
 
-// API URL - connects to your backend
-const API_URL = import.meta.env.VITE_API_URL || "https://employee-evaluation-kago-e63baae4d822.herokuapp.com/api/v1";
+const API_URL = API_BASE;
 
 const loginSchema = Yup.object({
   email: Yup.string()
@@ -66,9 +66,12 @@ const LoginForm = () => {
           touchActivity();
 
           // Navigate based on role
-           if (data.data.user.role === 'owner') {
+          const role = data.data.user.role;
+          if (role === 'platform_admin') {
+            navigate("/platform");
+          } else if (role === 'owner') {
             navigate("/owner");
-          } else if (data.data.user.role === 'admin') {
+          } else if (role === 'manager' || role === 'admin' || role === 'hr') {
             navigate("/manager");
           } else {
             navigate("/employee");
