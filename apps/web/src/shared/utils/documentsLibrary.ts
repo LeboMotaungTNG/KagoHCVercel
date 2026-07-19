@@ -399,23 +399,51 @@ export const loadLatestPayslipAsync = async (): Promise<PayslipMeta | null> => {
     if (!doc) return null;
 
     return {
-      id: doc.id || doc._id || "",
-      title: doc.title || "Latest payslip",
-      description: doc.description,
-      category: "Payslip",
-      fileName: doc.fileName || "latest-payslip.pdf",
-      mimeType: doc.mimeType || "application/pdf",
-      size: doc.size || doc.fileSize || 0,
-      dataUrl: doc.dataUrl || "",
-      uploadedAt: doc.uploadedAt || doc.issueDate || doc.createdAt || new Date().toISOString(),
-      uploadedBy: doc.uploadedBy || "Payroll",
-      audience: "all",
+      id: doc._id || doc.id,
       period: doc.period || "",
-      issueDate: doc.issueDate || doc.uploadedAt || new Date().toISOString(),
-      gross: doc.gross || 0,
-      net: doc.net || 0,
+      issueDate: doc.payDate || doc.createdAt || new Date().toISOString(),
+      gross: doc.grossEarnings || doc.gross || 0,
+      net: doc.netPay || doc.net || 0,
       currency: doc.currency || "R",
-      data: doc.data,
+      fileName: `Payslip_${doc.period || 'current'}.pdf`,
+      data: {
+        reference: doc._id,
+        period: doc.period,
+        periodStart: doc.periodStart,
+        periodEnd: doc.periodEnd,
+        payDate: doc.payDate,
+        currency: doc.currency || "R",
+        employer: doc.employerSnapshot || {
+          name: "Kago Human Capital",
+          registrationNo: "",
+          payeReference: "",
+          address: ""
+        },
+        employee: doc.employeeSnapshot || {
+          name: "Employee",
+          employeeNumber: "",
+          idNumber: "",
+          department: "",
+          position: "",
+          bank: "",
+          accountLast4: "",
+          paymentMethod: "EFT"
+        },
+        earnings: [
+          { label: "Basic Salary", amount: doc.basicSalary || 0 },
+          { label: "Housing Allowance", amount: doc.allowances?.housing || 0 },
+          { label: "Transport Allowance", amount: doc.allowances?.transport || 0 },
+          { label: "Medical Allowance", amount: doc.allowances?.medical || 0 }
+        ],
+        deductions: [
+          { label: "PAYE", amount: doc.deductions?.paye || 0 },
+          { label: "UIF", amount: doc.deductions?.uif || 0 },
+          { label: "Pension", amount: doc.deductions?.pension || 0 }
+        ],
+        ytd: doc.ytd || { gross: 0, tax: 0, net: 0 },
+        leaveBalances: [],
+        notes: "This is a computer-generated payslip."
+      }
     } as PayslipMeta;
   } catch (error) {
     console.error("[documentsLibrary] Error loading latest payslip:", error);
