@@ -23,7 +23,7 @@ import {
   CATEGORY_META, CATEGORY_ORDER,
   type DocCategory, type OrgDocument, type PayslipMeta,
   demoPayslip, downloadDataUrl, formatBytes, formatDate, formatMoney,
-  loadLatestPayslipAsync, loadOrgDocumentsAsync, saveLatestPayslip,
+  loadLatestPayslipAsync, loadOrgDocumentsAsync,
 } from "../../shared/utils/documentsLibrary";
 import {
   buildPayslipObjectUrl, downloadPayslipPdf,
@@ -73,6 +73,7 @@ const nextPaydayInfo = (): { label: string; daysUntil: number } => {
 const EmployeeDocumentsPage: React.FC = () => {
   const [docs, setDocs] = useState<OrgDocument[]>([]);
   const [payslip, setPayslip] = useState<PayslipMeta | null>(null);
+  const [employeeName, setEmployeeName] = useState<string>(getCurrentUserName());
   const [query, setQuery] = useState("");
   const [filter, setFilter] = useState<DocCategory | "All">("All");
 
@@ -82,21 +83,20 @@ const EmployeeDocumentsPage: React.FC = () => {
       const documents = await loadOrgDocumentsAsync();
       setDocs(documents);
 
-      // 2. Load payslip from the API
+      // 2. Load payslip from the API — NO FALLBACK TO DEMO
       try {
         const realPayslip = await loadLatestPayslipAsync();
         if (realPayslip) {
+          console.log('✅ Real payslip loaded:', realPayslip);
           setPayslip(realPayslip);
+          setEmployeeName(realPayslip.data?.employee?.name ?? getCurrentUserName());
         } else {
-          const fallback = demoPayslip(getCurrentUserName());
-          setPayslip(fallback);
-          saveLatestPayslip(fallback);
+          console.warn('⚠️ No payslip found in database');
+          setPayslip(null);
         }
       } catch (error) {
-        console.warn('Could not fetch payslip, using demo:', error);
-        const fallback = demoPayslip(getCurrentUserName());
-        setPayslip(fallback);
-        saveLatestPayslip(fallback);
+        console.error('❌ Failed to load payslip:', error);
+        setPayslip(null);
       }
     };
 
@@ -164,7 +164,7 @@ const EmployeeDocumentsPage: React.FC = () => {
 
         {payslip && (
           <div className="kg-doc-hero" style={{ marginBottom: 26 }}>
-            <PayslipHero payslip={payslip} employeeName={getCurrentUserName()} />
+            <PayslipHero payslip={payslip} employeeName={employeeName} />
             <PayrollInsights payslip={payslip} />
           </div>
         )}
