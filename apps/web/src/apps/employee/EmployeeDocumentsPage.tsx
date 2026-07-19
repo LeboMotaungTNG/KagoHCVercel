@@ -23,7 +23,7 @@ import {
   CATEGORY_META, CATEGORY_ORDER,
   type DocCategory, type OrgDocument, type PayslipMeta,
   demoPayslip, downloadDataUrl, formatBytes, formatDate, formatMoney,
-  loadLatestPayslip, loadLatestPayslipAsync, loadOrgDocumentsAsync, saveLatestPayslip,
+  loadLatestPayslipAsync, loadOrgDocumentsAsync, saveLatestPayslip,
 } from "../../shared/utils/documentsLibrary";
 import {
   buildPayslipObjectUrl, downloadPayslipPdf,
@@ -78,18 +78,26 @@ const EmployeeDocumentsPage: React.FC = () => {
 
   useEffect(() => {
     const loadData = async () => {
-      const [docsResult, latestPayslip] = await Promise.all([
-        loadOrgDocumentsAsync(),
-        loadLatestPayslipAsync(),
-      ]);
-      setDocs(docsResult);
+      // 1. Load documents from the API
+      const documents = await loadOrgDocumentsAsync();
+      setDocs(documents);
 
-      let existing = latestPayslip ?? loadLatestPayslip();
-      if (!existing || !existing.data) {
-        existing = demoPayslip(getCurrentUserName());
+      // 2. Load payslip from the API
+      try {
+        const realPayslip = await loadLatestPayslipAsync();
+        if (realPayslip) {
+          setPayslip(realPayslip);
+        } else {
+          const fallback = demoPayslip(getCurrentUserName());
+          setPayslip(fallback);
+          saveLatestPayslip(fallback);
+        }
+      } catch (error) {
+        console.warn('Could not fetch payslip, using demo:', error);
+        const fallback = demoPayslip(getCurrentUserName());
+        setPayslip(fallback);
+        saveLatestPayslip(fallback);
       }
-      saveLatestPayslip(existing);
-      setPayslip(existing);
     };
 
     void loadData();
