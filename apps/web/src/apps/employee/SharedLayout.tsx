@@ -157,7 +157,7 @@ const EmployeeHeader: React.FC = () => {
           </button>
         </div>
 
-        <div className="d-flex">
+        <div className="d-flex align-items-center">
           <NotificationBell
             role="employee"
             settingsPath="/employee/settings?section=notifications"

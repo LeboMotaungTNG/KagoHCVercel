@@ -5,6 +5,8 @@ import { useFormik } from "formik";
 import * as Yup from "yup";
 import { AiOutlineEye, AiOutlineEyeInvisible } from "react-icons/ai";
 import { Lock } from "lucide-react";
+import { C } from "../../shared/utils/employee";
+import { touchActivity } from "../../shared/utils/auth";
 
 import logoKago from "../../assets/images/kago-logo.png";
 import ButtonSubmit from "./ButtonSubmit";
@@ -23,6 +25,7 @@ const LoginForm = () => {
   const navigate = useNavigate();
   const location = useLocation();
   const passwordResetSuccess = location.state?.passwordReset === true;
+  const sessionExpired = location.state?.sessionExpired === true;
   const [loginError, setLoginError] = useState("");
   const [pending, setPending] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
@@ -60,7 +63,8 @@ const LoginForm = () => {
           // Store token and user data
           localStorage.setItem('token', data.data.token);
           localStorage.setItem('user', JSON.stringify(data.data.user));
-          
+          touchActivity();
+
           // Navigate based on role
           const role = data.data.user.role;
           if (role === 'platform_admin') {
@@ -100,6 +104,12 @@ const LoginForm = () => {
         {loginError && (
           <div className="alert alert-danger mb-3" role="alert">
             {loginError}
+          </div>
+        )}
+
+        {sessionExpired && !loginError && (
+          <div className="alert alert-warning mb-3" role="alert">
+            Your session ended due to inactivity. Please sign in again.
           </div>
         )}
         
@@ -198,7 +208,7 @@ const LoginForm = () => {
               <div className="w-100 d-grid">
                 <ButtonSubmit
                   Title={pending ? "Logging in..." : "Login"}
-                  BackgroundColor="#33a6cd"
+                  BackgroundColor={C.primary}
                   ColorText="#fff"
                   BorderColor=""
                   borderRadius="20px"

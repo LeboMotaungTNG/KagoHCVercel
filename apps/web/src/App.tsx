@@ -2,6 +2,7 @@ import React from "react";
 import { Routes, Route, Navigate } from "react-router-dom";
 import { CountryProvider } from "./shared/contexts/CountryContext";
 import RequireAuth from "./shared/components/RequireAuth";
+import SessionProvider from "./shared/components/SessionProvider";
 import Login from "./apps/login/Login";
 import ForgotPassword from "./apps/login/ForgotPassword";
 import ResetPassword from "./apps/login/ResetPassword";
@@ -11,8 +12,13 @@ import EmployeeAttendance from "./apps/employee/attendance";
 import EmployeeProfilePage from "./apps/employee/EmployeeProfilePage";
 import EmployeeSettingsPage from "./apps/employee/EmployeeSettingsPage";
 import EmployeeDocumentsPage from "./apps/employee/EmployeeDocumentsPage";
+import EmployeePerformance from "./apps/employee/performance";
 import OwnerDashboard from "./apps/Owner/OwnerDashboard";
 import ManagerDashboard from "./apps/Manager/ManagerDashboard";
+import ManagerReviewPage from "./apps/Manager/ManagerReviewPage";
+import ManagerAnalyticsPage from "./apps/Manager/ManagerAnalyticsPage";
+import ManagerModerationPage from "./apps/Manager/ManagerModerationPage";
+import ManagerTeamGoalsPage from "./apps/Manager/ManagerTeamGoalsPage";
 import EmployeeProfile from "./apps/Manager/EmployeeProfile";
 import ManageEmployees from "./apps/Manager/ManageEmployees";
 import EmployeesPage from "./apps/Manager/EmployeesPage";
@@ -36,6 +42,7 @@ const Guard: React.FC<{ roles?: readonly string[]; children: React.ReactNode }> 
 
 const App: React.FC = () => (
   <CountryProvider>
+    <SessionProvider>
     <Routes>
       {/* ── Public auth pages ─────────────────────────────────────── */}
       <Route path="/"                      element={<Login />} />
@@ -56,6 +63,10 @@ const App: React.FC = () => (
       <Route path="/manager/attendance"       element={<Guard roles={ManagerArea}><AttendancePage /></Guard>} />
       <Route path="/manager/leave-requests"   element={<Guard roles={ManagerArea}><LeavePage /></Guard>} />
       <Route path="/manager/payroll"          element={<Guard roles={ManagerArea}><Payroll /></Guard>} />
+      <Route path="/manager/performance"     element={<Guard roles={ManagerArea}><ManagerReviewPage /></Guard>} />
+      <Route path="/manager/team-goals"      element={<Guard roles={ManagerArea}><ManagerTeamGoalsPage /></Guard>} />
+      <Route path="/manager/insights"        element={<Guard roles={ManagerArea}><ManagerAnalyticsPage /></Guard>} />
+      <Route path="/manager/moderate/:id"    element={<Guard roles={ManagerArea}><ManagerModerationPage /></Guard>} />
 
       {/* ── Owner ─────────────────────────────────────────────────── */}
       <Route path="/owner/*" element={<Guard roles={OwnerArea}><OwnerDashboard /></Guard>} />
@@ -65,13 +76,16 @@ const App: React.FC = () => (
       <Route path="/employee/leave"       element={<Guard roles={EmployeeArea}><EmployeeLeave /></Guard>} />
       <Route path="/employee/attendance"  element={<Guard roles={EmployeeArea}><EmployeeAttendance /></Guard>} />
       <Route path="/employee/profile"     element={<Guard roles={EmployeeArea}><EmployeeProfilePage /></Guard>} />
-      <Route path="/employee/performance" element={<Guard roles={EmployeeArea}><EmployeeDashboard /></Guard>} />
+      <Route path="/employee/performance/*" element={<Guard roles={EmployeeArea}><EmployeePerformance /></Guard>} />
+      <Route path="/employee/reviews"       element={<Navigate to="/employee/performance/reviews" replace />} />
+      <Route path="/employee/self-review"   element={<Navigate to="/employee/performance/self-review" replace />} />
       <Route path="/employee/documents"   element={<Guard roles={EmployeeArea}><EmployeeDocumentsPage /></Guard>} />
       <Route path="/employee/settings"    element={<Guard roles={EmployeeArea}><EmployeeSettingsPage /></Guard>} />
 
       {/* ── Catch-all → login ─────────────────────────────────────── */}
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>
+    </SessionProvider>
   </CountryProvider>
 );
 

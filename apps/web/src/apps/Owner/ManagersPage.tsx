@@ -71,7 +71,7 @@ function PromoteToManagerModal({ onClose, onSuccess }: { onClose: () => void; on
         headers: { "Authorization": `Bearer ${token}` }
       });
       const data = await response.json();
-      let employeesList = [];
+      let employeesList: any[] = [];
       if (data.success && Array.isArray(data.data)) {
         employeesList = data.data;
       } else if (Array.isArray(data)) {
