@@ -255,3 +255,123 @@ export const formatNotificationTime = (iso: string): string => {
   if (diffDays < 7) return `${diffDays}d ago`;
   return date.toLocaleDateString(undefined, { month: "short", day: "numeric" });
 };
+
+const pushNotification = (
+  role: NotificationRole,
+  notification: Omit<AppNotification, "id" | "createdAt" | "read"> & {
+    id?: string;
+    createdAt?: string;
+    read?: boolean;
+  },
+  email?: string,
+): void => {
+  const items = loadNotifications(role, email);
+  const next: AppNotification = {
+    id: notification.id ?? `n-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+    createdAt: notification.createdAt ?? new Date().toISOString(),
+    read: notification.read ?? false,
+    category: notification.category,
+    title: notification.title,
+    body: notification.body,
+    href: notification.href,
+  };
+  saveNotifications([next, ...items.filter((n) => n.id !== next.id)], role, email);
+};
+
+export const notifySelfReviewSubmitted = (payload: {
+  employeeName: string;
+  employeeId: string;
+  evaluationId: string;
+  period: string;
+  moderationId: string;
+}): void => {
+  pushNotification("manager", {
+    category: "system",
+    title: "Self-review submitted",
+    body: `${payload.employeeName} submitted their ${payload.period} self-review for moderation.`,
+    href: `/manager/moderate/${payload.moderationId}`,
+  });
+};
+
+export const notifyReviewPendingOwner = (payload: {
+  employeeName: string;
+  employeeId: string;
+  evaluationId: string;
+  period: string;
+}): void => {
+  pushNotification("owner", {
+    category: "system",
+    title: "Review ready for sign-off",
+    body: `${payload.employeeName}'s ${payload.period} review is pending your sign-off.`,
+    href: "/owner/reviews",
+  });
+};
+
+export const notifyReviewAccepted = (payload: {
+  employeeName: string;
+  evaluationId: string;
+  period: string;
+}): void => {
+  pushNotification("manager", {
+    category: "system",
+    title: "Review accepted",
+    body: `Owner accepted ${payload.employeeName}'s ${payload.period} review.`,
+    href: "/manager/performance",
+  });
+};
+
+export const notifyReviewRejected = (payload: {
+  employeeName: string;
+  evaluationId: string;
+  period: string;
+  comment: string;
+}): void => {
+  pushNotification("manager", {
+    category: "system",
+    title: "Review rejected",
+    body: `${payload.employeeName}'s ${payload.period} review was rejected: ${payload.comment}`,
+    href: "/manager/performance",
+  });
+};
+
+export const notifyReviewChangesRequested = (payload: {
+  employeeName: string;
+  evaluationId: string;
+  period: string;
+  comment: string;
+}): void => {
+  pushNotification("manager", {
+    category: "system",
+    title: "Changes requested on review",
+    body: `Owner requested changes on ${payload.employeeName}'s ${payload.period} review: ${payload.comment}`,
+    href: `/manager/moderate/${payload.evaluationId}`,
+  });
+};
+
+export const notifyGoalAssigned = (payload: {
+  employeeName: string;
+  employeeId: string;
+  goalTitle: string;
+  objectiveTitle: string;
+  period: string;
+}): void => {
+  pushNotification("employee", {
+    category: "system",
+    title: "New goal assigned",
+    body: `“${payload.goalTitle}” was assigned under ${payload.objectiveTitle} (${payload.period}).`,
+    href: "/employee/performance/goals",
+  });
+};
+
+export const notifyInterventionAssigned = (payload: {
+  employeeId: string;
+  employeeName: string;
+  title: string;
+}): void => {
+  pushNotification("employee", {
+    category: "system",
+    title: "Development plan updated",
+    body: `Your manager accepted an intervention: ${payload.title}.`,
+    href: "/employee/performance/insights",
+  });
+};

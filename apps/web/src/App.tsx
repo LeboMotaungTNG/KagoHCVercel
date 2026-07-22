@@ -12,8 +12,13 @@ import EmployeeAttendance from "./apps/employee/attendance";
 import EmployeeProfilePage from "./apps/employee/EmployeeProfilePage";
 import EmployeeSettingsPage from "./apps/employee/EmployeeSettingsPage";
 import EmployeeDocumentsPage from "./apps/employee/EmployeeDocumentsPage";
+import EmployeePerformance from "./apps/employee/performance";
 import OwnerDashboard from "./apps/Owner/OwnerDashboard";
 import ManagerDashboard from "./apps/Manager/ManagerDashboard";
+import ManagerReviewPage from "./apps/Manager/ManagerReviewPage";
+import ManagerAnalyticsPage from "./apps/Manager/ManagerAnalyticsPage";
+import ManagerModerationPage from "./apps/Manager/ManagerModerationPage";
+import ManagerTeamGoalsPage from "./apps/Manager/ManagerTeamGoalsPage";
 import EmployeeProfile from "./apps/Manager/EmployeeProfile";
 import ManageEmployees from "./apps/Manager/ManageEmployees";
 import EmployeesPage from "./apps/Manager/EmployeesPage";
@@ -58,6 +63,10 @@ const App: React.FC = () => (
       <Route path="/manager/attendance"       element={<Guard roles={ManagerArea}><AttendancePage /></Guard>} />
       <Route path="/manager/leave-requests"   element={<Guard roles={ManagerArea}><LeavePage /></Guard>} />
       <Route path="/manager/payroll"          element={<Guard roles={ManagerArea}><Payroll /></Guard>} />
+      <Route path="/manager/performance"     element={<Guard roles={ManagerArea}><ManagerReviewPage /></Guard>} />
+      <Route path="/manager/team-goals"      element={<Guard roles={ManagerArea}><ManagerTeamGoalsPage /></Guard>} />
+      <Route path="/manager/insights"        element={<Guard roles={ManagerArea}><ManagerAnalyticsPage /></Guard>} />
+      <Route path="/manager/moderate/:id"    element={<Guard roles={ManagerArea}><ManagerModerationPage /></Guard>} />
 
       {/* ── Owner ─────────────────────────────────────────────────── */}
       <Route path="/owner/*" element={<Guard roles={OwnerArea}><OwnerDashboard /></Guard>} />
@@ -67,7 +76,9 @@ const App: React.FC = () => (
       <Route path="/employee/leave"       element={<Guard roles={EmployeeArea}><EmployeeLeave /></Guard>} />
       <Route path="/employee/attendance"  element={<Guard roles={EmployeeArea}><EmployeeAttendance /></Guard>} />
       <Route path="/employee/profile"     element={<Guard roles={EmployeeArea}><EmployeeProfilePage /></Guard>} />
-      <Route path="/employee/performance" element={<Guard roles={EmployeeArea}><EmployeeDashboard /></Guard>} />
+      <Route path="/employee/performance/*" element={<Guard roles={EmployeeArea}><EmployeePerformance /></Guard>} />
+      <Route path="/employee/reviews"       element={<Navigate to="/employee/performance/reviews" replace />} />
+      <Route path="/employee/self-review"   element={<Navigate to="/employee/performance/self-review" replace />} />
       <Route path="/employee/documents"   element={<Guard roles={EmployeeArea}><EmployeeDocumentsPage /></Guard>} />
       <Route path="/employee/settings"    element={<Guard roles={EmployeeArea}><EmployeeSettingsPage /></Guard>} />
 

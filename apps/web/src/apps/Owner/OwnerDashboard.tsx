@@ -1,7 +1,7 @@
 import React, { useState } from "react";
-import { Link, useNavigate, Routes, Route, useLocation } from "react-router-dom";
+import { Link, useNavigate, Routes, Route, useLocation, Navigate } from "react-router-dom";
 import {
-  Users, Building2, Home, PenTool, Menu, LogOut, Award, ChevronDown, ChevronRight, Rocket,
+  Users, Building2, Home, PenTool, Menu, LogOut, Award, ChevronDown, ChevronRight, Rocket, Target, LineChart,
 } from "lucide-react";
 import {
   sidebarItemStyle,
@@ -16,7 +16,11 @@ import logoKago from "../../assets/images/logo-black-white.png";
 import { OwnerOverview } from "./OwnerOverview";
 import { ManagersPage } from "./ManagersPage";
 import { EmployeesPage } from "./EmployeesPage";
-import { EmployeeReviewPage } from "./EmployeeReviewPage";
+import FrameworkLibraryPage from "../employee/src/pages/owner/FrameworkLibraryPage";
+import FrameworkBuilderPage from "../employee/src/pages/owner/FrameworkBuilderPage";
+import ReviewsDashboardPage from "../employee/src/pages/owner/ReviewsDashboardPage";
+import ObjectivesPage from "../employee/src/pages/owner/ObjectivesPage";
+import AnalyticsInsightsPage from "../employee/src/pages/owner/AnalyticsInsightsPage";
 import { OrganizationSettingsPage } from "./OrganizationSettingsPage";
 import { SubscriptionsPage } from "./SubscriptionsPage";
 import OnboardingPage from "../Manager/OnboardingPage";
@@ -125,14 +129,41 @@ const OwnerSidebar = () => {
               </ul>
             </li>
 
-            {/* Employee Review */}
+            {/* Performance */}
             <li>
-              <Link to="/owner/employee-review"
-                className={isExact("/owner/employee-review") ? "sb-active" : ""}
-                style={sidebarItemStyle(isExact("/owner/employee-review"))}
+              <Link to="/owner/reviews"
+                className={isExact("/owner/reviews") || isExact("/owner/employee-review") ? "sb-active" : ""}
+                style={sidebarItemStyle(isExact("/owner/reviews") || isExact("/owner/employee-review"))}
               >
                 <PenTool size={20} style={{ marginRight: "10px" }} />
-                <span>Employee Review</span>
+                <span>Reviews</span>
+              </Link>
+            </li>
+            <li>
+              <Link to="/owner/frameworks"
+                className={isInGroup("/owner/frameworks") ? "sb-active" : ""}
+                style={sidebarItemStyle(isInGroup("/owner/frameworks"))}
+              >
+                <Award size={20} style={{ marginRight: "10px" }} />
+                <span>Frameworks</span>
+              </Link>
+            </li>
+            <li>
+              <Link to="/owner/objectives"
+                className={isExact("/owner/objectives") ? "sb-active" : ""}
+                style={sidebarItemStyle(isExact("/owner/objectives"))}
+              >
+                <Target size={20} style={{ marginRight: "10px" }} />
+                <span>Objectives</span>
+              </Link>
+            </li>
+            <li>
+              <Link to="/owner/analytics"
+                className={isExact("/owner/analytics") ? "sb-active" : ""}
+                style={sidebarItemStyle(isExact("/owner/analytics"))}
+              >
+                <LineChart size={20} style={{ marginRight: "10px" }} />
+                <span>Analytics</span>
               </Link>
             </li>
 
@@ -206,7 +237,7 @@ const OwnerHeader = () => {
           </button>
         </div>
 
-        <div className="d-flex">
+        <div className="d-flex align-items-center">
           <NotificationBell role="owner" />
 
           <div className="dropdown d-inline-block user-dropdown">
@@ -267,7 +298,12 @@ const OwnerDashboard = () => {
               <Route path="manage-employees" element={<ManageEmployees embedded />} />
               <Route path="profile/:id" element={<EmployeeProfile embedded />} />
               <Route path="leave" element={<OwnerLeave />} />
-              <Route path="employee-review" element={<EmployeeReviewPage />} />
+              <Route path="reviews" element={<ReviewsDashboardPage />} />
+              <Route path="employee-review" element={<Navigate to="/owner/reviews" replace />} />
+              <Route path="frameworks" element={<FrameworkLibraryPage />} />
+              <Route path="frameworks/:id/edit" element={<FrameworkBuilderPage />} />
+              <Route path="objectives" element={<ObjectivesPage />} />
+              <Route path="analytics" element={<AnalyticsInsightsPage mode="owner" />} />
               <Route path="organization-settings" element={<OrganizationSettingsPage />} />
               <Route path="subscriptions" element={<SubscriptionsPage />} />
               <Route path="onboarding" element={<OnboardingPage />} />

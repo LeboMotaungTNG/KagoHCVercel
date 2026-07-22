@@ -172,9 +172,9 @@ const OwnerSidebar: React.FC<{ onLogout: () => void }> = ({ onLogout }) => {
               </ul>
             </li>
 
-            <li className={isActive("/owner/employee-review") ? "mm-active" : ""}>
+            <li className={isActive("/owner/reviews") || isActive("/owner/employee-review") ? "mm-active" : ""}>
               <Link
-                to="/owner/employee-review"
+                to="/owner/reviews"
                 className="waves-effect"
                 style={{
                   color: "rgba(255, 255, 255, 0.75)",
@@ -333,7 +333,7 @@ const SharedLayout: React.FC<SharedLayoutProps> = ({ children }) => {
       items={[
         { to: "/owner",                       label: "Home",     icon: <Home size={20} /> },
         { to: "/owner/employees",             label: "People",   icon: <Users size={20} /> },
-        { to: "/owner/employee-review",       label: "Reviews",  icon: <PenTool size={20} /> },
+        { to: "/owner/reviews",                 label: "Reviews",  icon: <PenTool size={20} /> },
         { to: "/owner/organization-settings", label: "Org",      icon: <Building2 size={20} /> },
       ]}
     />

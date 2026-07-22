@@ -12,6 +12,7 @@ import {
   Users,
   Calendar,
   ClipboardList,
+  TrendingUp,
   Menu,
   LogOut,
 } from "lucide-react";
@@ -41,6 +42,8 @@ const ManagerSidebar: React.FC<{ onLogout: () => void }> = ({ onLogout }) => {
     { to: "/manager/employees",        label: "All Employees",      icon: <Users size={20} style={{ marginRight: 10 }} /> },
     { to: "/manager/attendance",       label: "Attendance",         icon: <Calendar size={20} style={{ marginRight: 10 }} /> },
     { to: "/manager/leave-requests",   label: "Leave Requests",     icon: <ClipboardList size={20} style={{ marginRight: 10 }} /> },
+    { to: "/manager/performance",      label: "Performance",        icon: <TrendingUp size={20} style={{ marginRight: 10 }} /> },
+    { to: "/manager/team-goals",       label: "Team Goals",         icon: <ClipboardList size={20} style={{ marginRight: 10 }} /> },
     { to: "/manager/payroll",          label: "Payroll Management", icon: <ClipboardList size={20} style={{ marginRight: 10 }} /> },
   ];
 
@@ -130,7 +133,7 @@ const ManagerHeader: React.FC = () => {
           </button>
         </div>
 
-        <div className="d-flex">
+        <div className="d-flex align-items-center">
           <NotificationBell role="manager" />
 
           <div className="dropdown d-inline-block user-dropdown">

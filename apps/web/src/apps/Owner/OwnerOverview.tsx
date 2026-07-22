@@ -576,7 +576,7 @@ const QuickActionsCard: React.FC = () => {
     { label: "Dashboard",      path: "/owner",                       icon: <Users size={18} />,     bg: C.accentBg, color: C.accent  },
     { label: "Managers",       path: "/owner/managers",              icon: <Star size={18} />,      bg: C.blueBg,   color: C.blue    },
     { label: "Employees",      path: "/owner/employees",             icon: <Users size={18} />,     bg: C.greenBg,  color: C.green   },
-    { label: "Emp. Review",    path: "/owner/employee-review",       icon: <PenTool size={18} />,   bg: C.coralBg,  color: C.coral   },
+    { label: "Reviews",      path: "/owner/reviews",               icon: <PenTool size={18} />,   bg: C.coralBg,  color: C.coral   },
     { label: "Org Settings",   path: "/owner/organization-settings", icon: <Settings size={18} />,  bg: C.tealBg,   color: C.teal    },
     { label: "Subscriptions",  path: "/owner/subscriptions",         icon: <Award size={18} />,     bg: C.amberBg,  color: C.amber   },
     { label: "Onboarding",     path: "/owner/onboarding",            icon: <Plus size={18} />,      bg: C.purpleBg, color: C.purple  },
