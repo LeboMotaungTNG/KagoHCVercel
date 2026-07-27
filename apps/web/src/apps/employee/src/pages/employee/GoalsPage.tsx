@@ -8,7 +8,7 @@ import {
   SectionCard,
   StatTile,
 } from '../../components/PerformanceUI';
-import { getCurrentUserId } from '../../utils/session';
+import { resolveCurrentEmployee } from '../../utils/resolveEmployee';
 import { C, FONT_NUM, R } from '../../../../../shared/utils/employee';
 import type { EmployeeGoal, GoalStatus, OrganizationalObjective } from '../../types/goals';
 
@@ -22,15 +22,15 @@ const STATUS_STYLE: Record<GoalStatus, { bg: string; color: string; label: strin
 };
 
 export default function GoalsPage() {
-  const employeeId = getCurrentUserId();
+  const [employeeId, setEmployeeId] = useState<string | null>(null);
   const [goals, setGoals] = useState<EmployeeGoal[]>([]);
   const [objectives, setObjectives] = useState<OrganizationalObjective[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  const refresh = async () => {
+  const refresh = async (id: string) => {
     const [g, o] = await Promise.all([
-      listGoals({ employeeId }),
+      listGoals({ employeeId: id }),
       listObjectives({ status: 'active' }),
     ]);
     setGoals(g);
@@ -38,10 +38,31 @@ export default function GoalsPage() {
   };
 
   useEffect(() => {
-    refresh()
-      .catch((err) => setError(err instanceof Error ? err.message : 'Failed to load goals'))
-      .finally(() => setLoading(false));
-  }, [employeeId]);
+    let cancelled = false;
+    (async () => {
+      try {
+        const emp = await resolveCurrentEmployee();
+        if (cancelled) return;
+        if (!emp) {
+          setError(
+            'Could not find your employee record. Ask HR to link your login to an employee profile.'
+          );
+          return;
+        }
+        setEmployeeId(emp._id);
+        await refresh(emp._id);
+      } catch (err) {
+        if (!cancelled) {
+          setError(err instanceof Error ? err.message : 'Failed to load goals');
+        }
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   const objectiveMap = useMemo(() => {
     const map = new Map<string, OrganizationalObjective>();

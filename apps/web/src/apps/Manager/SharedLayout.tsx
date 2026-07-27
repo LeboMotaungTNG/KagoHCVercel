@@ -15,9 +15,12 @@ import {
   TrendingUp,
   Menu,
   LogOut,
+  ChevronDown,
+  ChevronRight,
 } from "lucide-react";
 import {
   sidebarItemStyle,
+  sidebarSubItemStyle,
   SidebarHoverStyle,
   MobileSidebarChrome,
 } from "../../shared/components/sidebarStyles";
@@ -34,17 +37,31 @@ export interface SharedLayoutProps {
 
 const ManagerSidebar: React.FC<{ onLogout: () => void }> = ({ onLogout }) => {
   const location = useLocation();
-  const isActive = (path: string) => location.pathname === path || location.pathname.startsWith(path + "/");
+  const path = location.pathname;
+  const isActive = (p: string) => path === p || path.startsWith(p + "/");
+  const isExact = (p: string) => path === p || path === p + "/";
 
-  const items: { to: string; label: string; icon: React.ReactNode }[] = [
-    { to: "/manager",                  label: "Dashboard",          icon: <Home size={20} style={{ marginRight: 10 }} /> },
-    { to: "/manager/profile",          label: "Employee Profile",   icon: <Users size={20} style={{ marginRight: 10 }} /> },
-    { to: "/manager/employees",        label: "All Employees",      icon: <Users size={20} style={{ marginRight: 10 }} /> },
-    { to: "/manager/attendance",       label: "Attendance",         icon: <Calendar size={20} style={{ marginRight: 10 }} /> },
-    { to: "/manager/leave-requests",   label: "Leave Requests",     icon: <ClipboardList size={20} style={{ marginRight: 10 }} /> },
-    { to: "/manager/performance",      label: "Performance",        icon: <TrendingUp size={20} style={{ marginRight: 10 }} /> },
-    { to: "/manager/team-goals",       label: "Team Goals",         icon: <ClipboardList size={20} style={{ marginRight: 10 }} /> },
-    { to: "/manager/payroll",          label: "Payroll Management", icon: <ClipboardList size={20} style={{ marginRight: 10 }} /> },
+  const inPerformance =
+    isActive("/manager/performance") ||
+    isActive("/manager/team-goals") ||
+    isActive("/manager/insights") ||
+    isActive("/manager/moderate");
+  const [isPerformanceOpen, setIsPerformanceOpen] = React.useState(inPerformance);
+
+  React.useEffect(() => {
+    if (inPerformance) setIsPerformanceOpen(true);
+  }, [inPerformance]);
+
+  const topItems: { to: string; label: string; icon: React.ReactNode; exact?: boolean }[] = [
+    { to: "/manager", label: "Dashboard", icon: <Home size={20} style={{ marginRight: 10 }} />, exact: true },
+    { to: "/manager/profile", label: "Employee Profile", icon: <Users size={20} style={{ marginRight: 10 }} /> },
+    { to: "/manager/employees", label: "All Employees", icon: <Users size={20} style={{ marginRight: 10 }} /> },
+    { to: "/manager/attendance", label: "Attendance", icon: <Calendar size={20} style={{ marginRight: 10 }} /> },
+    { to: "/manager/leave-requests", label: "Leave Requests", icon: <ClipboardList size={20} style={{ marginRight: 10 }} /> },
+  ];
+
+  const bottomItems: { to: string; label: string; icon: React.ReactNode }[] = [
+    { to: "/manager/payroll", label: "Payroll Management", icon: <ClipboardList size={20} style={{ marginRight: 10 }} /> },
   ];
 
   return (
@@ -80,10 +97,82 @@ const ManagerSidebar: React.FC<{ onLogout: () => void }> = ({ onLogout }) => {
               Menu
             </li>
 
-            {items.map(item => {
-              const active = item.to === "/manager"
-                ? location.pathname === "/manager" || location.pathname === "/manager/"
-                : isActive(item.to);
+            {topItems.map((item) => {
+              const active = item.exact ? isExact(item.to) : isActive(item.to);
+              return (
+                <li key={item.to}>
+                  <Link
+                    to={item.to}
+                    className={active ? "sb-active" : ""}
+                    style={sidebarItemStyle(active)}
+                  >
+                    {item.icon}
+                    <span>{item.label}</span>
+                  </Link>
+                </li>
+              );
+            })}
+
+            {/* Performance (collapsible group) */}
+            <li>
+              <div
+                className={`sb-group-toggle ${inPerformance ? "sb-active" : ""}`}
+                style={{ ...sidebarItemStyle(inPerformance), justifyContent: "space-between" }}
+                onClick={() => setIsPerformanceOpen((o) => !o)}
+              >
+                <div style={{ display: "flex", alignItems: "center" }}>
+                  <TrendingUp size={20} style={{ marginRight: 10 }} />
+                  <span>Performance</span>
+                </div>
+                {isPerformanceOpen ? <ChevronDown size={16} /> : <ChevronRight size={16} />}
+              </div>
+              <ul
+                className={`sub-menu ${isPerformanceOpen ? "mm-show" : "mm-collapse"}`}
+                style={{
+                  listStyle: "none",
+                  padding: "4px 12px 6px 44px",
+                  margin: 0,
+                  display: isPerformanceOpen ? "block" : "none",
+                }}
+              >
+                <li>
+                  <Link
+                    to="/manager/performance"
+                    className={
+                      isActive("/manager/performance") || isActive("/manager/moderate")
+                        ? "sb-active"
+                        : ""
+                    }
+                    style={sidebarSubItemStyle(
+                      isActive("/manager/performance") || isActive("/manager/moderate")
+                    )}
+                  >
+                    Reviews
+                  </Link>
+                </li>
+                <li>
+                  <Link
+                    to="/manager/team-goals"
+                    className={isActive("/manager/team-goals") ? "sb-active" : ""}
+                    style={sidebarSubItemStyle(isActive("/manager/team-goals"))}
+                  >
+                    Team goals
+                  </Link>
+                </li>
+                <li>
+                  <Link
+                    to="/manager/insights"
+                    className={isActive("/manager/insights") ? "sb-active" : ""}
+                    style={sidebarSubItemStyle(isActive("/manager/insights"))}
+                  >
+                    Insights
+                  </Link>
+                </li>
+              </ul>
+            </li>
+
+            {bottomItems.map((item) => {
+              const active = isActive(item.to);
               return (
                 <li key={item.to}>
                   <Link
@@ -142,8 +231,8 @@ const ManagerHeader: React.FC = () => {
               className="btn header-item waves-effect"
               style={{ display: "flex", alignItems: "center", gap: "10px" }}
               onClick={() => {
-                localStorage.removeItem('token');
-                localStorage.removeItem('user');
+                localStorage.removeItem("token");
+                localStorage.removeItem("user");
                 navigate("/login");
               }}
             >
@@ -194,34 +283,33 @@ const ManagerFooter: React.FC = () => (
 const SharedLayout: React.FC<SharedLayoutProps> = ({ children }) => {
   const navigate = useNavigate();
   const handleLogout = () => {
-    localStorage.removeItem('token');
-    localStorage.removeItem('user');
+    localStorage.removeItem("token");
+    localStorage.removeItem("user");
     navigate("/login");
   };
   return (
-  <div id="layout-wrapper">
-    <ManagerHeader />
-    <ManagerSidebar onLogout={handleLogout} />
-    <div className="main-content">
-      <div
-        className="page-content"
-        style={{ backgroundColor: "#f9f7f5", minHeight: "100vh" }}
-      >
-        <div className="container-fluid">{children}</div>
+    <div id="layout-wrapper">
+      <ManagerHeader />
+      <ManagerSidebar onLogout={handleLogout} />
+      <div className="main-content">
+        <div
+          className="page-content"
+          style={{ backgroundColor: "#f9f7f5", minHeight: "100vh" }}
+        >
+          <div className="container-fluid">{children}</div>
+        </div>
       </div>
+      <ManagerFooter />
+      <MobileBottomNav
+        items={[
+          { to: "/manager", label: "Home", icon: <Home size={20} /> },
+          { to: "/manager/attendance", label: "Attendance", icon: <Calendar size={20} /> },
+          { to: "/manager/leave-requests", label: "Leave", icon: <ClipboardList size={20} /> },
+          { to: "/manager/performance", label: "Performance", icon: <TrendingUp size={20} /> },
+        ]}
+      />
     </div>
-    <ManagerFooter />
-    <MobileBottomNav
-      items={[
-        { to: "/manager",                label: "Home",       icon: <Home size={20} /> },
-        { to: "/manager/attendance",     label: "Attendance", icon: <Calendar size={20} /> },
-        { to: "/manager/leave-requests", label: "Leave",      icon: <ClipboardList size={20} /> },
-        { to: "/manager/employees",      label: "Team",       icon: <Users size={20} /> },
-      ]}
-    />
-  </div>
   );
 };
 
 export default SharedLayout;
- 

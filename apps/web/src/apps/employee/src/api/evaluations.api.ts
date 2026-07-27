@@ -1,7 +1,7 @@
 // Endpoints for evaluations + CEO moderation workflow.
 // Mock branch mirrors the intended backend behaviour.
 
-import { http, USE_MOCKS } from './httpClient';
+import { http, USE_MOCKS, ApiError } from './httpClient';
 import { mockEvaluations, mockSnapshotCustomerSupport } from '../mocks/mockEvaluations';
 import { listGoals, listObjectives } from './goals.api';
 import { buildGoalSnapshot, GOALS_MAX_MARKS, scoreGoalSnapshot } from '../utils/goalScoring';
@@ -46,13 +46,27 @@ function empRefOf(e: Evaluation): Evaluation['employeeId'] {
   return e.employeeId;
 }
 
+function displayName(e: Evaluation): string {
+  const session = getSessionUser();
+  return (
+    empNameOf(e) ||
+    [session?.firstName, session?.lastName].filter(Boolean).join(' ') ||
+    getCurrentUserName() ||
+    'An employee'
+  );
+}
+
 async function snapshotGoalsFor(employeeId: string, period: string): Promise<SnapshotGoal[]> {
-  const [goals, objectives] = await Promise.all([
-    listGoals({ employeeId }),
-    listObjectives({ status: 'active' }),
-  ]);
-  const objMap = new Map(objectives.map((o) => [o._id, { title: o.title }]));
-  return buildGoalSnapshot(goals, period, objMap);
+  try {
+    const [goals, objectives] = await Promise.all([
+      listGoals({ employeeId }),
+      listObjectives({ status: 'active' }),
+    ]);
+    const objMap = new Map(objectives.map((o) => [o._id, { title: o.title }]));
+    return buildGoalSnapshot(goals, period, objMap);
+  } catch {
+    return [];
+  }
 }
 
 // Criteria: weightedMark = max × score ÷ 5; Goals: earned = max × assessedProgress ÷ 100
@@ -167,8 +181,31 @@ export async function createEvaluation(payload: {
     evaluationsStore = [...evaluationsStore, scoreEvaluation(draft)];
     return evaluationsStore.find((e) => e._id === draft._id)!;
   }
-  return http.post<Evaluation>('/evaluations', payload);
+  // Resume existing eval when possible to avoid create loops / lag.
+  try {
+    const existing = await http.get<Evaluation[]>(
+      `/evaluations?employeeId=${encodeURIComponent(payload.employeeId)}&period=${encodeURIComponent(payload.period)}&type=${payload.type}`
+    );
+    const list = Array.isArray(existing) ? existing : [];
+    const resumable = list.find((e) =>
+      ['draft', 'submitted', 'manager_in_progress', 'changes_requested', 'pending_owner'].includes(e.status)
+    );
+    if (resumable?._id) return getEvaluationById(resumable._id);
+  } catch {
+    /* list may be restricted for some roles */
+  }
+
+  try {
+    return await http.post<Evaluation>('/evaluations', payload);
+  } catch (err) {
+    if (err instanceof ApiError) {
+      const data = err.data as { evaluationId?: string } | undefined;
+      if (data?.evaluationId) return getEvaluationById(String(data.evaluationId));
+    }
+    throw err;
+  }
 }
+
 
 export async function saveEvaluationScores(
   id: string,
@@ -200,7 +237,11 @@ export async function saveEvaluationScores(
     });
     return evaluationsStore.find((e) => e._id === id)!;
   }
-  return http.put<Evaluation>(`/evaluations/${id}`, payload);
+  const updated = await http.put<Evaluation>(`/evaluations/${id}`, payload);
+  if (!updated?.frameworkSnapshot?.categories?.length) {
+    return getEvaluationById(id);
+  }
+  return updated;
 }
 
 /** Employee submits self-review → manager notified + moderation draft created. */
@@ -272,7 +313,34 @@ export async function submitEvaluation(id: string): Promise<Evaluation> {
 
     return submitted;
   }
-  return http.post<Evaluation>(`/evaluations/${id}/submit`);
+  const result = await http.post<Evaluation & { moderationId?: string }>(`/evaluations/${id}/submit`);
+  const full = result.frameworkSnapshot ? result : await getEvaluationById(id);
+
+  if (full.type === 'self_review') {
+    let moderationId = (result as { moderationId?: string }).moderationId;
+    if (!moderationId) {
+      try {
+        const mods = await queryEvaluations({
+          employeeId: empIdOf(full),
+          period: full.period,
+          type: 'manager_review',
+          pendingModeration: true,
+        });
+        moderationId = mods.find((e) => e.linkedEvaluationId === full._id)?._id;
+      } catch {
+        moderationId = full._id;
+      }
+    }
+    notifySelfReviewSubmitted({
+      employeeName: displayName(full),
+      employeeId: empIdOf(full),
+      evaluationId: full._id,
+      period: full.period,
+      moderationId: String(moderationId || full._id),
+    });
+  }
+
+  return full;
 }
 
 /** Manager submits moderated final review to owner. */
@@ -304,7 +372,15 @@ export async function submitToOwner(id: string): Promise<Evaluation> {
 
     return finalised;
   }
-  return http.post<Evaluation>(`/evaluations/${id}/submit-to-owner`);
+  const result = await http.post<Evaluation>(`/evaluations/${id}/submit-to-owner`);
+  const full = result.frameworkSnapshot ? result : await getEvaluationById(id);
+  notifyReviewPendingOwner({
+    employeeName: displayName(full),
+    employeeId: empIdOf(full),
+    evaluationId: full._id,
+    period: full.period,
+  });
+  return full;
 }
 
 /** Owner accepts (signs off) the final review. */
@@ -331,7 +407,14 @@ export async function signOffEvaluation(id: string): Promise<Evaluation> {
     });
     return updated;
   }
-  return http.post<Evaluation>(`/evaluations/${id}/sign-off`);
+  const result = await http.post<Evaluation>(`/evaluations/${id}/sign-off`);
+  const full = result.frameworkSnapshot ? result : await getEvaluationById(id);
+  notifyReviewAccepted({
+    employeeName: displayName(full),
+    evaluationId: full._id,
+    period: full.period,
+  });
+  return full;
 }
 
 /** Owner rejects the final review — comment required. */
@@ -360,7 +443,15 @@ export async function rejectEvaluation(id: string, comment: string): Promise<Eva
     });
     return updated;
   }
-  return http.post<Evaluation>(`/evaluations/${id}/reject`, { comment: reason });
+  const result = await http.post<Evaluation>(`/evaluations/${id}/reject`, { comment: reason });
+  const full = result.frameworkSnapshot ? result : await getEvaluationById(id);
+  notifyReviewRejected({
+    employeeName: displayName(full),
+    evaluationId: full._id,
+    period: full.period,
+    comment: reason,
+  });
+  return full;
 }
 
 /** Owner requests changes — returns review to manager; comment required. */
@@ -389,7 +480,15 @@ export async function requestChangesEvaluation(id: string, comment: string): Pro
     });
     return updated;
   }
-  return http.post<Evaluation>(`/evaluations/${id}/request-changes`, { comment: reason });
+  const result = await http.post<Evaluation>(`/evaluations/${id}/request-changes`, { comment: reason });
+  const full = result.frameworkSnapshot ? result : await getEvaluationById(id);
+  notifyReviewChangesRequested({
+    employeeName: displayName(full),
+    evaluationId: full._id,
+    period: full.period,
+    comment: reason,
+  });
+  return full;
 }
 
 export async function queryEvaluations(params: {
@@ -441,5 +540,14 @@ export async function queryEvaluations(params: {
       .filter(([, v]) => v !== undefined && v !== false)
       .map(([k, v]) => [k, String(v)])
   ).toString();
-  return http.get<Evaluation[]>(`/evaluations?${qs}`);
+  const data = await http.get<Evaluation[]>(`/evaluations?${qs}`);
+  const list = Array.isArray(data) ? data : [];
+  return list.filter((e) => {
+    if (params.pendingModeration) {
+      if (e.type !== 'manager_review' || !e.linkedEvaluationId) return false;
+      return ['manager_in_progress', 'draft', 'submitted', 'changes_requested'].includes(e.status);
+    }
+    if (params.pendingOwner && e.status !== 'pending_owner') return false;
+    return true;
+  });
 }

@@ -68,7 +68,9 @@ export default function EvaluationForm({
     setComment,
     loading,
     saving,
+    submitting,
     error,
+    isReadOnly,
     save,
     submit,
   } = useEvaluation({ employeeId, period, purpose, type });
@@ -94,7 +96,8 @@ export default function EvaluationForm({
   if (error) return <div className="p-4" style={{ color: C.bad }}>{error}</div>;
   if (!evaluation || !preview) return null;
 
-  const alreadySubmitted = evaluation.status !== 'draft';
+  const alreadySubmitted = evaluation.status !== 'draft' && evaluation.status !== 'manager_in_progress' && evaluation.status !== 'changes_requested';
+  const locked = alreadySubmitted || isReadOnly || submitting;
   const { frameworkSnapshot } = preview;
 
   let lastPillar = '';
@@ -222,7 +225,7 @@ export default function EvaluationForm({
                         maxMarks={crit.maxMarks}
                         score={item?.score ?? 0}
                         comment={item?.comment}
-                        disabled={alreadySubmitted}
+                        disabled={locked}
                         firstPerson={firstPerson}
                         onScoreChange={(score) => setScore(crit.criterionId, cat.categoryId, score)}
                         onCommentChange={(c) => setItemComment(crit.criterionId, cat.categoryId, c)}
@@ -238,7 +241,7 @@ export default function EvaluationForm({
             goals={goalSnapshot}
             goalsEarnedMarks={preview.goalsEarnedMarks}
             goalsMaxMarks={preview.goalsMaxMarks}
-            disabled={alreadySubmitted}
+            disabled={locked}
             onAssessedProgressChange={setGoalProgress}
           />
 
@@ -248,7 +251,7 @@ export default function EvaluationForm({
               rows={4}
               value={comment}
               onChange={(e) => setComment(e.target.value)}
-              disabled={alreadySubmitted}
+              disabled={locked}
               style={{ borderRadius: R.md, borderColor: C.line }}
             />
           </SectionCard>
@@ -257,8 +260,8 @@ export default function EvaluationForm({
             <button
               type="button"
               style={perfBtnSecondary}
-              onClick={() => save()}
-              disabled={saving || alreadySubmitted}
+              onClick={() => void save()}
+              disabled={saving || locked}
             >
               {saving ? 'Saving…' : 'Save draft'}
             </button>
@@ -268,16 +271,17 @@ export default function EvaluationForm({
         <div className="col-lg-4">
           <EvaluationSummary
             evaluation={preview}
-            onSubmit={alreadySubmitted ? undefined : () => submit()}
-            saving={saving}
+            onSubmit={locked ? undefined : () => void submit()}
+            saving={saving || submitting}
             alreadySubmitted={alreadySubmitted}
+            submitLabel={submitting ? 'Submitting…' : 'Submit evaluation'}
           />
           <button
             type="button"
             className="w-100 mt-2 d-none d-lg-block"
             style={{ ...perfBtnSecondary, width: '100%' }}
-            onClick={() => save()}
-            disabled={saving || alreadySubmitted}
+            onClick={() => void save()}
+            disabled={saving || locked}
           >
             {saving ? 'Saving…' : 'Save draft'}
           </button>

@@ -9,8 +9,8 @@ export interface PillarSummary {
   maxMarks: number;
 }
 
-export function countTotalCriteria(snapshot: FrameworkSnapshot): number {
-  return snapshot.categories.reduce((sum, cat) => sum + cat.criteria.length, 0);
+export function countTotalCriteria(snapshot: FrameworkSnapshot | null | undefined): number {
+  return (snapshot?.categories ?? []).reduce((sum, cat) => sum + (cat.criteria?.length ?? 0), 0);
 }
 
 export function countScoredCriteria(items: { score: number }[]): number {
@@ -18,30 +18,52 @@ export function countScoredCriteria(items: { score: number }[]): number {
 }
 
 export function buildPillarSummaries(
-  snapshot: FrameworkSnapshot,
-  categoryResults: CategoryResult[],
+  snapshot: FrameworkSnapshot | null | undefined,
+  categoryResults: CategoryResult[] | null | undefined,
   evaluation?: Pick<Evaluation, 'goalsEarnedMarks' | 'goalsMaxMarks' | 'goalSnapshot'>
 ): PillarSummary[] {
   const pillars = new Map<string, PillarSummary>();
+  const results = categoryResults ?? [];
+  const categories = snapshot?.categories ?? [];
 
-  snapshot.categories.forEach((cat) => {
-    const pillar = PILLAR_BY_ORDER[cat.order];
-    if (!pillar) return;
-    const result = categoryResults.find((r) => r.categoryId === cat.categoryId);
-    const earned = result?.earnedMarks ?? 0;
-    const existing = pillars.get(pillar.key);
-    if (existing) {
-      existing.earnedMarks += earned;
-      existing.maxMarks += cat.maxMarks;
-    } else {
-      pillars.set(pillar.key, {
-        key: pillar.key,
-        label: pillar.label,
-        earnedMarks: earned,
-        maxMarks: cat.maxMarks,
-      });
-    }
-  });
+  if (categories.length > 0) {
+    categories.forEach((cat) => {
+      const pillar = PILLAR_BY_ORDER[cat.order];
+      if (!pillar) return;
+      const result = results.find((r) => r.categoryId === cat.categoryId);
+      const earned = result?.earnedMarks ?? 0;
+      const existing = pillars.get(pillar.key);
+      if (existing) {
+        existing.earnedMarks += earned;
+        existing.maxMarks += cat.maxMarks;
+      } else {
+        pillars.set(pillar.key, {
+          key: pillar.key,
+          label: pillar.label,
+          earnedMarks: earned,
+          maxMarks: cat.maxMarks,
+        });
+      }
+    });
+  } else if (results.length > 0) {
+    // List payloads may omit frameworkSnapshot.categories — fall back to results only.
+    results.forEach((result, index) => {
+      const pillar = PILLAR_BY_ORDER[index + 1] ?? PILLAR_BY_ORDER[1];
+      if (!pillar) return;
+      const existing = pillars.get(pillar.key);
+      if (existing) {
+        existing.earnedMarks += result.earnedMarks ?? 0;
+        existing.maxMarks += result.maxMarks ?? 0;
+      } else {
+        pillars.set(pillar.key, {
+          key: pillar.key,
+          label: pillar.label,
+          earnedMarks: result.earnedMarks ?? 0,
+          maxMarks: result.maxMarks ?? 0,
+        });
+      }
+    });
+  }
 
   const goalsMax = evaluation?.goalsMaxMarks ?? GOALS_MAX_MARKS;
   const goalsEarned = evaluation?.goalsEarnedMarks ?? 0;

@@ -1,7 +1,7 @@
 import React, { useState } from "react";
 import { Link, useNavigate, Routes, Route, useLocation, Navigate } from "react-router-dom";
 import {
-  Users, Building2, Home, PenTool, Menu, LogOut, Award, ChevronDown, ChevronRight, Rocket, Target, LineChart,
+  Users, Building2, Home, Menu, LogOut, Award, ChevronDown, ChevronRight, Rocket, TrendingUp,
 } from "lucide-react";
 import {
   sidebarItemStyle,
@@ -40,13 +40,27 @@ const OwnerSidebar = () => {
   const hcSubPaths = ["/owner/managers", "/owner/employees", "/owner/manage-employees"];
   const inHumanCapital = isInGroup(...hcSubPaths);
 
+  const perfSubPaths = [
+    "/owner/reviews",
+    "/owner/employee-review",
+    "/owner/frameworks",
+    "/owner/objectives",
+    "/owner/analytics",
+  ];
+  const inPerformance = isInGroup(...perfSubPaths);
+
   // Sub-menu is open whenever the user is on one of the HC pages OR they
   // have manually expanded it.
   const [isHumanCapitalOpen, setIsHumanCapitalOpen] = useState<boolean>(inHumanCapital);
+  const [isPerformanceOpen, setIsPerformanceOpen] = useState<boolean>(inPerformance);
 
   React.useEffect(() => {
     if (inHumanCapital) setIsHumanCapitalOpen(true);
   }, [inHumanCapital]);
+
+  React.useEffect(() => {
+    if (inPerformance) setIsPerformanceOpen(true);
+  }, [inPerformance]);
 
   return (
     <div className="vertical-menu kago-sidebar" style={{ backgroundColor: "#000", top: 0, zIndex: 1005, paddingTop: "20px" }}>
@@ -129,42 +143,61 @@ const OwnerSidebar = () => {
               </ul>
             </li>
 
-            {/* Performance */}
+            {/* Performance (collapsible group) */}
             <li>
-              <Link to="/owner/reviews"
-                className={isExact("/owner/reviews") || isExact("/owner/employee-review") ? "sb-active" : ""}
-                style={sidebarItemStyle(isExact("/owner/reviews") || isExact("/owner/employee-review"))}
+              <div
+                className={`sb-group-toggle ${inPerformance ? "sb-active" : ""}`}
+                style={{ ...sidebarItemStyle(inPerformance), justifyContent: "space-between" }}
+                onClick={() => setIsPerformanceOpen(o => !o)}
               >
-                <PenTool size={20} style={{ marginRight: "10px" }} />
-                <span>Reviews</span>
-              </Link>
-            </li>
-            <li>
-              <Link to="/owner/frameworks"
-                className={isInGroup("/owner/frameworks") ? "sb-active" : ""}
-                style={sidebarItemStyle(isInGroup("/owner/frameworks"))}
+                <div style={{ display: "flex", alignItems: "center" }}>
+                  <TrendingUp size={20} style={{ marginRight: "10px" }} />
+                  <span>Performance</span>
+                </div>
+                {isPerformanceOpen ? <ChevronDown size={16} /> : <ChevronRight size={16} />}
+              </div>
+              <ul
+                className={`sub-menu ${isPerformanceOpen ? "mm-show" : "mm-collapse"}`}
+                style={{
+                  listStyle: "none",
+                  padding: "4px 12px 6px 44px",
+                  margin: 0,
+                  display: isPerformanceOpen ? "block" : "none",
+                }}
               >
-                <Award size={20} style={{ marginRight: "10px" }} />
-                <span>Frameworks</span>
-              </Link>
-            </li>
-            <li>
-              <Link to="/owner/objectives"
-                className={isExact("/owner/objectives") ? "sb-active" : ""}
-                style={sidebarItemStyle(isExact("/owner/objectives"))}
-              >
-                <Target size={20} style={{ marginRight: "10px" }} />
-                <span>Objectives</span>
-              </Link>
-            </li>
-            <li>
-              <Link to="/owner/analytics"
-                className={isExact("/owner/analytics") ? "sb-active" : ""}
-                style={sidebarItemStyle(isExact("/owner/analytics"))}
-              >
-                <LineChart size={20} style={{ marginRight: "10px" }} />
-                <span>Analytics</span>
-              </Link>
+                <li>
+                  <Link to="/owner/reviews"
+                    className={isExact("/owner/reviews") || isExact("/owner/employee-review") ? "sb-active" : ""}
+                    style={sidebarSubItemStyle(isExact("/owner/reviews") || isExact("/owner/employee-review"))}
+                  >
+                    Reviews
+                  </Link>
+                </li>
+                <li>
+                  <Link to="/owner/frameworks"
+                    className={isInGroup("/owner/frameworks") ? "sb-active" : ""}
+                    style={sidebarSubItemStyle(isInGroup("/owner/frameworks"))}
+                  >
+                    Frameworks
+                  </Link>
+                </li>
+                <li>
+                  <Link to="/owner/objectives"
+                    className={isExact("/owner/objectives") ? "sb-active" : ""}
+                    style={sidebarSubItemStyle(isExact("/owner/objectives"))}
+                  >
+                    Objectives
+                  </Link>
+                </li>
+                <li>
+                  <Link to="/owner/analytics"
+                    className={isExact("/owner/analytics") ? "sb-active" : ""}
+                    style={sidebarSubItemStyle(isExact("/owner/analytics"))}
+                  >
+                    Analytics
+                  </Link>
+                </li>
+              </ul>
             </li>
 
             {/* Organization Settings */}

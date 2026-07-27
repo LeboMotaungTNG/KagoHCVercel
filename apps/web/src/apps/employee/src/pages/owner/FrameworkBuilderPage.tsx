@@ -4,7 +4,7 @@
 // and assign-to-department control.
 
 import { useParams } from 'react-router-dom';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Layers, Building2, AlertTriangle } from 'lucide-react';
 import { useFrameworkBuilder } from '../../hooks/useFrameworkBuilder';
 import {
@@ -36,18 +36,41 @@ export default function FrameworkBuilderPage() {
   } = useFrameworkBuilder(id);
 
   const [department, setDepartment] = useState('');
+  const [assigning, setAssigning] = useState(false);
   const [assignMessage, setAssignMessage] = useState<string | null>(null);
+  const [assignError, setAssignError] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (framework?.department && !department) {
+      setDepartment(framework.department);
+    }
+  }, [framework?.department, department]);
 
   if (loading) return <div className="p-4" style={{ color: C.muted }}>Loading framework…</div>;
   if (!framework) return <div className="p-4" style={{ color: C.bad }}>Framework not found.</div>;
 
   const canPublish = liveErrors.length === 0 && framework.status === 'draft';
   const isPublished = framework.status === 'published';
+  const canAssign = isPublished && Boolean(department.trim()) && !assigning;
 
   const handleAssign = async () => {
-    if (!department) return;
-    await assign({ scope: 'department', department });
-    setAssignMessage(`Assigned to ${department}.`);
+    if (!department.trim()) {
+      setAssignError('Enter a department name that matches employee profiles.');
+      return;
+    }
+    setAssigning(true);
+    setAssignError(null);
+    setAssignMessage(null);
+    try {
+      await assign({ scope: 'department', department: department.trim() });
+      setAssignMessage(
+        `Assigned to “${department.trim()}”. Employees with that department can use this framework.`
+      );
+    } catch (err) {
+      setAssignError(err instanceof Error ? err.message : 'Failed to assign framework');
+    } finally {
+      setAssigning(false);
+    }
   };
 
   return (
@@ -167,31 +190,41 @@ export default function FrameworkBuilderPage() {
       })}
 
       <SectionCard icon={<Building2 size={16} />} title="Assign to department">
+        <p style={{ fontSize: 13, color: C.muted, marginBottom: 12 }}>
+          Defaults to this framework’s department. Change it only if employee profiles use a different name.
+        </p>
         <div className="d-flex flex-wrap gap-2">
           <input
             className="form-control"
-            style={{ flex: '1 1 200px', borderRadius: R.md, borderColor: C.line }}
-            placeholder="e.g. IT / Engineering"
+            style={{ flex: '1 1 240px', borderRadius: R.md, borderColor: C.line }}
             value={department}
-            onChange={(e) => setDepartment(e.target.value)}
+            placeholder={framework.department || 'e.g. Customer Support'}
+            onChange={(e) => {
+              setDepartment(e.target.value);
+              setAssignError(null);
+              setAssignMessage(null);
+            }}
           />
           <button
             type="button"
             onClick={handleAssign}
-            disabled={!isPublished}
+            disabled={!canAssign}
             style={{
-              ...(isPublished ? perfBtnPrimary : perfBtnGhost),
-              opacity: isPublished ? 1 : 0.6,
-              cursor: isPublished ? 'pointer' : 'not-allowed',
+              ...(canAssign ? perfBtnPrimary : perfBtnGhost),
+              opacity: canAssign ? 1 : 0.6,
+              cursor: canAssign ? 'pointer' : 'not-allowed',
             }}
           >
-            Assign
+            {assigning ? 'Assigning…' : 'Assign'}
           </button>
         </div>
         {!isPublished && (
           <div style={{ fontSize: 12, color: C.muted, marginTop: 8 }}>
             Publish the framework before assigning it.
           </div>
+        )}
+        {assignError && (
+          <div style={{ fontSize: 13, color: C.bad, marginTop: 8, fontWeight: 600 }}>{assignError}</div>
         )}
         {assignMessage && (
           <div style={{ fontSize: 13, color: C.ok, marginTop: 8, fontWeight: 600 }}>{assignMessage}</div>
