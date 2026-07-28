@@ -1,15 +1,14 @@
 // src/api/httpClient.ts
 //
-// Thin fetch wrapper. Reads VITE_API_URL exactly as specified in the handoff
-// ("Base URL: VITE_API_URL/api/v1"). Set VITE_USE_MOCKS=true in .env.local to
-// build every screen against the mock data in src/mocks/ before Stage 3
-// (evaluation controllers) lands on the backend.
+// Thin fetch wrapper. VITE_API_URL already includes `/api/v1` (same as the rest
+// of the app via apiBase). Opt into mocks only with VITE_USE_MOCKS=true.
 
-const BASE_URL = `${import.meta.env.VITE_API_URL}/api/v1`;
+import { API_BASE } from '../../../../shared/utils/apiBase';
 
-// Default to mocks until backend evaluation endpoints are live.
-// Set VITE_USE_MOCKS=false in production when APIs are ready.
-export const USE_MOCKS = import.meta.env.VITE_USE_MOCKS !== 'false';
+const BASE_URL = API_BASE;
+
+// Live API by default. Set VITE_USE_MOCKS=true for offline mock data.
+export const USE_MOCKS = import.meta.env.VITE_USE_MOCKS === 'true';
 
 function getToken(): string | null {
   return localStorage.getItem('token');
@@ -17,10 +16,12 @@ function getToken(): string | null {
 
 export class ApiError extends Error {
   status: number;
-  constructor(status: number, message: string) {
+  data?: unknown;
+  constructor(status: number, message: string, data?: unknown) {
     super(message);
     this.status = status;
     this.name = 'ApiError';
+    this.data = data;
   }
 }
 
@@ -40,7 +41,7 @@ async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
 
   if (!res.ok || body?.success === false) {
     const message = body?.message || body?.errors?.join(', ') || res.statusText;
-    throw new ApiError(res.status, message);
+    throw new ApiError(res.status, message, body?.data ?? body);
   }
 
   // Backend envelope is always { success, data }. Unwrap it here so callers

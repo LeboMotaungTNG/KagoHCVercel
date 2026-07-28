@@ -124,3 +124,40 @@ export async function assignFramework(id: string, payload: AssignPayload): Promi
   }
   return http.post<void>(`/tenant/frameworks/${id}/assign`, payload);
 }
+
+/**
+ * One-click activate: adopt (if needed) → publish (if draft) → assign to department.
+ * System frameworks are already weight-valid, so owners can skip the builder.
+ */
+export async function activateFramework(
+  sourceFrameworkId: string,
+  department: string,
+  existing?: TenantFramework | null
+): Promise<TenantFramework> {
+  const dept = department.trim();
+  if (!dept) throw new Error('Select a department to activate this framework.');
+
+  let fw = existing ?? null;
+
+  if (!fw) {
+    fw = await adoptFramework(sourceFrameworkId);
+  }
+
+  if (fw.status === 'draft') {
+    try {
+      fw = await publishFramework(fw._id);
+    } catch (err) {
+      // Already published on another request — reload and continue to assign
+      const message = err instanceof Error ? err.message : '';
+      if (!/already published/i.test(message)) throw err;
+      fw = await getTenantFramework(fw._id);
+    }
+  }
+
+  if (fw.status !== 'published') {
+    throw new Error('Framework could not be published. Open Customise to fix weights, then try again.');
+  }
+
+  await assignFramework(fw._id, { scope: 'department', department: dept });
+  return fw;
+}

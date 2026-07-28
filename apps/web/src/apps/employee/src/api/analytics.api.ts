@@ -34,13 +34,15 @@ export async function getPerformanceAnalytics(params?: {
   employeeId?: string;
   department?: string;
 }): Promise<PerformanceAnalytics> {
-  if (USE_MOCKS) {
+  // Prefer client-side analytics from scoped evaluations/goals so employees
+  // never receive another person's recommendations via a missing API.
+  const buildLocal = async () => {
     const [evaluations, goals] = await Promise.all([
       queryEvaluations({
         employeeId: params?.employeeId,
         department: params?.department,
       }),
-      listGoals({ employeeId: params?.employeeId }),
+      listGoals({ employeeId: params?.employeeId }).catch(() => []),
     ]);
     const analytics = buildPerformanceAnalytics(evaluations, goals);
     const decisions = readDecisions();
@@ -48,9 +50,22 @@ export async function getPerformanceAnalytics(params?: {
       ...analytics,
       recommendations: applyRecommendationDecisions(analytics.recommendations, decisions),
     };
+  };
+
+  if (USE_MOCKS) {
+    return buildLocal();
   }
-  const qs = new URLSearchParams(params as Record<string, string>).toString();
-  return http.get(`/analytics/performance${qs ? `?${qs}` : ''}`);
+
+  try {
+    const qs = new URLSearchParams(
+      Object.entries(params || {})
+        .filter(([, v]) => v !== undefined && v !== '')
+        .map(([k, v]) => [k, String(v)])
+    ).toString();
+    return await http.get(`/analytics/performance${qs ? `?${qs}` : ''}`);
+  } catch {
+    return buildLocal();
+  }
 }
 
 export async function updateRecommendation(

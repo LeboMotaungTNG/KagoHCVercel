@@ -28,10 +28,7 @@ export const dispatchNotificationsUpdated = (): void => {
   window.dispatchEvent(new CustomEvent(NOTIFICATIONS_UPDATED_EVENT));
 };
 
-export const loadNotifications = (
-  role: NotificationRole,
-  email?: string,
-): AppNotification[] => {
+const readBucket = (role: NotificationRole, email?: string): AppNotification[] => {
   try {
     const raw = localStorage.getItem(storageKey(role, email));
     if (!raw) return [];
@@ -40,6 +37,24 @@ export const loadNotifications = (
   } catch {
     return [];
   }
+};
+
+export const loadNotifications = (
+  role: NotificationRole,
+  email?: string,
+): AppNotification[] => {
+  const byEmail = readBucket(role, email);
+  // Always merge the role-wide "default" bucket so workflow events show up
+  // even when writers don't know every manager/owner email.
+  if (email && email.toLowerCase().trim() !== "default") {
+    const shared = readBucket(role, "default");
+    const map = new Map<string, AppNotification>();
+    [...shared, ...byEmail].forEach((n) => map.set(n.id, n));
+    return Array.from(map.values()).sort(
+      (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime(),
+    );
+  }
+  return byEmail;
 };
 
 export const saveNotifications = (
@@ -265,7 +280,6 @@ const pushNotification = (
   },
   email?: string,
 ): void => {
-  const items = loadNotifications(role, email);
   const next: AppNotification = {
     id: notification.id ?? `n-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
     createdAt: notification.createdAt ?? new Date().toISOString(),
@@ -275,7 +289,16 @@ const pushNotification = (
     body: notification.body,
     href: notification.href,
   };
-  saveNotifications([next, ...items.filter((n) => n.id !== next.id)], role, email);
+
+  // Role-wide inbox so any manager/owner session sees workflow events.
+  const shared = readBucket(role, "default").filter((n) => n.id !== next.id);
+  saveNotifications([next, ...shared], role, "default");
+
+  const target = email?.toLowerCase().trim();
+  if (target && target !== "default") {
+    const items = readBucket(role, target).filter((n) => n.id !== next.id);
+    saveNotifications([next, ...items], role, target);
+  }
 };
 
 export const notifySelfReviewSubmitted = (payload: {
@@ -318,6 +341,12 @@ export const notifyReviewAccepted = (payload: {
     body: `Owner accepted ${payload.employeeName}'s ${payload.period} review.`,
     href: "/manager/performance",
   });
+  pushNotification("employee", {
+    category: "system",
+    title: "Review accepted",
+    body: `Your ${payload.period} performance review was accepted.`,
+    href: "/employee/performance/results",
+  });
 };
 
 export const notifyReviewRejected = (payload: {
@@ -331,6 +360,12 @@ export const notifyReviewRejected = (payload: {
     title: "Review rejected",
     body: `${payload.employeeName}'s ${payload.period} review was rejected: ${payload.comment}`,
     href: "/manager/performance",
+  });
+  pushNotification("employee", {
+    category: "system",
+    title: "Review rejected",
+    body: `Your ${payload.period} review was rejected: ${payload.comment}`,
+    href: "/employee/performance/results",
   });
 };
 

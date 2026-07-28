@@ -9,7 +9,7 @@ import {
   PerformancePage,
   StatTile,
 } from '../../components/PerformanceUI';
-import { getCurrentUserId } from '../../utils/session';
+import { resolveCurrentEmployee } from '../../utils/resolveEmployee';
 import { buildPillarSummaries } from '../../utils/scoring';
 import { C, R, SHADOW, FONT_NUM } from '../../../../../shared/utils/employee';
 import type { Evaluation, EvaluationStatus } from '../../types/evaluation';
@@ -26,7 +26,9 @@ const STATUS_STYLES: Record<EvaluationStatus, { bg: string; color: string; label
 };
 
 function ScoreRing({ score, max = 100, size = 72 }: { score: number; max?: number; size?: number }) {
-  const pct = max > 0 ? Math.min(100, (score / max) * 100) : 0;
+  const safeScore = Number.isFinite(score) ? score : 0;
+  const safeMax = Number.isFinite(max) && max > 0 ? max : 100;
+  const pct = Math.min(100, (safeScore / safeMax) * 100);
   return (
     <div
       style={{
@@ -54,9 +56,9 @@ function ScoreRing({ score, max = 100, size = 72 }: { score: number; max?: numbe
         }}
       >
         <span style={{ fontSize: size > 60 ? 18 : 15, fontWeight: 700, color: C.ink, lineHeight: 1 }}>
-          {score.toFixed(0)}
+          {safeScore.toFixed(0)}
         </span>
-        <span style={{ fontSize: 10, color: C.muted }}>/{max}</span>
+        <span style={{ fontSize: 10, color: C.muted }}>/{safeMax}</span>
       </div>
     </div>
   );
@@ -70,21 +72,41 @@ export default function ResultsPage() {
   const [loading, setLoading] = useState(true);
   const [viewMode, setViewMode] = useState<ViewMode>('list');
 
-  const employeeId = getCurrentUserId();
+  const [employeeId, setEmployeeId] = useState<string | null>(null);
 
   useEffect(() => {
-    if (!employeeId) return;
-    queryEvaluations({ employeeId })
-      .then(setEvaluations)
-      .finally(() => setLoading(false));
-  }, [employeeId]);
+    let cancelled = false;
+    (async () => {
+      try {
+        const emp = await resolveCurrentEmployee();
+        if (cancelled) return;
+        if (!emp) {
+          setEvaluations([]);
+          return;
+        }
+        setEmployeeId(emp._id);
+        try {
+          const list = await queryEvaluations({ employeeId: emp._id });
+          if (!cancelled) setEvaluations(Array.isArray(list) ? list : []);
+        } catch {
+          if (!cancelled) setEvaluations([]);
+        }
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   const stats = useMemo(() => {
     const managerReviews = evaluations.filter((e) => e.type === 'manager_review');
     const latest = [...managerReviews].sort((a, b) => b.period.localeCompare(a.period))[0];
     const pendingAck = managerReviews.filter((e) => e.status === 'submitted').length;
+    const score = latest?.overallScore;
     return {
-      latestScore: latest ? latest.overallScore.toFixed(1) : '—',
+      latestScore: typeof score === 'number' && Number.isFinite(score) ? score.toFixed(1) : '—',
       latestBand: latest?.ratingBand ?? '',
       total: evaluations.length,
       pendingAck,
@@ -104,11 +126,18 @@ export default function ResultsPage() {
 
   const compareMode = viewMode === 'compare';
 
-  if (!employeeId) return <div className="p-4 text-danger">Please log in to view your reviews.</div>;
   if (loading) {
     return (
       <div className="d-flex align-items-center justify-content-center py-5" style={{ color: C.muted }}>
         Loading your reviews…
+      </div>
+    );
+  }
+
+  if (!employeeId) {
+    return (
+      <div className="p-4" style={{ color: C.bad }}>
+        Could not find your employee record. Ask HR to link your login to an employee profile.
       </div>
     );
   }
@@ -175,11 +204,13 @@ export default function ResultsPage() {
           const isExpanded = expandedId === evaluation._id;
           const statusStyle = STATUS_STYLES[evaluation.status] ?? STATUS_STYLES.draft;
           const isManager = evaluation.type === 'manager_review';
-          const pillars = buildPillarSummaries(
-            evaluation.frameworkSnapshot,
-            evaluation.categoryResults,
-            evaluation
-          );
+          const snapshot = evaluation.frameworkSnapshot;
+          const categoryResults = evaluation.categoryResults ?? [];
+          const pillars = buildPillarSummaries(snapshot, categoryResults, evaluation);
+          const overallScore = Number(evaluation.overallScore) || 0;
+          const maxScore = Number(evaluation.maxScore) || 100;
+          const frameworkName = snapshot?.name || 'Performance framework';
+          const purposeLabel = String(evaluation.purpose || 'review').replace(/_/g, ' ');
 
           return (
             <div
@@ -207,7 +238,7 @@ export default function ResultsPage() {
                   cursor: 'pointer',
                 }}
               >
-                <ScoreRing score={evaluation.overallScore} max={evaluation.maxScore} />
+                <ScoreRing score={overallScore} max={maxScore} />
 
                 <div style={{ flex: 1, minWidth: 0 }}>
                   <div className="d-flex align-items-center flex-wrap gap-2 mb-1">
@@ -238,7 +269,7 @@ export default function ResultsPage() {
                     </span>
                   </div>
                   <div style={{ fontSize: 13, color: C.muted }}>
-                    {evaluation.frameworkSnapshot.name} · {evaluation.purpose.replace('_', ' ')}
+                    {frameworkName} · {purposeLabel}
                   </div>
                   {evaluation.ratingBand && (
                     <div className="mt-2">
@@ -267,6 +298,11 @@ export default function ResultsPage() {
                     >
                       Pillar breakdown
                     </div>
+                    {pillars.length === 0 && (
+                      <div style={{ fontSize: 13, color: C.muted }}>
+                        Detailed pillar breakdown isn’t available in the list view yet.
+                      </div>
+                    )}
                     {pillars.map((pillar) => {
                       const pct = pillar.maxMarks > 0 ? (pillar.earnedMarks / pillar.maxMarks) * 100 : 0;
                       return (
@@ -274,7 +310,7 @@ export default function ResultsPage() {
                           <div className="d-flex justify-content-between small mb-1">
                             <span style={{ fontWeight: 600, color: C.text }}>{pillar.label}</span>
                             <span style={{ color: C.muted, ...FONT_NUM }}>
-                              {pillar.earnedMarks.toFixed(1)} / {pillar.maxMarks}
+                              {(pillar.earnedMarks ?? 0).toFixed(1)} / {pillar.maxMarks}
                             </span>
                           </div>
                           <div style={{ height: 6, borderRadius: 3, background: C.line, overflow: 'hidden' }}>
@@ -293,7 +329,7 @@ export default function ResultsPage() {
                     })}
                   </div>
 
-                  {evaluation.categoryResults.length > 0 && (
+                  {categoryResults.length > 0 && (
                     <div className="mb-3">
                       <div
                         style={{
@@ -314,7 +350,7 @@ export default function ResultsPage() {
                           padding: '10px 14px',
                         }}
                       >
-                        {evaluation.categoryResults.map((cat) => (
+                        {categoryResults.map((cat) => (
                           <div
                             key={cat.categoryId}
                             className="d-flex justify-content-between py-1"
@@ -322,7 +358,7 @@ export default function ResultsPage() {
                           >
                             <span>{cat.name}</span>
                             <span style={{ ...FONT_NUM, color: C.muted }}>
-                              {cat.earnedMarks.toFixed(1)} / {cat.maxMarks}
+                              {(cat.earnedMarks ?? 0).toFixed(1)} / {cat.maxMarks}
                             </span>
                           </div>
                         ))}
@@ -390,7 +426,9 @@ export default function ResultsPage() {
             const manager = evals.find((e) => e.type === 'manager_review');
             const self = evals.find((e) => e.type === 'self_review');
             if (!manager || !self) return null;
-            const gap = Math.abs(manager.percentScore - self.percentScore);
+            const managerPct = Number(manager.percentScore) || 0;
+            const selfPct = Number(self.percentScore) || 0;
+            const gap = Math.abs(managerPct - selfPct);
 
             return (
               <div
@@ -407,7 +445,7 @@ export default function ResultsPage() {
                 <div style={{ fontWeight: 700, color: C.ink, fontSize: 16, marginBottom: 16 }}>{period}</div>
                 <div className="row g-3 align-items-center">
                   <div className="col-5 text-center">
-                    <ScoreRing score={self.overallScore} max={self.maxScore} size={80} />
+                    <ScoreRing score={Number(self.overallScore) || 0} max={Number(self.maxScore) || 100} size={80} />
                     <div style={{ fontSize: 12, color: C.muted, marginTop: 8, fontWeight: 600 }}>Self-assessed</div>
                     <RatingBadge label={self.ratingBand} color={self.ratingColor} />
                   </div>
@@ -415,7 +453,11 @@ export default function ResultsPage() {
                     vs
                   </div>
                   <div className="col-5 text-center">
-                    <ScoreRing score={manager.overallScore} max={manager.maxScore} size={80} />
+                    <ScoreRing
+                      score={Number(manager.overallScore) || 0}
+                      max={Number(manager.maxScore) || 100}
+                      size={80}
+                    />
                     <div style={{ fontSize: 12, color: C.muted, marginTop: 8, fontWeight: 600 }}>Manager-assessed</div>
                     <RatingBadge label={manager.ratingBand} color={manager.ratingColor} />
                   </div>

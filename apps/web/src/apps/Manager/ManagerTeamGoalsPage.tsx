@@ -5,7 +5,7 @@ import { Plus, Target, UserPlus } from 'lucide-react';
 import SharedLayout from './SharedLayout';
 import { createGoal, listGoals, listObjectives } from '../employee/src/api/goals.api';
 import type { EmployeeGoal, GoalPriority, OrganizationalObjective } from '../employee/src/types/goals';
-import { C, R } from '../../shared/utils/employee';
+import { API_URL, C, R, normalizeEmployeeList } from '../../shared/utils/employee';
 import {
   EmptyState,
   PageHero,
@@ -17,15 +17,40 @@ import {
   perfBtnSecondary,
 } from '../employee/src/components/PerformanceUI';
 
-const DEMO_TEAM = [
-  { id: 'emp-demo', name: 'Naledi Khumalo', department: 'Customer Support', designation: 'Senior Consultant' },
-  { id: 'emp-2', name: 'Thabo Nkosi', department: 'IT / Engineering', designation: 'Software Engineer' },
-  { id: 'emp-3', name: 'Lerato Mokoena', department: 'Sales', designation: 'Account Executive' },
-];
+type TeamMember = {
+  id: string;
+  name: string;
+  department: string;
+  designation: string;
+};
 
-const TEAM_IDS = new Set(DEMO_TEAM.map((m) => m.id));
+function mapEmployee(raw: any): TeamMember | null {
+  const id = String(raw?._id ?? raw?.id ?? '').trim();
+  if (!id) return null;
+  const first = String(raw?.firstName ?? raw?.first_name ?? '').trim();
+  const last = String(raw?.lastName ?? raw?.last_name ?? '').trim();
+  const full =
+    `${first} ${last}`.trim() ||
+    String(raw?.full_name ?? raw?.fullName ?? raw?.name ?? '').trim() ||
+    String(raw?.email ?? id);
+  return {
+    id,
+    name: full,
+    department: String(raw?.department ?? raw?.departmentName ?? '—'),
+    designation: String(raw?.designation ?? raw?.jobTitle ?? raw?.title ?? raw?.role ?? 'Employee'),
+  };
+}
+
+function goalEmployeeId(goal: EmployeeGoal): string {
+  const raw = goal.employeeId as unknown;
+  if (raw && typeof raw === 'object' && '_id' in (raw as object)) {
+    return String((raw as { _id: string })._id);
+  }
+  return String(raw ?? '');
+}
 
 export default function ManagerTeamGoalsPage() {
+  const [team, setTeam] = useState<TeamMember[]>([]);
   const [goals, setGoals] = useState<EmployeeGoal[]>([]);
   const [objectives, setObjectives] = useState<OrganizationalObjective[]>([]);
   const [loading, setLoading] = useState(true);
@@ -34,7 +59,7 @@ export default function ManagerTeamGoalsPage() {
   const [error, setError] = useState<string | null>(null);
   const [filterEmployeeId, setFilterEmployeeId] = useState('');
 
-  const [employeeId, setEmployeeId] = useState(DEMO_TEAM[0].id);
+  const [employeeId, setEmployeeId] = useState('');
   const [objectiveId, setObjectiveId] = useState('');
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
@@ -43,8 +68,25 @@ export default function ManagerTeamGoalsPage() {
   const [dueDate, setDueDate] = useState('2026-06-30');
 
   const refresh = async () => {
-    const [g, o] = await Promise.all([listGoals(), listObjectives({ status: 'active' })]);
-    setGoals(g.filter((goal) => TEAM_IDS.has(goal.employeeId)));
+    const token = localStorage.getItem('token');
+    const headers: HeadersInit = token ? { Authorization: `Bearer ${token}` } : {};
+
+    const [g, o, empRes] = await Promise.all([
+      listGoals(),
+      listObjectives({ status: 'active' }),
+      fetch(`${API_URL}/employees`, { headers }).then((r) => r.json()),
+    ]);
+
+    const members = normalizeEmployeeList(empRes)
+      .map(mapEmployee)
+      .filter((m): m is TeamMember => Boolean(m))
+      .sort((a, b) => a.name.localeCompare(b.name));
+
+    const memberIdSet = new Set(members.map((m) => m.id));
+
+    setTeam(members);
+    setEmployeeId((prev) => (prev && members.some((m) => m.id === prev) ? prev : members[0]?.id ?? ''));
+    setGoals(g.filter((goal) => memberIdSet.has(goalEmployeeId(goal))));
     setObjectives(o);
     if (!objectiveId && o[0]) setObjectiveId(o[0]._id);
   };
@@ -63,18 +105,18 @@ export default function ManagerTeamGoalsPage() {
   }, [objectives]);
 
   const nameById = useMemo(() => {
-    const map = new Map(DEMO_TEAM.map((m) => [m.id, m.name]));
+    const map = new Map(team.map((m) => [m.id, m.name]));
     return map;
-  }, []);
+  }, [team]);
 
   const visibleGoals = filterEmployeeId
-    ? goals.filter((g) => g.employeeId === filterEmployeeId)
+    ? goals.filter((g) => goalEmployeeId(g) === filterEmployeeId)
     : goals;
 
-  const selectedMember = DEMO_TEAM.find((m) => m.id === employeeId) ?? DEMO_TEAM[0];
+  const selectedMember = team.find((m) => m.id === employeeId) ?? team[0];
 
   const handleAssign = async () => {
-    if (!title.trim() || !objectiveId || !employeeId) {
+    if (!title.trim() || !objectiveId || !employeeId || !selectedMember) {
       setError('Select a team member, objective, and goal title.');
       return;
     }
@@ -116,7 +158,7 @@ export default function ManagerTeamGoalsPage() {
           title="Assign team goals"
           subtitle="Link each person's goals to an organisational objective. Assigned goals feed the Goals pillar (20 pts) at review time."
           actions={
-            <button type="button" onClick={() => setShowForm((v) => !v)} style={perfBtnHero}>
+            <button type="button" onClick={() => setShowForm((v) => !v)} style={perfBtnHero} disabled={!team.length}>
               <UserPlus size={16} />
               {showForm ? 'Cancel' : 'Assign goal'}
             </button>
@@ -160,7 +202,8 @@ export default function ManagerTeamGoalsPage() {
                   value={employeeId}
                   onChange={(e) => setEmployeeId(e.target.value)}
                 >
-                  {DEMO_TEAM.map((m) => (
+                  {team.length === 0 && <option value="">No employees found</option>}
+                  {team.map((m) => (
                     <option key={m.id} value={m.id}>
                       {m.name} · {m.department}
                     </option>
@@ -246,7 +289,7 @@ export default function ManagerTeamGoalsPage() {
               <div className="col-12 col-md-3 d-flex align-items-end">
                 <button
                   type="button"
-                  disabled={saving || !objectives.length}
+                  disabled={saving || !objectives.length || !team.length}
                   onClick={handleAssign}
                   style={{
                     ...perfBtnPrimary,
@@ -255,7 +298,7 @@ export default function ManagerTeamGoalsPage() {
                     display: 'inline-flex',
                     alignItems: 'center',
                     gap: 8,
-                    opacity: saving || !objectives.length ? 0.7 : 1,
+                    opacity: saving || !objectives.length || !team.length ? 0.7 : 1,
                     cursor: saving ? 'wait' : 'pointer',
                   }}
                 >
@@ -279,7 +322,7 @@ export default function ManagerTeamGoalsPage() {
               onChange={(e) => setFilterEmployeeId(e.target.value)}
             >
               <option value="">All team members</option>
-              {DEMO_TEAM.map((m) => (
+              {team.map((m) => (
                 <option key={m.id} value={m.id}>
                   {m.name}
                 </option>
@@ -290,7 +333,14 @@ export default function ManagerTeamGoalsPage() {
 
         {loading && <div style={{ color: C.muted }}>Loading goals…</div>}
 
-        {!loading && visibleGoals.length === 0 && (
+        {!loading && team.length === 0 && (
+          <EmptyState
+            icon={<Target size={28} />}
+            message="No employees found for your team. Add people under All Employees first."
+          />
+        )}
+
+        {!loading && team.length > 0 && visibleGoals.length === 0 && (
           <EmptyState
             icon={<Target size={28} />}
             message="No goals yet. Assign one linked to an organisational objective."
@@ -299,13 +349,14 @@ export default function ManagerTeamGoalsPage() {
 
         {visibleGoals.map((goal) => {
           const obj = objectiveMap.get(goal.objectiveId);
+          const empId = goalEmployeeId(goal);
           return (
             <SectionCard key={goal._id}>
               <div className="d-flex justify-content-between align-items-start gap-3 mb-2">
                 <div>
                   <div style={{ fontWeight: 700, color: C.ink, fontSize: 16 }}>{goal.title}</div>
                   <div style={{ fontSize: 13, color: C.muted, marginTop: 4 }}>
-                    {goal.employeeName ?? nameById.get(goal.employeeId) ?? goal.employeeId}
+                    {goal.employeeName ?? nameById.get(empId) ?? empId}
                     {goal.createdByRole === 'manager' ? ' · Assigned by you' : goal.createdByRole === 'employee' ? ' · Employee-set' : ''}
                   </div>
                   {goal.description && (

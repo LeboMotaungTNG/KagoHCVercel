@@ -4,17 +4,19 @@ import { Link, useLocation, useNavigate } from "react-router-dom";
 import {
   Home,
   Users,
-  PenTool,
   Building2,
   Award,
   Menu,
   LogOut,
   ChevronDown,
   ChevronRight,
+  TrendingUp,
 } from "lucide-react";
 import {
   SidebarHoverStyle,
   MobileSidebarChrome,
+  sidebarItemStyle,
+  sidebarSubItemStyle,
 } from "../../shared/components/sidebarStyles";
 import NotificationBell from "../../shared/components/NotificationBell";
 import MobileBottomNav from "../../shared/components/MobileBottomNav";
@@ -33,19 +35,35 @@ export interface SharedLayoutProps {
 }
 
 const OwnerSidebar: React.FC<{ onLogout: () => void }> = ({ onLogout }) => {
-  const [isHumanCapitalOpen, setIsHumanCapitalOpen] = React.useState(false);
   const location = useLocation();
-  const isActive = (path: string) => location.pathname === path;
+  const path = location.pathname;
+  const isActive = (p: string) => path === p;
+  const isInGroup = (...paths: string[]) =>
+    paths.some((p) => path === p || path.startsWith(p + "/"));
+
+  const inHumanCapital = isInGroup(
+    "/owner/managers",
+    "/owner/employees",
+    "/owner/manage-employees"
+  );
+  const inPerformance = isInGroup(
+    "/owner/reviews",
+    "/owner/employee-review",
+    "/owner/frameworks",
+    "/owner/objectives",
+    "/owner/analytics"
+  );
+
+  const [isHumanCapitalOpen, setIsHumanCapitalOpen] = React.useState(inHumanCapital);
+  const [isPerformanceOpen, setIsPerformanceOpen] = React.useState(inPerformance);
 
   React.useEffect(() => {
-    if (
-      location.pathname.includes("/owner/managers") ||
-      location.pathname.includes("/owner/employees") ||
-      location.pathname.includes("/owner/manage-employees")
-    ) {
-      setIsHumanCapitalOpen(true);
-    }
-  }, [location.pathname]);
+    if (inHumanCapital) setIsHumanCapitalOpen(true);
+  }, [inHumanCapital]);
+
+  React.useEffect(() => {
+    if (inPerformance) setIsPerformanceOpen(true);
+  }, [inPerformance]);
 
   return (
     <div
@@ -98,47 +116,30 @@ const OwnerSidebar: React.FC<{ onLogout: () => void }> = ({ onLogout }) => {
 
             <li>
               <div
-                className="waves-effect"
-                style={{
-                  color: "rgba(255, 255, 255, 0.75)",
-                  padding: "10px 20px",
-                  display: "flex",
-                  alignItems: "center",
-                  cursor: "pointer",
-                  justifyContent: "space-between",
-                }}
+                className={`sb-group-toggle ${inHumanCapital ? "sb-active" : ""}`}
+                style={{ ...sidebarItemStyle(inHumanCapital), justifyContent: "space-between" }}
                 onClick={() => setIsHumanCapitalOpen(!isHumanCapitalOpen)}
               >
                 <div style={{ display: "flex", alignItems: "center" }}>
                   <Users size={20} style={{ marginRight: "10px" }} />
                   <span>Human Capital</span>
                 </div>
-                {isHumanCapitalOpen ? (
-                  <ChevronDown size={16} />
-                ) : (
-                  <ChevronRight size={16} />
-                )}
+                {isHumanCapitalOpen ? <ChevronDown size={16} /> : <ChevronRight size={16} />}
               </div>
               <ul
-                className={`sub-menu ${
-                  isHumanCapitalOpen ? "mm-show" : "mm-collapse"
-                }`}
+                className={`sub-menu ${isHumanCapitalOpen ? "mm-show" : "mm-collapse"}`}
                 style={{
                   listStyle: "none",
-                  paddingLeft: "40px",
-                  margin: "5px 0",
+                  padding: "4px 12px 6px 44px",
+                  margin: 0,
                   display: isHumanCapitalOpen ? "block" : "none",
                 }}
               >
                 <li>
                   <Link
                     to="/owner/managers"
-                    style={{
-                      color: "rgba(255, 255, 255, 0.6)",
-                      padding: "8px 0",
-                      display: "block",
-                      fontSize: "14px",
-                    }}
+                    className={isActive("/owner/managers") ? "sb-active" : ""}
+                    style={sidebarSubItemStyle(isActive("/owner/managers"))}
                   >
                     Managers
                   </Link>
@@ -146,12 +147,8 @@ const OwnerSidebar: React.FC<{ onLogout: () => void }> = ({ onLogout }) => {
                 <li>
                   <Link
                     to="/owner/employees"
-                    style={{
-                      color: "rgba(255, 255, 255, 0.6)",
-                      padding: "8px 0",
-                      display: "block",
-                      fontSize: "14px",
-                    }}
+                    className={isActive("/owner/employees") ? "sb-active" : ""}
+                    style={sidebarSubItemStyle(isActive("/owner/employees"))}
                   >
                     Employees
                   </Link>
@@ -159,12 +156,8 @@ const OwnerSidebar: React.FC<{ onLogout: () => void }> = ({ onLogout }) => {
                 <li>
                   <Link
                     to="/owner/manage-employees"
-                    style={{
-                      color: "rgba(255, 255, 255, 0.6)",
-                      padding: "8px 0",
-                      display: "block",
-                      fontSize: "14px",
-                    }}
+                    className={isActive("/owner/manage-employees") ? "sb-active" : ""}
+                    style={sidebarSubItemStyle(isActive("/owner/manage-employees"))}
                   >
                     Manage Employees
                   </Link>
@@ -172,20 +165,70 @@ const OwnerSidebar: React.FC<{ onLogout: () => void }> = ({ onLogout }) => {
               </ul>
             </li>
 
-            <li className={isActive("/owner/reviews") || isActive("/owner/employee-review") ? "mm-active" : ""}>
-              <Link
-                to="/owner/reviews"
-                className="waves-effect"
+            <li>
+              <div
+                className={`sb-group-toggle ${inPerformance ? "sb-active" : ""}`}
+                style={{ ...sidebarItemStyle(inPerformance), justifyContent: "space-between" }}
+                onClick={() => setIsPerformanceOpen(!isPerformanceOpen)}
+              >
+                <div style={{ display: "flex", alignItems: "center" }}>
+                  <TrendingUp size={20} style={{ marginRight: "10px" }} />
+                  <span>Performance</span>
+                </div>
+                {isPerformanceOpen ? <ChevronDown size={16} /> : <ChevronRight size={16} />}
+              </div>
+              <ul
+                className={`sub-menu ${isPerformanceOpen ? "mm-show" : "mm-collapse"}`}
                 style={{
-                  color: "rgba(255, 255, 255, 0.75)",
-                  display: "flex",
-                  alignItems: "center",
-                  padding: "10px 20px",
+                  listStyle: "none",
+                  padding: "4px 12px 6px 44px",
+                  margin: 0,
+                  display: isPerformanceOpen ? "block" : "none",
                 }}
               >
-                <PenTool size={20} style={{ marginRight: "10px" }} />
-                <span>Employee Review</span>
-              </Link>
+                <li>
+                  <Link
+                    to="/owner/reviews"
+                    className={
+                      isActive("/owner/reviews") || isActive("/owner/employee-review")
+                        ? "sb-active"
+                        : ""
+                    }
+                    style={sidebarSubItemStyle(
+                      isActive("/owner/reviews") || isActive("/owner/employee-review")
+                    )}
+                  >
+                    Reviews
+                  </Link>
+                </li>
+                <li>
+                  <Link
+                    to="/owner/frameworks"
+                    className={isInGroup("/owner/frameworks") ? "sb-active" : ""}
+                    style={sidebarSubItemStyle(isInGroup("/owner/frameworks"))}
+                  >
+                    Frameworks
+                  </Link>
+                </li>
+                <li>
+                  <Link
+                    to="/owner/objectives"
+                    className={isActive("/owner/objectives") ? "sb-active" : ""}
+                    style={sidebarSubItemStyle(isActive("/owner/objectives"))}
+                  >
+                    Objectives
+                  </Link>
+                </li>
+                <li>
+                  <Link
+                    to="/owner/analytics"
+                    className={isActive("/owner/analytics") ? "sb-active" : ""}
+                    style={sidebarSubItemStyle(isActive("/owner/analytics"))}
+                  >
+                    Analytics
+                  </Link>
+                </li>
+              </ul>
             </li>
 
             <li className={isActive("/owner/organization-settings") ? "mm-active" : ""}>
@@ -317,27 +360,27 @@ const SharedLayout: React.FC<SharedLayoutProps> = ({ children }) => {
   const navigate = useNavigate();
   const handleLogout = () => ownerLogout(navigate);
   return (
-  <div id="layout-wrapper">
-    <OwnerHeader />
-    <OwnerSidebar onLogout={handleLogout} />
-    <div className="main-content">
-      <div
-        className="page-content"
-        style={{ backgroundColor: "#f9f7f5", minHeight: "100vh" }}
-      >
-        <div className="container-fluid">{children}</div>
+    <div id="layout-wrapper">
+      <OwnerHeader />
+      <OwnerSidebar onLogout={handleLogout} />
+      <div className="main-content">
+        <div
+          className="page-content"
+          style={{ backgroundColor: "#f9f7f5", minHeight: "100vh" }}
+        >
+          <div className="container-fluid">{children}</div>
+        </div>
       </div>
+      <OwnerFooter />
+      <MobileBottomNav
+        items={[
+          { to: "/owner", label: "Home", icon: <Home size={20} /> },
+          { to: "/owner/employees", label: "People", icon: <Users size={20} /> },
+          { to: "/owner/reviews", label: "Performance", icon: <TrendingUp size={20} /> },
+          { to: "/owner/organization-settings", label: "Org", icon: <Building2 size={20} /> },
+        ]}
+      />
     </div>
-    <OwnerFooter />
-    <MobileBottomNav
-      items={[
-        { to: "/owner",                       label: "Home",     icon: <Home size={20} /> },
-        { to: "/owner/employees",             label: "People",   icon: <Users size={20} /> },
-        { to: "/owner/reviews",                 label: "Reviews",  icon: <PenTool size={20} /> },
-        { to: "/owner/organization-settings", label: "Org",      icon: <Building2 size={20} /> },
-      ]}
-    />
-  </div>
   );
 };
 
