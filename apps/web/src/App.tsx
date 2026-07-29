@@ -6,6 +6,7 @@ import SessionProvider from "./shared/components/SessionProvider";
 import Login from "./apps/login/Login";
 import ForgotPassword from "./apps/login/ForgotPassword";
 import ResetPassword from "./apps/login/ResetPassword";
+import ChangePassword from "./apps/login/ChangePassword";
 import EmployeeDashboard from "./apps/employee/employee";
 import EmployeeLeave from "./apps/employee/leave";
 import EmployeeAttendance from "./apps/employee/attendance";
@@ -50,6 +51,12 @@ const App: React.FC = () => (
       <Route path="/forgot-password"       element={<ForgotPassword />} />
       <Route path="/reset-password/:token" element={<ResetPassword />} />
       <Route path="/accept-invite"         element={<AcceptInvitePage />} />
+
+      {/* Reached right after login when mustChangePassword is true (e.g. an
+          employee's first login on a temp password). No role restriction —
+          any authenticated role can land here, since register-admin also
+          assigns temp passwords. Just needs to be logged in. */}
+      <Route path="/change-password" element={<Guard><ChangePassword /></Guard>} />
 
       {/* ── Platform admin ────────────────────────────────────────── */}
       <Route path="/platform" element={<Guard roles={PlatformArea}><PlatformAdminPage /></Guard>} />

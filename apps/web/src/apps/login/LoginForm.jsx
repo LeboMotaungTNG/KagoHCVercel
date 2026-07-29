@@ -65,6 +65,15 @@ const LoginForm = () => {
           localStorage.setItem('user', JSON.stringify(data.data.user));
           touchActivity();
 
+          // Assigned a temp password (e.g. new employee onboarding) — must
+          // set their own before touching anything else. This check has to
+          // come before the role-based routing below, since the backend
+          // will 403 PASSWORD_CHANGE_REQUIRED on every other route anyway.
+          if (data.data.user.mustChangePassword) {
+            navigate("/change-password");
+            return;
+          }
+
           // Navigate based on role
           const role = data.data.user.role;
           if (role === 'platform_admin') {
