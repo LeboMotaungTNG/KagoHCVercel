@@ -1,5 +1,6 @@
 import { loadEmployeeSettings, type NotificationSettings } from "./employeeSettings";
 import { loadLatestPayslip } from "./documentsLibrary";
+import { API_BASE } from "./apiBase";
 
 export type NotificationCategory = keyof Omit<NotificationSettings, "emailDigest">;
 
@@ -95,21 +96,74 @@ export const getUnreadCount = (
 ): number =>
   filterNotificationsByPreferences(notifications, role, email).filter(n => !n.read).length;
 
-export const markNotificationRead = (
+// ── Server-backed notifications ─────────────────────────────────────────────
+// Mongo ObjectIds are 24 hex chars — used to tell a real backend notification
+// apart from the local demo/seed ones (e.g. "leave-approved-demo") so
+// mark-as-read routes to the right place.
+const isServerId = (id: string): boolean => /^[0-9a-fA-F]{24}$/.test(id);
+
+const authHeaders = (): Record<string, string> => {
+  const token = localStorage.getItem("token");
+  return token ? { Authorization: `Bearer ${token}` } : {};
+};
+
+export const fetchServerNotifications = async (): Promise<AppNotification[]> => {
+  try {
+    const res = await fetch(`${API_BASE}/notifications`, { headers: authHeaders() });
+    const data = await res.json();
+    if (!data.success || !Array.isArray(data.data)) return [];
+    return data.data as AppNotification[];
+  } catch {
+    // Offline / backend unreachable — fail quietly, local notifications
+    // still work fine without the server ones.
+    return [];
+  }
+};
+
+const markServerNotificationRead = async (id: string): Promise<void> => {
+  try {
+    await fetch(`${API_BASE}/notifications/${id}/read`, {
+      method: "PATCH",
+      headers: authHeaders(),
+    });
+  } catch {
+    /* ignore — next refresh will retry the fetch anyway */
+  }
+};
+
+const markAllServerNotificationsRead = async (): Promise<void> => {
+  try {
+    await fetch(`${API_BASE}/notifications/read-all`, {
+      method: "PATCH",
+      headers: authHeaders(),
+    });
+  } catch {
+    /* ignore */
+  }
+};
+
+// ── Mark as read — routes to server or local storage depending on the id ───
+export const markNotificationRead = async (
   id: string,
   role: NotificationRole,
   email?: string,
-): void => {
+): Promise<void> => {
+  if (isServerId(id)) {
+    await markServerNotificationRead(id);
+    return;
+  }
   const items = loadNotifications(role, email).map(n =>
     n.id === id ? { ...n, read: true } : n,
   );
   saveNotifications(items, role, email);
 };
 
-export const markAllNotificationsRead = (
+export const markAllNotificationsRead = async (
   role: NotificationRole,
   email?: string,
-): void => {
+): Promise<void> => {
+  // Both — local demo/seed notifications AND real server ones may coexist.
+  await markAllServerNotificationsRead();
   const items = loadNotifications(role, email).map(n => ({ ...n, read: true }));
   saveNotifications(items, role, email);
 };
@@ -134,6 +188,22 @@ const mergeSeeds = (
   for (const seed of seeds) {
     if (!byId.has(seed.id)) byId.set(seed.id, seed);
   }
+  return Array.from(byId.values()).sort(
+    (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime(),
+  );
+};
+
+// ── Merge local (demo/seed + review-workflow) with real server notifications ─
+// Server notifications are additive: dedupe by id, sort newest first.
+// Kept separate from mergeSeeds since these come from a different source
+// (API, not localStorage) and should never be treated as "already there,
+// skip" — a server notification always wins over nothing.
+export const mergeWithServerNotifications = (
+  local: AppNotification[],
+  server: AppNotification[],
+): AppNotification[] => {
+  const byId = new Map<string, AppNotification>();
+  [...local, ...server].forEach(n => byId.set(n.id, n));
   return Array.from(byId.values()).sort(
     (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime(),
   );
@@ -393,7 +463,7 @@ export const notifyGoalAssigned = (payload: {
   pushNotification("employee", {
     category: "system",
     title: "New goal assigned",
-    body: `“${payload.goalTitle}” was assigned under ${payload.objectiveTitle} (${payload.period}).`,
+    body: `"${payload.goalTitle}" was assigned under ${payload.objectiveTitle} (${payload.period}).`,
     href: "/employee/performance/goals",
   });
 };
