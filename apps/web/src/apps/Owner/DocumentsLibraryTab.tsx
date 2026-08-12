@@ -19,8 +19,8 @@ import {
 import {
   ACCEPTED_MIME, CATEGORY_META, CATEGORY_ORDER, MAX_FILE_BYTES,
   type DocCategory, type OrgDocument,
-  downloadDataUrl, fileToDataUrl, formatBytes, formatDate,
-  loadOrgDocuments, newId, saveOrgDocuments,
+  downloadDataUrl, formatBytes, formatDate,
+  loadOrgDocumentsOwner, uploadDocument, deleteDocument,
 } from "../../shared/utils/documentsLibrary";
 import { C } from "../../shared/utils/employee";
 
@@ -88,7 +88,7 @@ const DocumentEditor: React.FC<{
   open: boolean;
   initial: EditorState;
   onClose: () => void;
-  onSave: (doc: OrgDocument) => void;
+  onSave: (state: EditorState) => void;
 }> = ({ open, initial, onClose, onSave }) => {
   const [state, setState] = useState<EditorState>(initial);
   const [error, setError] = useState<string | null>(null);
@@ -120,41 +120,12 @@ const DocumentEditor: React.FC<{
     }
     setBusy(true);
     try {
-      let dataUrl: string;
-      let fileName: string;
-      let mimeType: string;
-      let size: number;
-
-      if (state.file) {
-        dataUrl = await fileToDataUrl(state.file);
-        fileName = state.file.name;
-        mimeType = state.file.type || "application/octet-stream";
-        size = state.file.size;
-      } else {
-        // editing without replacing the file — reuse existing values
-        const existing = loadOrgDocuments().find(d => d.id === state.id);
-        if (!existing) { setError("Original file could not be found."); setBusy(false); return; }
-        dataUrl = existing.dataUrl;
-        fileName = existing.fileName;
-        mimeType = existing.mimeType;
-        size = existing.size;
-      }
-
-      const doc: OrgDocument = {
-        id: state.id ?? newId(),
-        title: state.title.trim(),
-        description: state.description.trim() || undefined,
-        category: state.category,
-        fileName, mimeType, size, dataUrl,
-        uploadedAt: state.id
-          ? loadOrgDocuments().find(d => d.id === state.id)?.uploadedAt ?? new Date().toISOString()
-          : new Date().toISOString(),
-        audience: "all",
-      };
-      onSave(doc);
+      // Delegate actual upload/processing to the parent so it can use
+      // the backend API. Parent will receive the EditorState and act.
+      onSave(state);
     } catch (err) {
       console.error(err);
-      setError("Something went wrong while reading the file.");
+      setError("Something went wrong while processing the file.");
     } finally {
       setBusy(false);
     }
@@ -288,7 +259,7 @@ const DocumentEditor: React.FC<{
  * ────────────────────────────────────────────────────────────────── */
 
 const DocumentsLibraryTab: React.FC = () => {
-  const [docs, setDocs] = useState<OrgDocument[]>(() => loadOrgDocuments());
+  const [docs, setDocs] = useState<OrgDocument[]>([]);
   const [query, setQuery] = useState("");
   const [filter, setFilter] = useState<DocCategory | "All">("All");
   const [editor, setEditor] = useState<{ open: boolean; initial: EditorState }>({
@@ -298,12 +269,24 @@ const DocumentsLibraryTab: React.FC = () => {
 
   const persist = (next: OrgDocument[], msg?: string) => {
     setDocs(next);
-    saveOrgDocuments(next);
     if (msg) {
       setToast(msg);
       window.setTimeout(() => setToast(null), 2500);
     }
   };
+
+  React.useEffect(() => {
+    let mounted = true;
+    (async () => {
+      try {
+        const list = await loadOrgDocumentsOwner();
+        if (mounted) setDocs(list);
+      } catch (err) {
+        console.error("Failed to load documents:", err);
+      }
+    })();
+    return () => { mounted = false; };
+  }, []);
 
   const visible = useMemo(() => {
     const q = query.trim().toLowerCase();
@@ -337,16 +320,69 @@ const DocumentsLibraryTab: React.FC = () => {
       },
     });
 
-  const handleSave = (doc: OrgDocument) => {
-    const exists = docs.some(d => d.id === doc.id);
-    const next = exists ? docs.map(d => d.id === doc.id ? doc : d) : [doc, ...docs];
-    persist(next, exists ? "Document updated" : "Document uploaded");
+  const handleSave = async (stateDoc: EditorState) => {
     setEditor({ open: false, initial: emptyEditor });
+    try {
+      // Editing existing document
+      if (stateDoc.id) {
+        const existing = docs.find(d => d.id === stateDoc.id);
+        // If user provided a new file, upload it. If they kept existing file,
+        // recreate a File from the existing dataUrl and re-upload so backend
+        // receives a file payload.
+        let fileToUpload: File | undefined = undefined;
+        if (stateDoc.file) {
+          fileToUpload = stateDoc.file;
+        } else if (stateDoc.keepExistingFile && existing) {
+          try {
+            const res = await fetch(existing.dataUrl);
+            const blob = await res.blob();
+            fileToUpload = new File([blob], existing.fileName, { type: existing.mimeType });
+          } catch (err) {
+            console.error("Failed to reconstruct file from existing dataUrl:", err);
+          }
+        }
+
+        if (!fileToUpload) {
+          // Backend has no metadata-only update endpoint; recreate by
+          // re-uploading the file with new metadata.
+          window.alert("Editing document metadata requires re-uploading the file. Please attach a file.");
+          return;
+        }
+
+        const created = await uploadDocument(fileToUpload, stateDoc.title.trim(), stateDoc.description.trim(), stateDoc.category);
+        // Remove old doc if present on backend
+        if (existing && (existing._id || existing.id)) {
+          await deleteDocument(existing._id || existing.id);
+        }
+        // Refresh local list: replace old with created at top
+        const next = [created, ...docs.filter(d => d.id !== stateDoc.id)];
+        persist(next, "Document updated");
+        return;
+      }
+
+      // New upload
+      if (!stateDoc.file) {
+        window.alert("Please attach a file to upload.");
+        return;
+      }
+      const created = await uploadDocument(stateDoc.file, stateDoc.title.trim(), stateDoc.description.trim(), stateDoc.category);
+      persist([created, ...docs], "Document uploaded");
+    } catch (err) {
+      console.error(err);
+      window.alert("Failed to save document. See console for details.");
+    }
   };
 
-  const handleDelete = (doc: OrgDocument) => {
+  const handleDelete = async (doc: OrgDocument) => {
     if (!window.confirm(`Delete "${doc.title}"? Employees will no longer see it.`)) return;
-    persist(docs.filter(d => d.id !== doc.id), "Document deleted");
+    try {
+      const ok = await deleteDocument(doc._id || doc.id);
+      if (!ok) throw new Error("Delete failed");
+      persist(docs.filter(d => d.id !== doc.id), "Document deleted");
+    } catch (err) {
+      console.error(err);
+      window.alert("Failed to delete document. See console for details.");
+    }
   };
 
   const handleView = (doc: OrgDocument) => {
