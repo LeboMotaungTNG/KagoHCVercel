@@ -3,7 +3,7 @@ import {
   getEvaluationById,
   saveEvaluationScores,
   scoreEvaluation,
-  submitToOwner,
+  submitEvaluation,
 } from '../api/evaluations.api';
 import { updateGoalAssessedProgress } from '../utils/goalScoring';
 import type { Evaluation, EvaluationItem, SnapshotGoal } from '../types/evaluation';
@@ -95,10 +95,14 @@ export function useModeration(moderationId: string) {
 
   const submitFinal = useCallback(async () => {
     await persist();
+  
     if (!managerEval) return;
-    const finalised = await submitToOwner(managerEval._id);
-    setManagerEval(finalised);
-    return finalised;
+  
+    const submitted = await submitEvaluation(managerEval._id);
+  
+    setManagerEval(submitted);
+  
+    return submitted;
   }, [persist, managerEval]);
 
   const preview = useMemo(() => {
@@ -110,10 +114,8 @@ export function useModeration(moderationId: string) {
   const getSelfItem = (criterionId: string) => selfEval?.items.find((i) => i.criterionId === criterionId);
 
   const locked =
-    managerEval?.status === 'pending_owner' ||
-    managerEval?.status === 'signed_off' ||
-    managerEval?.status === 'reviewed' ||
-    managerEval?.status === 'rejected';
+  managerEval?.status === 'submitted' ||
+  managerEval?.status === 'signed_off';
 
   return {
     managerEval,
@@ -121,10 +123,14 @@ export function useModeration(moderationId: string) {
     preview,
     goalSnapshot,
     comment,
+
     setComment: (v: string) => {
-      dirtyRef.current = true;
-      setComment(v);
-    },
+  if (locked) return;
+
+  dirtyRef.current = true;
+  setComment(v);
+},
+
     getItem,
     getSelfItem,
     setScore,
@@ -134,8 +140,8 @@ export function useModeration(moderationId: string) {
     saving,
     error,
     locked,
-    changesRequested: managerEval?.status === 'changes_requested',
-    ownerDecisionComment: managerEval?.ownerDecisionComment,
+    changesRequested: false,
+    ownerDecisionComment: undefined,
     save: persist,
     submitFinal,
   };

@@ -383,6 +383,65 @@ export async function submitToOwner(id: string): Promise<Evaluation> {
   return full;
 }
 
+/** Employee acknowledges the evaluation. */
+export async function acknowledgeEvaluation(id: string): Promise<Evaluation> {
+  if (USE_MOCKS) {
+    await sleep();
+
+    evaluationsStore = evaluationsStore.map((e) =>
+      e._id === id
+        ? {
+            ...e,
+            acknowledgedAt: new Date().toISOString(),
+          }
+        : e
+    );
+
+    const evaluation = evaluationsStore.find((e) => e._id === id);
+
+    if (!evaluation) {
+      throw new Error('Evaluation not found');
+    }
+
+    return evaluation;
+  }
+
+  return http.patch<Evaluation>(`/evaluations/${id}/acknowledge`);
+}
+
+export async function getEvaluationPeriods(): Promise<string[]> {
+  if (USE_MOCKS) {
+    await sleep();
+    return [...new Set(evaluationsStore.map((e) => e.period))];
+  }
+
+  return http.get<string[]>('/evaluations/periods');
+}
+
+export async function getEvaluationSummary() {
+  if (USE_MOCKS) {
+    await sleep();
+    return {
+      totalEvaluations: evaluationsStore.length,
+    };
+  }
+
+  return http.get('/evaluations/summary');
+}
+export async function getEmployeeEvaluations(
+  employeeId: string
+): Promise<Evaluation[]> {
+  if (USE_MOCKS) {
+    await sleep();
+    return evaluationsStore.filter((e) => empIdOf(e) === employeeId);
+  }
+
+  return http.get<Evaluation[]>(
+    `/evaluations/employee/${employeeId}`
+  );
+}
+
+
 /** Owner accepts (signs off) the final review. */
 export async function signOffEvaluation(id: string): Promise<Evaluation> {
   if (USE_MOCKS) {
@@ -550,4 +609,6 @@ export async function queryEvaluations(params: {
     if (params.pendingOwner && e.status !== 'pending_owner') return false;
     return true;
   });
+
+ 
 }
