@@ -4,6 +4,7 @@ import { getSessionUser } from '../../utils/session';
 import { resolveCurrentEmployee, type ResolvedEmployee } from '../../utils/resolveEmployee';
 import { C } from '../../../../../shared/utils/employee';
 
+
 export default function SelfReviewPage() {
   const sessionUser = getSessionUser();
   const [employee, setEmployee] = useState<ResolvedEmployee | null>(null);
@@ -33,7 +34,7 @@ export default function SelfReviewPage() {
         if (!cancelled) setLoading(false);
       });
     return () => {
-      cancelled = true;
+      cancelled = true; 
     };
   }, []);
 

@@ -1,5 +1,12 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { createEvaluation, saveEvaluationScores, submitEvaluation } from '../api/evaluations.api';
+//import { createEvaluation, saveEvaluationScores, submitEvaluation } from '../api/evaluations.api';
+import {
+  createEvaluation,
+  queryEvaluations,
+  saveEvaluationScores,
+  submitEvaluation,
+} from '../api/evaluations.api';
+
 import { updateGoalAssessedProgress } from '../utils/goalScoring';
 import type { Evaluation, EvaluationItem, EvaluationPurpose, EvaluationType, SnapshotGoal } from '../types/evaluation';
 
@@ -42,33 +49,54 @@ export function useEvaluation({ employeeId, period, purpose, type }: UseEvaluati
     setLoading(true);
     setError(null);
 
-    createEvaluation({ employeeId, period, purpose, type })
-      .then((evalDoc) => {
-        if (cancelled) return;
-        bootstrappedKey.current = key;
-        setEvaluation(evalDoc);
-        setItems(evalDoc.items ?? []);
-        setGoalSnapshot(evalDoc.goalSnapshot ?? []);
-        setComment(evalDoc.managerComment ?? evalDoc.employeeComment ?? '');
-        dirtyRef.current = false;
-      })
-      .catch((err) => {
-        if (!cancelled) {
-          setError(err instanceof Error ? err.message : 'Failed to start evaluation');
-        }
-      })
-      .finally(() => {
-        if (!cancelled) setLoading(false);
-      });
+//************************* */
+(async () => {
+  const existing = await queryEvaluations({
+    employeeId,
+    period,
+    purpose,
+    type,
+  });
 
-    return () => {
-      cancelled = true;
-    };
+  if (existing.length > 0) {
+    return existing[0];
+  }
+
+  return createEvaluation({
+    employeeId,
+    period,
+    purpose,
+    type,
+  });
+})()
+  .then((evalDoc) => {
+    if (cancelled) return;
+
+    bootstrappedKey.current = key;
+    setEvaluation(evalDoc);
+    setItems(evalDoc.items ?? []);
+    setGoalSnapshot(evalDoc.goalSnapshot ?? []);
+    setComment(evalDoc.managerComment ?? evalDoc.employeeComment ?? '');
+    dirtyRef.current = false;
+  })
+  .catch((err) => {
+    if (!cancelled) {
+      setError(err instanceof Error ? err.message : 'Failed to start evaluation');
+    }
+  })
+  .finally(() => {
+    if (!cancelled) setLoading(false);
+  });
+  return () => {
+    cancelled = true;
+  };
   }, [employeeId, period, purpose, type]);
+
+  //************************* */
 
   const persist = useCallback(async () => {
     const current = evaluationRef.current;
-    if (!current || current.status === 'signed_off' || current.status === 'rejected') return current;
+    if (!current || current.status === 'signed_off')return current;
     if (current.status === 'submitted' && type === 'self_review') return current;
 
     setSaving(true);
@@ -146,12 +174,11 @@ export function useEvaluation({ employeeId, period, purpose, type }: UseEvaluati
 
   const getItem = (criterionId: string) => items.find((i) => i.criterionId === criterionId);
 
+
   const isReadOnly =
-    evaluation?.status === 'submitted' ||
-    evaluation?.status === 'signed_off' ||
-    evaluation?.status === 'rejected' ||
-    evaluation?.status === 'pending_owner' ||
-    (type === 'self_review' && evaluation?.status === 'submitted');
+  evaluation?.status === 'submitted' ||
+  evaluation?.status === 'signed_off';
+  
 
   return {
     evaluation,
@@ -175,4 +202,7 @@ export function useEvaluation({ employeeId, period, purpose, type }: UseEvaluati
     save: persist,
     submit,
   };
-}
+  
+};
+
+
