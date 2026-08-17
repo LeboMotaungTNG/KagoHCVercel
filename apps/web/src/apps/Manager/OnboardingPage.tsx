@@ -18,6 +18,7 @@ import {
   COMPANY_FISCAL_FIELDS,
   COMPANY_LEGAL_FIELDS,
   CONTACT_FIELDS,
+  BUSINESS_UNIT_TEMPLATES,
   EMPTY_COMPANY,
   OC,
   OR,
@@ -258,6 +259,10 @@ const OnboardingPage: React.FC = () => {
   const [departments, setDepartments] = useState<Department[]>([]);
   const [loadingDepartments, setLoadingDepartments] = useState(false);
   const [deptDraft, setDeptDraft] = useState({ name: "", description: "" });
+  // "department" = nested under a Business Unit, "business_unit" = top-level
+  // (parentDepartment: null). See createDepartment in onboarding.ts.
+  const [deptType, setDeptType] = useState<"department" | "business_unit">("business_unit");
+  const [deptParentId, setDeptParentId] = useState<string>("");
   const [savingDept, setSavingDept] = useState(false);
 
   // Toast
@@ -392,15 +397,20 @@ const OnboardingPage: React.FC = () => {
 
   const handleAddDepartment = async () => {
     const name = deptDraft.name.trim();
-    if (!name) { showToast("Department name is required.", "error"); return; }
+    if (!name) { showToast("Name is required.", "error"); return; }
+    if (deptType === "department" && !deptParentId) {
+      showToast("Select a Business Unit for this department.", "error");
+      return;
+    }
     setSavingDept(true);
     try {
-      const created = await createDepartment(name, deptDraft.description.trim() || undefined);
+      const parentDepartment = deptType === "business_unit" ? null : deptParentId;
+      const created = await createDepartment(name, deptDraft.description.trim() || undefined, parentDepartment);
       setDepartments(prev => [created, ...prev]);
       setDeptDraft({ name: "", description: "" });
-      showToast("Department added.", "success");
+      showToast(`${deptType === "business_unit" ? "Business unit" : "Department"} added.`, "success");
     } catch (e: any) {
-      showToast(e?.message || "Failed to add department.", "error");
+      showToast(e?.message || "Failed to add.", "error");
     } finally {
       setSavingDept(false);
     }
@@ -408,13 +418,13 @@ const OnboardingPage: React.FC = () => {
 
   const handleDeleteDepartment = async (d: Department) => {
     if (!d.id) return;
-    if (!window.confirm(`Delete department "${d.name}"?`)) return;
+    if (!window.confirm(`Delete "${d.name}"?`)) return;
     try {
       await deleteDepartment(d.id);
       setDepartments(prev => prev.filter(x => x.id !== d.id));
-      showToast("Department deleted.", "success");
+      showToast("Deleted.", "success");
     } catch (e: any) {
-      showToast(e?.message || "Failed to delete department.", "error");
+      showToast(e?.message || "Failed to delete.", "error");
     }
   };
 
@@ -490,8 +500,12 @@ const OnboardingPage: React.FC = () => {
                 departments={departments}
                 loading={loadingDepartments}
                 deptDraft={deptDraft}
+                deptType={deptType}
+                deptParentId={deptParentId}
                 saving={savingDept}
                 onDraftChange={setDeptDraft}
+                onTypeChange={setDeptType}
+                onParentChange={setDeptParentId}
                 onAdd={handleAddDepartment}
                 onDelete={handleDeleteDepartment}
                 onComplete={handleCompleteOnboarding}
@@ -1002,118 +1016,371 @@ const AdministratorsStep: React.FC<{
  * Step 4 – Departments & System Roles
  * ─────────────────────────────────────────────────────────────────────── */
 
+/** Two-option segmented control — used to pick Department vs Business Unit. */
+const SegToggle: React.FC<{
+  value: "department" | "business_unit";
+  onChange: (v: "department" | "business_unit") => void;
+}> = ({ value, onChange }) => (
+  <div style={{
+    display: "inline-flex", padding: 4, borderRadius: 12,
+    background: OC.surfaceAlt, border: `1px solid ${OC.line}`, gap: 3,
+  }}>
+    {(["business_unit", "department"] as const).map(opt => {
+      const active = value === opt;
+      return (
+        <button
+          key={opt}
+          type="button"
+          onClick={() => onChange(opt)}
+          style={{
+            padding: "9px 18px", borderRadius: 9, border: "none",
+            fontSize: 13, fontWeight: 700, cursor: "pointer",
+            background: active ? (opt === "business_unit" ? OC.accent : OC.teal) : "transparent",
+            color: active ? "#fff" : OC.muted,
+            transition: "background .15s ease, color .15s ease",
+            display: "inline-flex", alignItems: "center", gap: 6,
+          }}
+        >
+          {opt === "business_unit" ? <Landmark size={13} /> : <Building2 size={13} />}
+          {opt === "department" ? "Department" : "Business Unit"}
+        </button>
+      );
+    })}
+  </div>
+);
+
 const StructureStep: React.FC<{
   departments: Department[];
   loading: boolean;
   deptDraft: { name: string; description: string };
+  deptType: "department" | "business_unit";
+  deptParentId: string;
   saving: boolean;
   onDraftChange: (d: { name: string; description: string }) => void;
+  onTypeChange: (t: "department" | "business_unit") => void;
+  onParentChange: (id: string) => void;
   onAdd: () => void;
   onDelete: (d: Department) => void;
   onComplete: () => void;
-}> = ({ departments, loading, deptDraft, saving, onDraftChange, onAdd, onDelete, onComplete }) => (
-  <>
-    <Section
-      icon={<Users size={20} />} iconColor={OC.teal}
-      title={`Departments (${departments.length})`}
-      subtitle="Departments group employees for reporting, leave approvals and payroll."
-    >
-      <div style={{
-        display: "grid", gridTemplateColumns: "2fr 2fr auto",
-        gap: 10, alignItems: "end", marginBottom: 18,
-      }}>
-        <div>
-          <label style={labelStyle}>Department name</label>
-          <input
-            style={inputStyle}
-            value={deptDraft.name}
-            placeholder="e.g. Operations"
-            onChange={e => onDraftChange({ ...deptDraft, name: e.target.value })}
-            onKeyDown={e => { if (e.key === "Enter") onAdd(); }}
-          />
-        </div>
-        <div>
-          <label style={labelStyle}>Description (optional)</label>
-          <input
-            style={inputStyle}
-            value={deptDraft.description}
-            placeholder="What does this department do?"
-            onChange={e => onDraftChange({ ...deptDraft, description: e.target.value })}
-            onKeyDown={e => { if (e.key === "Enter") onAdd(); }}
-          />
-        </div>
-        <button onClick={onAdd} style={primaryBtn} disabled={saving}>
-          <Plus size={14} /> {saving ? "Saving…" : "Add"}
-        </button>
-      </div>
+}> = ({
+  departments, loading, deptDraft, deptType, deptParentId, saving,
+  onDraftChange, onTypeChange, onParentChange, onAdd, onDelete, onComplete,
+}) => {
+  // Top-level = no parent set = a Business Unit.
+  const businessUnits = useMemo(
+    () => departments.filter(d => !d.parentDepartment),
+    [departments],
+  );
 
-      {loading ? (
-        <p style={{ ...subtle, textAlign: "center", padding: 20 }}>Loading departments…</p>
-      ) : departments.length === 0 ? (
-        <EmptyHint
-          icon={<Building2 size={32} />}
-          title="No departments yet"
-          body="Add your first department above — for example Engineering, Sales or HR."
-        />
-      ) : (
-        <div style={{ display: "flex", flexWrap: "wrap", gap: 10 }}>
-          {departments.map(d => (
-            <div key={d.id || d.name} style={{
-              display: "inline-flex", alignItems: "center", gap: 8,
-              padding: "7px 12px 7px 14px", borderRadius: 999,
-              background: OC.tealBg, color: OC.teal,
-              border: `1px solid ${OC.teal}30`,
-              fontSize: 13, fontWeight: 600,
+  // Departments grouped by the Business Unit id they belong to.
+  const departmentsByUnit = useMemo(() => {
+    const map = new Map<string, Department[]>();
+    departments.filter(d => d.parentDepartment).forEach(d => {
+      const key = d.parentDepartment as string;
+      if (!map.has(key)) map.set(key, []);
+      map.get(key)!.push(d);
+    });
+    return map;
+  }, [departments]);
+
+  // Whether the name field is showing free-text entry instead of the
+  // controlled dropdown. Reset whenever the user switches what they're
+  // adding, or (for departments) switches which business unit they're
+  // adding under — a leftover custom-name flag from a previous selection
+  // shouldn't carry over.
+  const [useCustomName, setUseCustomName] = useState(false);
+  useEffect(() => {
+    setUseCustomName(false);
+    onDraftChange({ ...deptDraft, name: "" });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [deptType, deptParentId]);
+
+  // Standard business unit names not already present (case-insensitive) —
+  // these populate the dropdown so an owner picks "Commercial" once,
+  // never types "Commercial" and "Commercials" as two different units.
+  const availableBusinessUnitNames = useMemo(() => {
+    const existing = new Set(businessUnits.map(u => u.name.trim().toLowerCase()));
+    return BUSINESS_UNIT_TEMPLATES.map(t => t.name).filter(n => !existing.has(n.toLowerCase()));
+  }, [businessUnits]);
+
+  // Standard department names for whichever business unit is currently
+  // selected, minus any already added under it. Custom (non-template)
+  // business units have no suggestions — those departments must be typed.
+  const availableDepartmentNames = useMemo(() => {
+    const unit = businessUnits.find(u => u.id === deptParentId);
+    if (!unit) return [];
+    const template = BUSINESS_UNIT_TEMPLATES.find(t => t.name.toLowerCase() === unit.name.trim().toLowerCase());
+    if (!template) return [];
+    const existing = new Set((departmentsByUnit.get(unit.id || "") || []).map(d => d.name.trim().toLowerCase()));
+    return template.departments.filter(n => !existing.has(n.toLowerCase()));
+  }, [businessUnits, departmentsByUnit, deptParentId]);
+
+  const nameFieldOptions = deptType === "business_unit" ? availableBusinessUnitNames : availableDepartmentNames;
+  const nameFieldHasBusinessUnitSelected = deptType === "department" ? !!deptParentId : true;
+
+  return (
+    <>
+      <Section
+        icon={<Users size={20} />} iconColor={OC.teal}
+        title={`Organisation Structure`}
+        subtitle="Business Units group your Departments — this drives leave approvals and your organisation chart."
+      >
+        {/* Two-step guidance banner so the flow reads clearly before any
+            structure exists: create the umbrella group first, then the
+            departments that sit under it. */}
+        <div style={{
+          display: "flex", alignItems: "center", gap: 20,
+          padding: "14px 18px", borderRadius: OR.md, marginBottom: 20,
+          background: OC.surfaceAlt, border: `1px solid ${OC.line}`,
+        }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+            <span style={{
+              width: 26, height: 26, borderRadius: "50%", flexShrink: 0,
+              background: businessUnits.length > 0 ? OC.okBg : OC.accentBg,
+              color: businessUnits.length > 0 ? OC.ok : OC.accent,
+              display: "flex", alignItems: "center", justifyContent: "center",
+              fontSize: 12, fontWeight: 700,
             }}>
-              {d.name}
-              {d.id && (
-                <button onClick={() => onDelete(d)} style={ghostBtn} title={`Delete ${d.name}`}>
-                  <Trash2 size={12} />
-                </button>
+              {businessUnits.length > 0 ? <Check size={14} /> : "1"}
+            </span>
+            <span style={{ fontSize: 13, fontWeight: 600, color: OC.ink }}>
+              Add a Business Unit <span style={{ color: OC.muted, fontWeight: 400 }}>(e.g. Commercial, Technology)</span>
+            </span>
+          </div>
+          <ChevronRight size={16} color={OC.faint} />
+          <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+            <span style={{
+              width: 26, height: 26, borderRadius: "50%", flexShrink: 0,
+              background: departments.some(d => d.parentDepartment) ? OC.okBg : OC.tealBg,
+              color: departments.some(d => d.parentDepartment) ? OC.ok : OC.teal,
+              display: "flex", alignItems: "center", justifyContent: "center",
+              fontSize: 12, fontWeight: 700,
+            }}>
+              {departments.some(d => d.parentDepartment) ? <Check size={14} /> : "2"}
+            </span>
+            <span style={{ fontSize: 13, fontWeight: 600, color: OC.ink }}>
+              Add Departments under it <span style={{ color: OC.muted, fontWeight: 400 }}>(e.g. Sales, IT)</span>
+            </span>
+          </div>
+        </div>
+
+        <div style={{ marginBottom: 20 }}>
+          <label style={labelStyle}>What are you adding?</label>
+          <SegToggle value={deptType} onChange={onTypeChange} />
+        </div>
+
+        <div style={{
+          display: "grid",
+          gridTemplateColumns: deptType === "department" ? "1.4fr 1.2fr 1.4fr auto" : "1.6fr 1.6fr auto",
+          gap: 12, alignItems: "end", marginBottom: 24,
+          padding: 16, borderRadius: OR.md,
+          background: "#fff", border: `1px solid ${OC.line}`,
+        }}>
+          <div>
+            <label style={labelStyle}>{deptType === "business_unit" ? "Business unit name" : "Department name"}</label>
+            {!nameFieldHasBusinessUnitSelected ? (
+              // Department mode, but no business unit chosen yet — nothing
+              // to suggest, and typing a name now would be for the wrong
+              // parent. Keep the field disabled until one is picked.
+              <input style={{ ...inputStyle, cursor: "not-allowed", color: OC.faint }} disabled value="" placeholder="Select a business unit first" />
+            ) : useCustomName || nameFieldOptions.length === 0 ? (
+              <div>
+                <input
+                  style={inputStyle}
+                  value={deptDraft.name}
+                  placeholder={deptType === "business_unit" ? "e.g. Commercial" : "e.g. Sales"}
+                  onChange={e => onDraftChange({ ...deptDraft, name: e.target.value })}
+                  onKeyDown={e => { if (e.key === "Enter") onAdd(); }}
+                  autoFocus={useCustomName}
+                />
+                {nameFieldOptions.length > 0 && (
+                  <button
+                    type="button"
+                    onClick={() => { setUseCustomName(false); onDraftChange({ ...deptDraft, name: "" }); }}
+                    style={{ ...ghostBtn, padding: "4px 0", fontSize: 12, fontWeight: 700, color: OC.accent }}
+                  >
+                    ← Choose from list instead
+                  </button>
+                )}
+                {nameFieldOptions.length === 0 && deptType === "business_unit" && (
+                  <p style={{ ...subtle, margin: "4px 0 0", fontSize: 11.5 }}>All standard business units have been added — enter a custom name.</p>
+                )}
+                {nameFieldOptions.length === 0 && deptType === "department" && (
+                  <p style={{ ...subtle, margin: "4px 0 0", fontSize: 11.5 }}>No standard departments left to suggest for this unit — enter a custom name.</p>
+                )}
+              </div>
+            ) : (
+              <select
+                style={{ ...inputStyle, cursor: "pointer" }}
+                value={deptDraft.name}
+                onChange={e => {
+                  if (e.target.value === "__custom__") { setUseCustomName(true); onDraftChange({ ...deptDraft, name: "" }); return; }
+                  onDraftChange({ ...deptDraft, name: e.target.value });
+                }}
+              >
+                <option value="">Select…</option>
+                {nameFieldOptions.map(n => <option key={n} value={n}>{n}</option>)}
+                <option value="__custom__">+ Custom name…</option>
+              </select>
+            )}
+          </div>
+
+          {deptType === "department" && (
+            <div>
+              <label style={labelStyle}>Business unit</label>
+              {businessUnits.length === 0 ? (
+                <div>
+                  <select style={{ ...inputStyle, cursor: "not-allowed", color: OC.faint }} disabled value="">
+                    <option>Add a Business Unit first</option>
+                  </select>
+                  <button
+                    type="button"
+                    onClick={() => onTypeChange("business_unit")}
+                    style={{ ...ghostBtn, padding: "4px 0", fontSize: 12, fontWeight: 700, color: OC.accent }}
+                  >
+                    + Add one now
+                  </button>
+                </div>
+              ) : (
+                <select
+                  style={{ ...inputStyle, cursor: "pointer" }}
+                  value={deptParentId}
+                  onChange={e => onParentChange(e.target.value)}
+                >
+                  <option value="">Select…</option>
+                  {businessUnits.map(u => (
+                    <option key={u.id} value={u.id}>{u.name}</option>
+                  ))}
+                </select>
               )}
+            </div>
+          )}
+
+          <div>
+            <label style={labelStyle}>Description (optional)</label>
+            <input
+              style={inputStyle}
+              value={deptDraft.description}
+              placeholder="What does this group do?"
+              onChange={e => onDraftChange({ ...deptDraft, description: e.target.value })}
+              onKeyDown={e => { if (e.key === "Enter") onAdd(); }}
+            />
+          </div>
+
+          <button onClick={onAdd} style={primaryBtn} disabled={saving}>
+            <Plus size={14} /> {saving ? "Saving…" : "Add"}
+          </button>
+        </div>
+
+        {loading ? (
+          <p style={{ ...subtle, textAlign: "center", padding: 20 }}>Loading departments…</p>
+        ) : departments.length === 0 ? (
+          <EmptyHint
+            icon={<Building2 size={32} />}
+            title="No structure yet"
+            body="Start with a Business Unit (e.g. Commercial, Technology), then add Departments under it (e.g. Sales, IT)."
+          />
+        ) : (
+          <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+            {businessUnits.map(unit => (
+              <div key={unit.id || unit.name} style={{
+                border: `1px solid ${OC.line}`, borderRadius: OR.md,
+                overflow: "hidden", background: "#fff",
+              }}>
+                <div style={{
+                  display: "flex", alignItems: "center", justifyContent: "space-between",
+                  padding: "12px 16px",
+                  background: OC.accentBg,
+                  borderBottom: `1px solid ${OC.line}`,
+                }}>
+                  <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                    <span style={{
+                      width: 30, height: 30, borderRadius: 8, flexShrink: 0,
+                      background: "#fff", color: OC.accent,
+                      display: "flex", alignItems: "center", justifyContent: "center",
+                    }}>
+                      <Landmark size={15} />
+                    </span>
+                    <div>
+                      <p style={{ margin: 0, fontSize: 14, fontWeight: 700, color: OC.accentDk }}>{unit.name}</p>
+                      {unit.description && <p style={{ ...subtle, margin: 0, fontSize: 11.5 }}>{unit.description}</p>}
+                    </div>
+                  </div>
+                  {unit.id && (
+                    <button onClick={() => onDelete(unit)} style={{ ...ghostBtn, color: OC.accentDk }} title={`Delete ${unit.name}`}>
+                      <Trash2 size={14} />
+                    </button>
+                  )}
+                </div>
+                <div style={{ padding: 16 }}>
+                  {(departmentsByUnit.get(unit.id || "") || []).length === 0 ? (
+                    <span style={{ ...subtle, fontSize: 12.5 }}>No departments yet under this unit.</span>
+                  ) : (
+                    <div style={{ display: "flex", flexWrap: "wrap", gap: 10 }}>
+                      {departmentsByUnit.get(unit.id || "")!.map(d => (
+                        <div key={d.id || d.name} style={{
+                          display: "inline-flex", alignItems: "center", gap: 8,
+                          padding: "8px 14px 8px 16px", borderRadius: 999,
+                          background: OC.tealBg, color: OC.teal,
+                          border: `1px solid ${OC.teal}30`,
+                          fontSize: 13, fontWeight: 600,
+                        }}>
+                          <Building2 size={12} />
+                          {d.name}
+                          {d.id && (
+                            <button onClick={() => onDelete(d)} style={{ ...ghostBtn, padding: 2, color: OC.teal }} title={`Delete ${d.name}`}>
+                              <Trash2 size={12} />
+                            </button>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </Section>
+
+      <Section
+        icon={<Shield size={20} />} iconColor={OC.amber}
+        title="System Roles"
+        subtitle="These are the access levels available in KagoHC. They are built into the platform."
+      >
+        <div style={{
+          display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(240px, 1fr))",
+          gap: 12,
+        }}>
+          {SYSTEM_ROLES.map(r => (
+            <div key={r.key} style={{
+              border: `1px solid ${OC.line}`, borderRadius: OR.md,
+              padding: 14, background: "#fff",
+            }}>
+              <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 8 }}>
+                <span style={{
+                  width: 30, height: 30, borderRadius: 8,
+                  background: `${r.color}1f`, color: r.color,
+                  display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0,
+                }}>
+                  <Shield size={14} />
+                </span>
+                <p style={{ ...valueStyle, margin: 0 }}>{r.label}</p>
+              </div>
+              <p style={{ ...subtle, margin: 0, fontSize: 12.5, lineHeight: 1.5 }}>{r.description}</p>
             </div>
           ))}
         </div>
-      )}
-    </Section>
+      </Section>
 
-    <Section
-      icon={<Shield size={20} />} iconColor={OC.amber}
-      title="System Roles"
-      subtitle="These are the access levels available in KagoHC. They are built into the platform."
-    >
-      <div style={{
-        display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(240px, 1fr))",
-        gap: 12,
-      }}>
-        {SYSTEM_ROLES.map(r => (
-          <div key={r.key} style={{
-            border: `1px solid ${OC.line}`, borderRadius: OR.md,
-            padding: 14, background: "#fff",
-          }}>
-            <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 8 }}>
-              <span style={{
-                width: 30, height: 30, borderRadius: 8,
-                background: `${r.color}1f`, color: r.color,
-                display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0,
-              }}>
-                <Shield size={14} />
-              </span>
-              <p style={{ ...valueStyle, margin: 0 }}>{r.label}</p>
-            </div>
-            <p style={{ ...subtle, margin: 0, fontSize: 12.5, lineHeight: 1.5 }}>{r.description}</p>
-          </div>
-        ))}
+      <div style={{ display: "flex", justifyContent: "flex-end" }}>
+        <button onClick={onComplete} style={{ ...primaryBtn, background: OC.green, boxShadow: "0 4px 12px rgba(72,187,120,0.3)" }}>
+          <CheckCircle2 size={16} /> Complete Onboarding
+        </button>
       </div>
-    </Section>
-
-    <div style={{ display: "flex", justifyContent: "flex-end" }}>
-      <button onClick={onComplete} style={{ ...primaryBtn, background: OC.green, boxShadow: "0 4px 12px rgba(72,187,120,0.3)" }}>
-        <CheckCircle2 size={16} /> Complete Onboarding
-      </button>
-    </div>
-  </>
-);
+    </>
+  );
+};
 
 /* ──────────────────────────────────────────────────────────────────────────
  * Administrator modal
