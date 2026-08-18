@@ -535,13 +535,19 @@ const ManagerDashboard: React.FC = () => {
     try { setUser(JSON.parse(u)); } catch { navigate("/"); }
   }, [navigate]);
 
-  const handleLeaveAction = useCallback(async (id: string, action: "approved" | "rejected") => {
+  const handleLeaveAction = useCallback(async (id: string, action: "approved" | "rejected", reason?: string) => {
     try {
-      await fetch(`${API_URL}/leave/${id}`, {
-        method: "PUT",
-        headers: { Authorization: `Bearer ${token()}`, "Content-Type": "application/json" },
-        body: JSON.stringify({ status: action }),
-      });
+      console.log('handleLeaveAction', { id, action, reason });
+      const headers: Record<string, string> = { Authorization: `Bearer ${token()}`, "Content-Type": "application/json" };
+      const url = action === "approved"
+        ? `${API_URL}/leave/${id}/approve`
+        : `${API_URL}/leave/${id}/reject`;
+      const options: any = { method: "PATCH", headers };
+      if (action === "rejected") options.body = JSON.stringify({ reason });
+
+      const res = await fetch(url, options);
+      if (!res.ok) throw new Error(`Server error ${res.status}`);
+
       setLeaveRequests(prev => prev.map(r => r.id === id ? { ...r, status: action } : r));
       setCounts(prev => ({ ...prev, pendingLeave: Math.max(0, prev.pendingLeave - 1) }));
     } catch (err) { console.error(err); }
@@ -586,10 +592,20 @@ const ManagerDashboard: React.FC = () => {
     const extract = (d: any): LeaveReq[] =>
       Array.isArray(d?.data?.data) ? d.data.data : Array.isArray(d?.data) ? d.data : Array.isArray(d) ? d : [];
 
+    const normalize = (arr: any[]) => arr.map((item: any) => ({ ...item, id: item._id || item.id || String(item.leave_id) }));
+
     fetch(`${API_URL}/leave/requests`, { headers })
-      .then(r => r.json()).then(d => setLeaveRequests(extract(d)))
+      .then(r => r.json()).then(d => {
+        const items = normalize(extract(d));
+        console.log('Loaded leave ids:', items.map((i: any) => i.id));
+        setLeaveRequests(items as LeaveReq[]);
+      })
       .catch(() =>
-        fetch(`${API_URL}/leave`, { headers }).then(r => r.json()).then(d => setLeaveRequests(extract(d)))
+        fetch(`${API_URL}/leave`, { headers }).then(r => r.json()).then(d => {
+          const items = normalize(extract(d));
+          console.log('Loaded leave ids (fallback):', items.map((i: any) => i.id));
+          setLeaveRequests(items as LeaveReq[]);
+        })
       )
       .finally(() => setLeaveLoading(false));
   }, []);
@@ -644,7 +660,16 @@ const ManagerDashboard: React.FC = () => {
         </div>
 
         <div className="mgr-row mgr-pair">
-          <PendingLeaveCard requests={leaveRequests} loading={leaveLoading} onApprove={id => handleLeaveAction(id, "approved")} onReject={id => handleLeaveAction(id, "rejected")} />
+          <PendingLeaveCard
+            requests={leaveRequests}
+            loading={leaveLoading}
+            onApprove={id => handleLeaveAction(id, "approved")}
+            onReject={id => {
+              const reason = window.prompt("Rejection reason (required):");
+              if (!reason) return;
+              handleLeaveAction(id, "rejected", reason);
+            }}
+          />
           <TeamRosterCard roster={roster} loading={rosterLoading} />
         </div>
 
