@@ -9,7 +9,7 @@
  *   • Pure helpers (SA ID validation, ETI calc, age, full-name, UIF / benefits matrix)
  *   • Default form values
  *   • Validation
- *   • Backend API calls (employee creation + document extraction)
+ *   • Backend API calls (employee creation + document extraction + departments)
  *   • Local draft persistence
  */
 
@@ -54,7 +54,12 @@ export const PROVINCES = [
   "Limpopo", "Mpumalanga", "Northern Cape", "North West",
 ] as const;
 
-export const DEPARTMENTS = [
+// Fallback only — used if the live department fetch fails or returns
+// nothing (e.g. offline, or a brand-new tenant whose seed hasn't run yet).
+// The dropdown normally pulls real Departments from the backend via
+// fetchDepartmentOptions() below, since departments are now owner-managed
+// (Owner ▸ Onboarding ▸ Structure) rather than a fixed list.
+export const FALLBACK_DEPARTMENTS = [
   "Sales", "IT", "HR", "Finance", "Operations", "Marketing",
   "Legal", "Procurement", "Customer Service", "Research & Development",
 ] as const;
@@ -499,6 +504,39 @@ export async function extractEmployeeDocument(
   } catch (err: any) {
     return { ok: false, message: err?.message || "Extraction API not available." };
   }
+}
+
+/**
+ * GET /department — live department list for the current tenant, sourced
+ * from what the owner actually configured in Onboarding ▸ Structure.
+ * Only returns actual Departments (parentDepartment set), never Business
+ * Units — an employee sits IN a department, not in the umbrella grouping.
+ * Falls back to FALLBACK_DEPARTMENTS (caller's responsibility) if this
+ * throws or returns an empty list.
+ */
+export interface DepartmentOption {
+  id: string;
+  name: string;
+  businessUnitName?: string;
+}
+
+export async function fetchDepartmentOptions(token: string): Promise<DepartmentOption[]> {
+  const res = await fetch(`${API_URL}/department`, {
+    headers: authHeaders(token),
+  });
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok || data?.success === false) {
+    throw new Error(data?.message || `Failed to load departments (${res.status})`);
+  }
+  const rows: any[] = Array.isArray(data?.data) ? data.data : Array.isArray(data) ? data : [];
+  return rows
+    .filter(d => !!d.parentDepartment) // exclude Business Units (top-level, no parent)
+    .map(d => ({
+      id: d._id || d.id,
+      name: d.name || "",
+      businessUnitName: d.parentDepartment?.name,
+    }))
+    .filter(d => d.name);
 }
 
 /* ─────────────────────────────────────────────────────────────────────────

@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import SharedLayout from "./SharedLayout";
@@ -6,7 +5,7 @@ import PhoneInput from "../../shared/components/PhoneInput";
 import {
   BRAND,
   PROVINCES as provinces,
-  DEPARTMENTS as departments,
+  FALLBACK_DEPARTMENTS,
   COUNTRIES as countries,
   ALLOWANCE_TYPES as allowanceTypes,
   DEDUCTION_TYPES as deductionTypes,
@@ -23,6 +22,7 @@ import {
   benefitsForType,
   createEmployeeWithOnboarding,
   extractEmployeeDocument,
+  fetchDepartmentOptions,
   saveQueueDraft,
   toQueueItem,
   queueItemFromTableRow,
@@ -235,8 +235,12 @@ function RadioGroup({ value, onChange, options, horizontal }: {
   );
 }
 
-// Reference data (provinces, departments, countries, allowanceTypes, deductionTypes,
+// Reference data (provinces, countries, allowanceTypes, deductionTypes,
 // ZAF_BANKS) is imported at the top of the file from shared/utils/manageEmployees.
+// Departments are NOT static — they're fetched live from the backend
+// (Owner ▸ Onboarding ▸ Structure) and passed down as the `departments` prop
+// to every component below that needs them, since departments now live in
+// the database rather than a fixed list.
 
 // ─── TAB COMPONENTS ──────────────────────────────────────────────────────────
 
@@ -439,7 +443,10 @@ function Tab2Contact({ f, upd }: { f: Employee; upd: (k: keyof Employee, v: any)
   );
 }
 
-function Tab3Employment({ f, upd }: { f: Employee; upd: (k: keyof Employee, v: any) => void }) {
+function Tab3Employment({ f, upd, departments, departmentsLoading }: {
+  f: Employee; upd: (k: keyof Employee, v: any) => void;
+  departments: string[]; departmentsLoading: boolean;
+}) {
   const benefits = benefitsForType(f.employment_type);
   const toggleBenefit = (b: string) => {
     const cur = f.benefits_package;
@@ -455,9 +462,14 @@ function Tab3Employment({ f, upd }: { f: Employee; upd: (k: keyof Employee, v: a
         </FI>
         <FI label="Department" required icon={<Ic.Layers />}>
           <SelectInput value={f.department} onChange={v => upd("department", v)}>
-            <option value="">Select Department</option>
+            <option value="">{departmentsLoading ? "Loading departments…" : "Select Department"}</option>
             {departments.map(d => <option key={d}>{d}</option>)}
           </SelectInput>
+          {!departmentsLoading && departments.length === 0 && (
+            <div style={{ color: "#b54708", fontSize: 11, marginTop: 4 }}>
+              ⚠ No departments configured yet — set these up under Owner ▸ Onboarding ▸ Structure first.
+            </div>
+          )}
         </FI>
       </div>
       <FI label="Start Date" required><TextInput type="date" value={f.start_date} onChange={v => upd("start_date", v)} /></FI>
@@ -1018,7 +1030,10 @@ function QueueCard({ item, index, onRemove }: { item: QueueItem; index: number; 
 // ─── Table Mode ───────────────────────────────────────────────────────────────
 // TableRowData type is imported from shared/utils/manageEmployees.
 
-function TableModeRow({ data, index, onChange, onRemove }: { data: Partial<TableRowData>; index: number; onChange: (k: keyof TableRowData, v: string) => void; onRemove: () => void }) {
+function TableModeRow({ data, index, departments, onChange, onRemove }: {
+  data: Partial<TableRowData>; index: number; departments: string[];
+  onChange: (k: keyof TableRowData, v: string) => void; onRemove: () => void;
+}) {
   const inp: React.CSSProperties = { padding: "6px 8px", border: "1px solid #d0d5dd", borderRadius: 6, fontSize: 12.5, outline: "none", width: "100%", boxSizing: "border-box", minWidth: 90 };
   const sel: React.CSSProperties = { ...inp, appearance: "none" as const };
   return (
@@ -1084,10 +1099,35 @@ function ManageEmployeesContent() {
   const [uploading, setUploading] = useState(false);
   const [processing, setProcessing] = useState(false);
 
+  // Departments now come from the backend (Owner ▸ Onboarding ▸ Structure)
+  // instead of a hardcoded list — they're seeded per-tenant and can be
+  // extended by the owner, so every dropdown here needs live data.
+  const [departments, setDepartments] = useState<string[]>([...FALLBACK_DEPARTMENTS]);
+  const [departmentsLoading, setDepartmentsLoading] = useState(true);
+
   useEffect(() => {
     const token = localStorage.getItem("token");
     if (!token) navigate("/");
   }, [navigate]);
+
+  useEffect(() => {
+    const token = localStorage.getItem("token");
+    if (!token) return;
+    setDepartmentsLoading(true);
+    fetchDepartmentOptions(token)
+      .then(opts => {
+        if (opts.length > 0) {
+          setDepartments(opts.map(o => o.name));
+        }
+        // If the fetch succeeds but returns nothing (owner hasn't set up
+        // Structure yet), keep the fallback list rather than leaving the
+        // dropdown empty — better a generic starting point than nothing.
+      })
+      .catch(err => {
+        console.warn("Could not load departments, using fallback list:", err);
+      })
+      .finally(() => setDepartmentsLoading(false));
+  }, []);
 
   const upd = useCallback((k: keyof Employee, v: any) => setForm(prev => ({ ...prev, [k]: v })), []);
 
@@ -1412,7 +1452,7 @@ function ManageEmployeesContent() {
               }}>
                 {activeTab === 1 && <Tab1Personal f={form} upd={upd} />}
                 {activeTab === 2 && <Tab2Contact f={form} upd={upd} />}
-                {activeTab === 3 && <Tab3Employment f={form} upd={upd} />}
+                {activeTab === 3 && <Tab3Employment f={form} upd={upd} departments={departments} departmentsLoading={departmentsLoading} />}
                 {activeTab === 4 && <Tab4Payment f={form} upd={upd} />}
                 {activeTab === 5 && <Tab5ETI f={form} upd={upd} />}
                 {activeTab === 6 && <Tab6Hours f={form} upd={upd} />}
@@ -1497,7 +1537,7 @@ function ManageEmployeesContent() {
                   </thead>
                   <tbody>
                     {tableRows.map((row, i) => (
-                      <TableModeRow key={i} data={row} index={i + 1}
+                      <TableModeRow key={i} data={row} index={i + 1} departments={departments}
                         onChange={(k, v) => setTableRows(prev => prev.map((r, idx) => idx === i ? { ...r, [k]: v } : r))}
                         onRemove={() => setTableRows(prev => prev.filter((_, idx) => idx !== i))}
                       />

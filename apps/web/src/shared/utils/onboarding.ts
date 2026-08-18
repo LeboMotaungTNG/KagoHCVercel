@@ -137,7 +137,30 @@ export interface Department {
   id?: string;
   name: string;
   description?: string;
+  // id of the parent Business Unit. null/undefined = this DEPARTMENT
+  // RECORD **IS** a Business Unit (top-level, no parent).
+  parentDepartment?: string | null;
+  // Populated display name of the parent, when the backend sends it back
+  // via .populate('parentDepartment', 'name').
+  parentDepartmentName?: string;
 }
+
+// Canonical starter taxonomy — MUST stay in sync with DEFAULT_DEPARTMENTS in
+// api/src/modules/owner/seed/department.seed.ts. Drives the Structure step's
+// dropdowns so owners pick from a controlled list instead of typing free
+// text — prevents near-duplicate names like "Commercial" / "Commercials"
+// ending up as two separate Business Units.
+export interface BusinessUnitTemplate {
+  name: string;
+  departments: string[];
+}
+
+export const BUSINESS_UNIT_TEMPLATES: BusinessUnitTemplate[] = [
+  { name: "Corporate Services",     departments: ["HR", "Finance", "Legal", "Procurement"] },
+  { name: "Commercial",             departments: ["Sales", "Marketing", "Customer Service"] },
+  { name: "Technology",             departments: ["IT", "Research & Development"] },
+  { name: "Operations & Logistics", departments: ["Operations"] },
+];
 
 /** New owner being added through the wizard. */
 export interface AdministratorDraft {
@@ -324,26 +347,56 @@ export const saveCompanySettings = async (company: CompanyData): Promise<void> =
   await handleJson(res);
 };
 
-// Departments  (backend: /api/v1/department, POST /create, DELETE /:id)
+// Departments  (backend: /api/v1/department — POST /, GET /, GET /hierarchy,
+// PUT /:id, DELETE /:id — see api/src/modules/owner/routes/department.routes.ts)
+
+const mapDepartment = (d: any): Department => ({
+  id: d._id || d.id,
+  name: d.name || "",
+  description: d.description,
+  parentDepartment: d.parentDepartment?._id || d.parentDepartment || null,
+  parentDepartmentName: d.parentDepartment?.name,
+});
 
 export const fetchDepartments = async (): Promise<Department[]> => {
   const data = await safeJson(`${API_URL}/department`, { headers: authHeaders() });
-  return unwrapArray(data).map((d: any) => ({
-    id: d._id || d.id,
-    name: d.name || "",
-    description: d.description,
-  }));
+  return unwrapArray(data).map(mapDepartment);
 };
 
-export const createDepartment = async (name: string, description?: string): Promise<Department> => {
-  const res = await fetch(`${API_URL}/department/create`, {
+export const createDepartment = async (
+  name: string,
+  description?: string,
+  parentDepartment?: string | null,
+): Promise<Department> => {
+  // NOTE: this is POST /department (no /create suffix) — matches
+  // department.routes.ts's `router.post('/', ...)`. Hitting /department/create
+  // 404s because that route doesn't exist on the backend.
+  const res = await fetch(`${API_URL}/department`, {
     method: "POST",
     headers: authHeaders(),
-    body: JSON.stringify({ name, description }),
+    body: JSON.stringify({
+      name,
+      description,
+      parentDepartment: parentDepartment || undefined,
+    }),
   });
   const data = await handleJson(res);
   const d = unwrapSuccessData(data) || {};
-  return { id: d._id || d.id, name: d.name || name, description: d.description };
+  return mapDepartment({ ...d, name: d.name || name });
+};
+
+export const updateDepartment = async (
+  id: string,
+  updates: { name?: string; description?: string; manager?: string | null; parentDepartment?: string | null },
+): Promise<Department> => {
+  const res = await fetch(`${API_URL}/department/${id}`, {
+    method: "PUT",
+    headers: authHeaders(),
+    body: JSON.stringify(updates),
+  });
+  const data = await handleJson(res);
+  const d = unwrapSuccessData(data) || {};
+  return mapDepartment(d);
 };
 
 export const deleteDepartment = async (id: string): Promise<void> => {
