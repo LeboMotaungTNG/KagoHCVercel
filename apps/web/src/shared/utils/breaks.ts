@@ -4,8 +4,8 @@
  * Lets an employee step away for Tea / Lunch / Other breaks while clocked in
  * and resume work afterwards. Breaks are persisted per-employee, per-day in
  * localStorage so they survive refreshes and across the Attendance page and
- * Employee Dashboard. (When a backend endpoint becomes available, swap the
- * `loadBreaks` / `persistBreaks` calls for API calls — UI stays the same.)
+ * Employee Dashboard. Break actions are also persisted through the attendance
+ * API so exports and payroll use the recorded break times.
  *
  * Concepts:
  *  - `BreakType`     – tea | lunch | other
@@ -65,6 +65,58 @@ function readEmployeeId(): string {
 
 function storageKey(date: string, employeeId: string): string {
   return `kagohc.breaks.${date}.${employeeId}`;
+}
+
+const API_BASE_URL = "http://localhost:3000/api/v1";
+
+function authHeaders(): HeadersInit {
+  const tokenKeys = ["token", "accessToken", "authToken", "jwt", "auth"];
+  let token = tokenKeys
+    .map(key => localStorage.getItem(key))
+    .find(value => value?.trim()) || "";
+
+  if (!token) {
+    try {
+      const user = JSON.parse(localStorage.getItem("user") || "null");
+      token = String(user?.token || user?.accessToken || "");
+    } catch {
+      token = "";
+    }
+  }
+
+  // Some login flows persist the complete auth response instead of the JWT.
+  if (token.startsWith("{") || token.startsWith("\"")) {
+    try {
+      const parsed = JSON.parse(token);
+      token = typeof parsed === "string"
+        ? parsed
+        : String(parsed?.token || parsed?.accessToken || parsed?.data?.token || "");
+    } catch {
+      token = "";
+    }
+  }
+
+  return {
+    "Content-Type": "application/json",
+    ...(token ? { Authorization: `Bearer ${token}` } : {}),
+  };
+}
+
+function backendBreakType(type: BreakType): "lunch" | "short" | "other" {
+  return type === "tea" ? "short" : type;
+}
+
+async function breakRequest(path: string, body?: unknown): Promise<void> {
+  const response = await fetch(`${API_BASE_URL}/attendance/breaks/${path}`, {
+    method: "POST",
+    headers: authHeaders(),
+    ...(body === undefined ? {} : { body: JSON.stringify(body) }),
+  });
+
+  if (!response.ok) {
+    const message = await response.text();
+    throw new Error(message || `Break request failed (${response.status})`);
+  }
 }
 
 function loadBreaks(date = todayYMD(), employeeId = readEmployeeId()): BreakSession[] {
@@ -135,9 +187,9 @@ export interface BreakSessionState {
   isOnBreak: boolean;
   totalMs: number;
   /** Start a new break (no-op if one is already running). */
-  startBreak: (type: BreakType) => void;
+  startBreak: (type: BreakType) => Promise<void>;
   /** End the currently running break (no-op if none). */
-  endBreak: () => void;
+  endBreak: () => Promise<void>;
   /** Remove a recorded break entry (e.g. a mistaken one). */
   removeBreak: (id: string) => void;
   /** Force a re-read from localStorage. */
@@ -172,7 +224,21 @@ export function useBreakSession(): BreakSessionState {
     return () => window.removeEventListener("storage", handler);
   }, []);
 
-  const startBreak = useCallback((type: BreakType) => {
+  const startBreak = useCallback(async (type: BreakType) => {
+    console.log("startBreak called", { type, breaks });
+    const latestBreaks = loadBreaks();
+    if (latestBreaks.some(b => !b.endedAt)) {
+      setBreaks(latestBreaks);
+      return;
+    }
+
+    try {
+      await breakRequest("start", { type: backendBreakType(type) });
+    } catch (error) {
+      console.error("Unable to start break:", error);
+      throw error;
+    }
+
     setBreaks(prev => {
       if (prev.some(b => !b.endedAt)) return prev;
       const next: BreakSession[] = [
@@ -182,9 +248,23 @@ export function useBreakSession(): BreakSessionState {
       persistBreaks(next);
       return next;
     });
-  }, []);
+  }, [breaks]);
 
-  const endBreak = useCallback(() => {
+  const endBreak = useCallback(async () => {
+    console.log("endBreak called", { breaks });
+    const latestBreaks = loadBreaks();
+    if (!latestBreaks.some(b => !b.endedAt)) {
+      setBreaks(latestBreaks);
+      return;
+    }
+
+    try {
+      await breakRequest("end");
+    } catch (error) {
+      console.error("Unable to end break:", error);
+      throw error;
+    }
+
     setBreaks(prev => {
       const idx = prev.findIndex(b => !b.endedAt);
       if (idx === -1) return prev;
@@ -193,7 +273,7 @@ export function useBreakSession(): BreakSessionState {
       persistBreaks(next);
       return next;
     });
-  }, []);
+  }, [breaks]);
 
   const removeBreak = useCallback((id: string) => {
     setBreaks(prev => {
