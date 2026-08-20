@@ -133,6 +133,14 @@ export const EMPTY_COMPANY: CompanyData = {
   country: "South Africa",
 };
 
+export interface DepartmentManagerInfo {
+  id: string;
+  firstName: string;
+  lastName: string;
+  email: string;
+  role?: string;
+}
+
 export interface Department {
   id?: string;
   name: string;
@@ -143,6 +151,10 @@ export interface Department {
   // Populated display name of the parent, when the backend sends it back
   // via .populate('parentDepartment', 'name').
   parentDepartmentName?: string;
+  // Populated manager, when the backend sends it back via
+  // .populate('manager', 'firstName lastName email role'). null/undefined
+  // means no manager has been assigned to this department yet.
+  manager?: DepartmentManagerInfo | null;
 }
 
 // Canonical starter taxonomy — MUST stay in sync with DEFAULT_DEPARTMENTS in
@@ -356,6 +368,15 @@ const mapDepartment = (d: any): Department => ({
   description: d.description,
   parentDepartment: d.parentDepartment?._id || d.parentDepartment || null,
   parentDepartmentName: d.parentDepartment?.name,
+  manager: d.manager && (d.manager._id || d.manager.id)
+    ? {
+        id: d.manager._id || d.manager.id,
+        firstName: d.manager.firstName || "",
+        lastName: d.manager.lastName || "",
+        email: d.manager.email || "",
+        role: d.manager.role,
+      }
+    : null,
 });
 
 export const fetchDepartments = async (): Promise<Department[]> => {

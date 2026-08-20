@@ -6,6 +6,7 @@ import {
   Users,
   Building2,
   Award,
+  Network,
   Menu,
   LogOut,
   ChevronDown,
@@ -230,6 +231,22 @@ const OwnerSidebar: React.FC<{ onLogout: () => void }> = ({ onLogout }) => {
                 </li>
               </ul>
             </li>
+
+            <li className={isActive("/owner/organization-structure") ? "mm-active" : ""}>
+  <Link
+    to="/owner/organization-structure"
+    className="waves-effect"
+    style={{
+      color: "rgba(255, 255, 255, 0.75)",
+      display: "flex",
+      alignItems: "center",
+      padding: "10px 20px",
+    }}
+  >
+    <Network size={20} style={{ marginRight: "10px" }} />
+    <span>Organization Structure</span>
+  </Link>
+</li>
 
             <li className={isActive("/owner/organization-settings") ? "mm-active" : ""}>
               <Link

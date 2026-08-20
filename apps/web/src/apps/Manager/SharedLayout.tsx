@@ -8,11 +8,12 @@
 import React from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import {
-  Home,
+   Home,
   Users,
   Calendar,
   ClipboardList,
   TrendingUp,
+  Network,
   Menu,
   LogOut,
   ChevronDown,
@@ -23,6 +24,7 @@ import {
   sidebarSubItemStyle,
   SidebarHoverStyle,
   MobileSidebarChrome,
+
 } from "../../shared/components/sidebarStyles";
 import NotificationBell from "../../shared/components/NotificationBell";
 import MobileBottomNav from "../../shared/components/MobileBottomNav";
@@ -52,13 +54,14 @@ const ManagerSidebar: React.FC<{ onLogout: () => void }> = ({ onLogout }) => {
     if (inPerformance) setIsPerformanceOpen(true);
   }, [inPerformance]);
 
-  const topItems: { to: string; label: string; icon: React.ReactNode; exact?: boolean }[] = [
-    { to: "/manager", label: "Dashboard", icon: <Home size={20} style={{ marginRight: 10 }} />, exact: true },
-    { to: "/manager/profile", label: "Employee Profile", icon: <Users size={20} style={{ marginRight: 10 }} /> },
-    { to: "/manager/employees", label: "All Employees", icon: <Users size={20} style={{ marginRight: 10 }} /> },
-    { to: "/manager/attendance", label: "Attendance", icon: <Calendar size={20} style={{ marginRight: 10 }} /> },
-    { to: "/manager/leave-requests", label: "Leave Requests", icon: <ClipboardList size={20} style={{ marginRight: 10 }} /> },
-  ];
+const topItems: { to: string; label: string; icon: React.ReactNode; exact?: boolean }[] = [
+  { to: "/manager", label: "Dashboard", icon: <Home size={20} style={{ marginRight: 10 }} />, exact: true },
+  { to: "/manager/profile", label: "Employee Profile", icon: <Users size={20} style={{ marginRight: 10 }} /> },
+  { to: "/manager/employees", label: "All Employees", icon: <Users size={20} style={{ marginRight: 10 }} /> },
+  { to: "/manager/attendance", label: "Attendance", icon: <Calendar size={20} style={{ marginRight: 10 }} /> },
+  { to: "/manager/leave-requests", label: "Leave Requests", icon: <ClipboardList size={20} style={{ marginRight: 10 }} /> },
+  { to: "/manager/organization-structure", label: "Organization Structure", icon: <Network size={20} style={{ marginRight: 10 }} /> },
+];
 
   const bottomItems: { to: string; label: string; icon: React.ReactNode }[] = [
     { to: "/manager/payroll", label: "Payroll Management", icon: <ClipboardList size={20} style={{ marginRight: 10 }} /> },
