@@ -539,6 +539,44 @@ export async function fetchDepartmentOptions(token: string): Promise<DepartmentO
     .filter(d => d.name);
 }
 
+/**
+ * GET /employees — lightweight tenant-wide employee list for the
+ * Organization Structure page (org chart + employee/manager directory).
+ * Deliberately returns only the fields that page needs, not the full
+ * Employee record.
+ */
+export interface EmployeeSummary {
+  id: string;
+  firstName: string;
+  lastName: string;
+  email: string;
+  position: string;
+  department: string;
+  isManager: boolean;
+  userId?: string;
+}
+
+export async function fetchAllEmployees(token: string): Promise<EmployeeSummary[]> {
+  const res = await fetch(`${API_URL}/employees?limit=200`, {
+    headers: authHeaders(token),
+  });
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok || data?.success === false) {
+    throw new Error(data?.message || `Failed to load employees (${res.status})`);
+  }
+  const rows: any[] = Array.isArray(data?.data) ? data.data : Array.isArray(data) ? data : [];
+  return rows.map(e => ({
+    id: e._id || e.id,
+    firstName: e.firstName || "",
+    lastName: e.lastName || "",
+    email: e.email || "",
+    position: e.position || "",
+    department: e.department || "",
+    isManager: !!e.isManager,
+    userId: e.userId?._id || e.userId || undefined,
+  }));
+}
+
 /* ─────────────────────────────────────────────────────────────────────────
  * Local draft persistence
  * ────────────────────────────────────────────────────────────────────── */

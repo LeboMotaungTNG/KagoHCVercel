@@ -15,11 +15,13 @@ import EmployeeSettingsPage from "./apps/employee/EmployeeSettingsPage";
 import EmployeeDocumentsPage from "./apps/employee/EmployeeDocumentsPage";
 import EmployeePerformance from "./apps/employee/performance";
 import OwnerDashboard from "./apps/Owner/OwnerDashboard";
+import OwnerOrganizationStructurePage from "./apps/Owner/OrganizationStructurePage";
 import ManagerDashboard from "./apps/Manager/ManagerDashboard";
 import ManagerReviewPage from "./apps/Manager/ManagerReviewPage";
 import ManagerAnalyticsPage from "./apps/Manager/ManagerAnalyticsPage";
 import ManagerModerationPage from "./apps/Manager/ManagerModerationPage";
 import ManagerTeamGoalsPage from "./apps/Manager/ManagerTeamGoalsPage";
+import ManagerOrganizationStructurePage  from "./apps/Manager/OrganizationStructurePage";
 import EmployeeProfile from "./apps/Manager/EmployeeProfile";
 import ManageEmployees from "./apps/Manager/ManageEmployees";
 import EmployeesPage from "./apps/Manager/EmployeesPage";
@@ -28,6 +30,7 @@ import LeavePage from "./apps/Manager/leave";
 import Payroll from "./apps/Manager/Payroll";
 import PlatformAdminPage from "./apps/Platform/PlatformAdminPage";
 import AcceptInvitePage from "./apps/Platform/AcceptInvitePage";
+
 
 // Convenience aliases so the route table reads cleanly.
 // "user" is the legacy role the backend currently issues for regular staff;
@@ -63,12 +66,14 @@ const App: React.FC = () => (
 
       {/* ── Manager / Admin / HR ──────────────────────────────────── */}
       <Route path="/manager"                  element={<Guard roles={ManagerArea}><ManagerDashboard /></Guard>} />
+      
       <Route path="/manager/profile"          element={<Guard roles={ManagerArea}><EmployeeProfile /></Guard>} />
       <Route path="/manager/profile/:id"      element={<Guard roles={ManagerArea}><EmployeeProfile /></Guard>} />
       <Route path="/manager/manage-employees" element={<Guard roles={ManagerArea}><ManageEmployees /></Guard>} />
       <Route path="/manager/employees"        element={<Guard roles={ManagerArea}><EmployeesPage /></Guard>} />
       <Route path="/manager/attendance"       element={<Guard roles={ManagerArea}><AttendancePage /></Guard>} />
       <Route path="/manager/leave-requests"   element={<Guard roles={ManagerArea}><LeavePage /></Guard>} />
+      <Route path="/manager/organization-structure" element={<Guard roles={ManagerArea}><ManagerOrganizationStructurePage /></Guard>} />
       <Route path="/manager/payroll"          element={<Guard roles={ManagerArea}><Payroll /></Guard>} />
       <Route path="/manager/performance"     element={<Guard roles={ManagerArea}><ManagerReviewPage /></Guard>} />
       <Route path="/manager/team-goals"      element={<Guard roles={ManagerArea}><ManagerTeamGoalsPage /></Guard>} />
@@ -77,6 +82,7 @@ const App: React.FC = () => (
 
       {/* ── Owner ─────────────────────────────────────────────────── */}
       <Route path="/owner/*" element={<Guard roles={OwnerArea}><OwnerDashboard /></Guard>} />
+    <Route path="/owner/organization-structure" element={<Guard roles={OwnerArea}><OwnerOrganizationStructurePage /></Guard>} />
 
       {/* ── Employee self-service ─────────────────────────────────── */}
       <Route path="/employee"             element={<Guard roles={EmployeeArea}><EmployeeDashboard /></Guard>} />
