@@ -1,0 +1,23 @@
+Sync KagoHC frontend & backend
+
+Frontend
+- Country-aware PhoneInput, shared CountryContext and SADC country profiles.
+- Unified sidebar active/hover styling shared across Owner, Manager and Employee.
+- Owner: Onboarding (full multi-step wizard), Manage Employees redesign,
+  Manage Employees logic extracted to shared/utils.
+- Employee: redesigned profile page, dashboard hero with live timer,
+  attendance page with tea/lunch/other break tracking and break log.
+- Reusable BreakControls component plus per-day break persistence.
+- LeaveManagement and OrganizationSettings respect dynamic leave types
+  defined by the owner.
+- Login page: show/hide password toggle.
+- Comprehensive mobile-responsive SCSS layer covering 1100/992/768/600/380 px.
+
+Backend
+- Replaces apps/kagohc-backend with apps/Back-end (refreshed structure).
+- Modules: auth, employee, department, leave, leave-rules, attendance,
+  owner (company, department, role, leave-policy), users, payroll, tax.
+- Audit helper stub, auth middleware compatibility export, multer config,
+  Heroku/Docker manifests.
+
+Preserves vercel.json from origin/main untouched.

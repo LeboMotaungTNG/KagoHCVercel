@@ -1,0 +1,55 @@
+// Design tokens for the performance module.
+// Import once in the Bootstrap SCSS entrypoint before Bootstrap variables.
+
+$brand: #33A6CD;
+$brand-dark: #226F8D;
+$brand-light: #66C5E3;
+$bg-page: #f8fafc;
+$card-border: #eef0f3;
+$card-radius: 16px;
+
+$text-dark: #1d2939;
+$text-medium: #344054;
+$text-muted: #667085;
+
+// Rating band colours (fallback — prefer evaluation.ratingColor / framework bands).
+$rating-top-performer: #1e40af;
+$rating-exceeds: #15803d;
+$rating-meets: #b45309;
+$rating-needs-improvement: #c2410c;
+$rating-underperforms: #b91c1c;
+
+.kagohc-card {
+  border: 1px solid $card-border;
+  border-radius: $card-radius;
+  background: #fff;
+}
+
+.text-muted-kagohc {
+  color: $text-muted;
+}
+
+.btn-brand {
+  background-color: $brand;
+  border-color: $brand;
+  color: #fff;
+
+  &:hover,
+  &:focus {
+    background-color: $brand-dark;
+    border-color: $brand-dark;
+    color: #fff;
+  }
+}
+
+.evaluation-field {
+  background: rgba(51, 166, 205, 0.08);
+  border: 1px solid rgba(51, 166, 205, 0.28);
+  border-radius: 10px;
+  color: $text-dark;
+}
+
+.evaluation-page .evaluation-pillar-header + .kagohc-card {
+  border-top-left-radius: 0;
+  border-top-right-radius: 0;
+}
