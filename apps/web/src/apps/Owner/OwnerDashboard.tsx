@@ -44,7 +44,7 @@ import OnboardingPage from "../Manager/OnboardingPage";
 import OwnerLeave from "./OwnerLeave";
 import ManageEmployees from "./ManageEmployees";
 import EmployeeProfile from "../Manager/EmployeeProfile";
-import OwnerOrganizationStructurePage from "./OrganizationStructurePage";
+import OwnerOrganizationStructurePage from "./OrganizationStructurePage"; 
 
 // Performance pages
 import FrameworkLibraryPage from "../employee/src/pages/owner/FrameworkLibraryPage";

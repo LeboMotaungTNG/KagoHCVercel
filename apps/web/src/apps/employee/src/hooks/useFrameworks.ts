@@ -66,7 +66,7 @@ export function useFrameworkLibrary() {
         });
         return activated;
       } finally {
-        setActivatingId(null);
+        setActivatingId(null); 
       }
     },
     [tenantFrameworks]

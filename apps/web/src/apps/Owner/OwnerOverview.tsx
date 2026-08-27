@@ -114,7 +114,7 @@ const GreetingHeader: React.FC<{ name: string }> = ({ name }) => {
     }}>
       <div>
         <h1 style={{ margin: 0, fontSize: 34, fontWeight: 800, color: C.ink, letterSpacing: -0.8, lineHeight: 1.1 }}>
-          {greeting}, {name} 👋
+          {greeting}, {name} 
         </h1>
         <p style={{ margin: "6px 0 0", color: C.muted, fontSize: 15 }}>
           Here's your organisation overview for today.
