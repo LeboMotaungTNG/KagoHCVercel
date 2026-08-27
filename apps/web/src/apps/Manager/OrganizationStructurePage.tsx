@@ -1,5 +1,7 @@
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useMemo, useState , useRef} from "react";
 import SharedLayout from "./SharedLayout";
+import html2canvas from "html2canvas";
+import jsPDF from "jspdf";
 import {
   BRAND,
   fetchAllEmployees,
@@ -7,6 +9,8 @@ import {
 } from "../../shared/utils/manageEmployees";
 import {
   type Department,
+  type DepartmentManagerInfo,
+  fetchCompanySettings,
   fetchDepartments,
   updateDepartment,
 } from "../../shared/utils/onboarding";
@@ -24,6 +28,8 @@ const Ic = {
   X: () => <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" /></svg>,
   Pencil: () => <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2"><path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z" /></svg>,
   Crown: () => <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="m2 4 3 12h14l3-12-6 7-4-7-4 7-6-7Z" /></svg>,
+  Download: () => <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" /><polyline points="7 10 12 15 17 10" /><line x1="12" y1="15" x2="12" y2="3" /></svg>,
+  ChevronDown: () => <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><polyline points="6 9 12 15 18 9" /></svg>,
 };
 
 /* ──────────────────────────────────────────────────────────────────────────
@@ -74,6 +80,78 @@ const LegendDot: React.FC<{ color: string; border?: string; label: string }> = (
 );
 
 /* ──────────────────────────────────────────────────────────────────────────
+ * Download menu button (PNG / PDF)
+ * ─────────────────────────────────────────────────────────────────────── */
+const DownloadMenu: React.FC<{
+  onPNG: () => void;
+  onPDF: () => void;
+  busy: boolean;
+}> = ({ onPNG, onPDF, busy }) => {
+  const [open, setOpen] = useState(false);
+  const wrapRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const onClick = (e: MouseEvent) => {
+      if (wrapRef.current && !wrapRef.current.contains(e.target as Node)) setOpen(false);
+    };
+    document.addEventListener("mousedown", onClick);
+    return () => document.removeEventListener("mousedown", onClick);
+  }, []);
+
+  return (
+    <div ref={wrapRef} style={{ position: "relative" }}>
+      <button
+        onClick={() => setOpen(o => !o)}
+        disabled={busy}
+        style={{
+          display: "flex", alignItems: "center", gap: 8,
+          padding: "9px 14px", borderRadius: 10,
+          border: `1px solid ${BRAND.border}`, background: "#fff",
+          color: BRAND.ink, fontSize: 12.5, fontWeight: 600,
+          cursor: busy ? "wait" : "pointer", opacity: busy ? 0.7 : 1,
+        }}
+      >
+        <Ic.Download />
+        {busy ? "Preparing…" : "Download"}
+        <Ic.ChevronDown />
+      </button>
+      {open && (
+        <div style={{
+          position: "absolute", right: 0, top: "calc(100% + 6px)", zIndex: 20,
+          background: "#fff", border: `1px solid ${BRAND.border}`, borderRadius: 10,
+          boxShadow: "0 12px 28px rgba(16,24,40,0.12)", minWidth: 160, overflow: "hidden",
+        }}>
+          <button
+            onClick={() => { setOpen(false); onPNG(); }}
+            style={{
+              display: "block", width: "100%", textAlign: "left", padding: "10px 14px",
+              border: "none", background: "transparent", fontSize: 12.5, color: BRAND.text,
+              cursor: "pointer",
+            }}
+            onMouseEnter={e => (e.currentTarget.style.background = "#f7f8fa")}
+            onMouseLeave={e => (e.currentTarget.style.background = "transparent")}
+          >
+            Download as PNG
+          </button>
+          <button
+            onClick={() => { setOpen(false); onPDF(); }}
+            style={{
+              display: "block", width: "100%", textAlign: "left", padding: "10px 14px",
+              border: "none", background: "transparent", fontSize: 12.5, color: BRAND.text,
+              cursor: "pointer", borderTop: `1px solid ${BRAND.borderSoft}`,
+            }}
+            onMouseEnter={e => (e.currentTarget.style.background = "#f7f8fa")}
+            onMouseLeave={e => (e.currentTarget.style.background = "transparent")}
+          >
+            Download as PDF
+          </button>
+        </div>
+      )}
+    </div>
+  );
+};
+
+/* ──────────────────────────────────────────────────────────────────────────
  * Org-chart tree CSS (classic connector-line pattern, scoped with kgo- prefix)
  * ─────────────────────────────────────────────────────────────────────── */
 const TreeStyles = () => (
@@ -112,14 +190,134 @@ const TreeStyles = () => (
  * Main content
  * ─────────────────────────────────────────────────────────────────────── */
 function OrganizationStructureContent() {
+  const chartRef = useRef<HTMLDivElement>(null);
+
   const [departments, setDepartments] = useState<Department[]>([]);
   const [employees, setEmployees] = useState<EmployeeSummary[]>([]);
+  const [companyName, setCompanyName] = useState<string>("");
+  const [companyLogoUrl, setCompanyLogoUrl] = useState<string>("");
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [query, setQuery] = useState("");
   const [editingDept, setEditingDept] = useState<string | null>(null);
   const [assigning, setAssigning] = useState<string | null>(null);
   const [toast, setToast] = useState<{ message: string; type: "success" | "error" } | null>(null);
+  const [exporting, setExporting] = useState(false);
+
+  // html2canvas only captures what's within an element's current box —
+  // if the chart is wider than its scrollable viewport, anything scrolled
+  // out of view gets clipped. To capture the FULL chart, we briefly expand
+  // the scrollable container to its true content size, render it, then put
+  // the original styles back so the on-screen layout is untouched.
+  const captureChart = async (): Promise<HTMLCanvasElement | null> => {
+    const outer = chartRef.current;
+    if (!outer) return null;
+    const scrollEl = outer.querySelector<HTMLElement>(".kgo-org-scroll") || outer;
+
+    const prev = {
+      width: scrollEl.style.width,
+      overflowX: scrollEl.style.overflowX,
+      overflowY: scrollEl.style.overflowY,
+    };
+
+    try {
+      // Force the container to lay out at its full natural size.
+      scrollEl.style.overflowX = "visible";
+      scrollEl.style.overflowY = "visible";
+      scrollEl.style.width = `${scrollEl.scrollWidth}px`;
+
+      const fullWidth = scrollEl.scrollWidth;
+      const fullHeight = scrollEl.scrollHeight;
+
+      const canvas = await html2canvas(outer, {
+        scale: 2,
+        useCORS: true,
+        backgroundColor: "#ffffff",
+        width: fullWidth,
+        height: fullHeight,
+        windowWidth: fullWidth,
+        windowHeight: fullHeight,
+        scrollX: 0,
+        scrollY: 0,
+      });
+
+      return canvas;
+    } finally {
+      // Always restore, even if capture throws.
+      scrollEl.style.width = prev.width;
+      scrollEl.style.overflowX = prev.overflowX;
+      scrollEl.style.overflowY = prev.overflowY;
+    }
+  };
+
+  const exportPNG = async () => {
+    if (!chartRef.current) return;
+    setExporting(true);
+    try {
+      const canvas = await captureChart();
+      if (!canvas) return;
+
+      const image = canvas.toDataURL("image/png");
+
+      const link = document.createElement("a");
+      link.href = image;
+      link.download = "organization-structure.png";
+      link.click();
+      showToast("Organization chart downloaded as PNG.", "success");
+    } catch (error) {
+      console.error("PNG export failed:", error);
+      showToast("Couldn't export the chart. Please try again.", "error");
+    } finally {
+      setExporting(false);
+    }
+  };
+
+  const exportPDF = async () => {
+    if (!chartRef.current) return;
+    setExporting(true);
+    try {
+      const canvas = await captureChart();
+      if (!canvas) return;
+
+      const image = canvas.toDataURL("image/png");
+
+      // Size the PDF page to match the chart's own proportions (mm, at
+      // roughly 96dpi-equivalent scale) instead of forcing a fixed A4 page.
+      // A very wide org chart otherwise gets squeezed down to fit A4 and
+      // becomes unreadable. We cap the longest side so the file stays a
+      // sane physical page size.
+      const margin = 10;
+      const maxDimension = 1200; // mm, generous ceiling for very large charts
+      const pxToMm = 0.264583 / 2; // canvas was rendered at scale: 2
+
+      let imageWidth = canvas.width * pxToMm;
+      let imageHeight = canvas.height * pxToMm;
+
+      if (imageWidth > maxDimension || imageHeight > maxDimension) {
+        const shrink = maxDimension / Math.max(imageWidth, imageHeight);
+        imageWidth *= shrink;
+        imageHeight *= shrink;
+      }
+
+      const pageWidth = imageWidth + margin * 2;
+      const pageHeight = imageHeight + margin * 2;
+
+      const pdf = new jsPDF({
+        orientation: pageWidth >= pageHeight ? "landscape" : "portrait",
+        unit: "mm",
+        format: [pageWidth, pageHeight],
+      });
+
+      pdf.addImage(image, "PNG", margin, margin, imageWidth, imageHeight);
+      pdf.save("organization-structure.pdf");
+      showToast("Organization chart downloaded as PDF.", "success");
+    } catch (error) {
+      console.error("PDF export failed:", error);
+      showToast("Couldn't export the chart. Please try again.", "error");
+    } finally {
+      setExporting(false);
+    }
+  };
 
   const showToast = (message: string, type: "success" | "error" = "success") => {
     setToast({ message, type });
@@ -141,6 +339,17 @@ function OrganizationStructureContent() {
       setLoadError(e?.message || "Failed to load organization structure.");
     } finally {
       setLoading(false);
+    }
+
+    // Company name/logo are cosmetic for the root node — fetch separately
+    // so a failure here never blocks the chart itself from rendering.
+    try {
+      const company = await fetchCompanySettings();
+      console.log("[org-chart] fetchCompanySettings() returned:", company); // TEMP DEBUG — remove after checking
+      setCompanyName(company?.name || "");
+      setCompanyLogoUrl(company?.logoUrl || company?.logoDataUrl || "");
+    } catch (e) {
+      console.warn("Failed to load company settings for org chart header:", e);
     }
   };
 
@@ -180,7 +389,36 @@ function OrganizationStructureContent() {
   );
 
   const leafDepartments = useMemo(() => departments.filter(d => d.parentDepartment), [departments]);
-  const unassignedCount = useMemo(() => leafDepartments.filter(d => !d.manager).length, [leafDepartments]);
+
+  // Auto-populate department managers: if the owner hasn't manually
+  // assigned a manager to a department, fall back to the first employee
+  // in that department who was onboarded/flagged as a manager. A manual
+  // assignment (via the pencil icon, which persists to the backend as
+  // dept.manager) always takes priority over this inference.
+  const effectiveManagers = useMemo(() => {
+    const map = new Map<string, DepartmentManagerInfo>();
+    leafDepartments.forEach(d => {
+      if (d.manager) {
+        if (d.id) map.set(d.id, d.manager);
+        return;
+      }
+      const teamMembers = employeesByDeptName.get(d.name.trim()) || [];
+      const inferred = teamMembers.find(e => e.isManager && e.userId);
+      if (inferred && d.id) {
+        map.set(d.id, {
+          id: inferred.userId as string,
+          firstName: inferred.firstName,
+          lastName: inferred.lastName,
+        } as DepartmentManagerInfo);
+      }
+    });
+    return map;
+  }, [leafDepartments, employeesByDeptName]);
+
+  const unassignedCount = useMemo(
+    () => leafDepartments.filter(d => !(d.id && effectiveManagers.has(d.id))).length,
+    [leafDepartments, effectiveManagers],
+  );
 
   // Search-and-highlight within the tree: matching a unit, department, or
   // employee also lights up its ancestors so the match's place in the
@@ -243,13 +481,31 @@ function OrganizationStructureContent() {
       ...siblingCard, padding: "14px 26px", display: "flex", alignItems: "center", gap: 12,
       background: "linear-gradient(135deg, #111827 0%, #1f2937 100%)", borderColor: "#111827",
     }}>
-      <span style={{
-        width: 36, height: 36, borderRadius: 9, background: "rgba(255,255,255,0.12)",
-        color: "#fff", display: "flex", alignItems: "center", justifyContent: "center",
-      }}><Ic.Crown /></span>
-      <div>
-        <div style={{ fontSize: 14.5, fontWeight: 800, color: "#fff" }}>Organization</div>
-        <div style={{ fontSize: 11, color: "rgba(255,255,255,0.6)" }}>{employees.length} people · {businessUnits.length} business units</div>
+      {companyLogoUrl ? (
+        <img
+          src={companyLogoUrl}
+          alt={companyName || "Company logo"}
+          style={{
+            width: 36, height: 36, borderRadius: 9, objectFit: "cover",
+            background: "rgba(255,255,255,0.12)", flexShrink: 0,
+          }}
+        />
+      ) : (
+        <span style={{
+          width: 36, height: 36, borderRadius: 9, background: "rgba(255,255,255,0.12)",
+          color: "#fff", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0,
+        }}><Ic.Crown /></span>
+      )}
+      <div style={{ minWidth: 0 }}>
+        <div style={{
+          fontSize: 14.5, fontWeight: 800, color: "#fff",
+          overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", maxWidth: 260,
+        }}>
+          {companyName || "Organization"}
+        </div>
+        <div style={{ fontSize: 11, color: "rgba(255,255,255,0.6)" }}>
+          {companyName ? "Organization · " : ""}{employees.length} people · {businessUnits.length} business units
+        </div>
       </div>
     </div>
   );
@@ -282,11 +538,15 @@ function OrganizationStructureContent() {
   const DeptNode: React.FC<{ dept: Department }> = ({ dept }) => {
     const isEditing = editingDept === dept.id;
     const matched = !matchSet || (dept.id ? matchSet.deptIds.has(dept.id) : false);
+    // Manually-assigned manager (dept.manager) wins; otherwise fall back
+    // to the auto-detected manager from onboarding.
+    const manager = dept.manager || (dept.id ? effectiveManagers.get(dept.id) : undefined);
+    const isAutoAssigned = !dept.manager && !!manager;
     return (
       <div className="kgo-node" style={{
         ...siblingCard, padding: "12px 14px", minWidth: 200,
-        borderColor: dept.manager ? BRAND.cardBorder : "#fedf89",
-        background: dept.manager ? "#fff" : "#fffdf5",
+        borderColor: manager ? BRAND.cardBorder : "#fedf89",
+        background: manager ? "#fff" : "#fffdf5",
         ...dimStyle(matched), ...ringStyle(matched),
       }}>
         <div style={{ display: "flex", alignItems: "center", gap: 5, marginBottom: 8 }}>
@@ -295,8 +555,8 @@ function OrganizationStructureContent() {
         </div>
 
         <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-          {dept.manager ? (
-            <Avatar first={dept.manager.firstName} last={dept.manager.lastName} size={30} tone="dark" />
+          {manager ? (
+            <Avatar first={manager.firstName} last={manager.lastName} size={30} tone="dark" />
           ) : (
             <span style={{
               width: 30, height: 30, borderRadius: "50%", background: "#fef3c7",
@@ -305,9 +565,11 @@ function OrganizationStructureContent() {
           )}
           <div style={{ minWidth: 0, flex: 1 }}>
             <div style={{ fontSize: 12.5, fontWeight: 700, color: BRAND.text, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-              {dept.manager ? `${dept.manager.firstName} ${dept.manager.lastName}` : "No manager"}
+              {manager ? `${manager.firstName} ${manager.lastName}` : "No manager"}
             </div>
-            <div style={{ fontSize: 10, color: BRAND.textFaint }}>Department Manager</div>
+            <div style={{ fontSize: 10, color: BRAND.textFaint }}>
+              {isAutoAssigned ? "Department Manager · Auto-assigned" : "Department Manager"}
+            </div>
           </div>
           <button
             onClick={() => setEditingDept(isEditing ? null : (dept.id || null))}
@@ -326,7 +588,7 @@ function OrganizationStructureContent() {
               <p style={{ margin: 0, fontSize: 11, color: BRAND.textFaint }}>No promoted managers yet.</p>
             ) : (
               <select
-                value={dept.manager?.id || ""}
+                value={manager?.id || ""}
                 disabled={assigning === dept.id}
                 onChange={e => handleAssignManager(dept.id, e.target.value)}
                 style={{
@@ -393,7 +655,7 @@ function OrganizationStructureContent() {
           </div>
         </div>
 
-        {/* Legend + in-chart search — replaces the old view toggle */}
+        {/* Legend + in-chart search + download */}
         <div style={{ display: "flex", alignItems: "center", gap: 18, flexWrap: "wrap" }}>
           <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
             <LegendDot color="#805AD5" label="Business Unit" />
@@ -412,6 +674,7 @@ function OrganizationStructureContent() {
               }}
             />
           </div>
+          <DownloadMenu onPNG={exportPNG} onPDF={exportPDF} busy={exporting} />
         </div>
       </div>
 
@@ -455,7 +718,7 @@ function OrganizationStructureContent() {
         </div>
       ) : (
         /* ── ORG CHART — real connector-line tree ────────────────────────── */
-        <div style={{ ...siblingCard, background: "#fbfbfd" }}>
+        <div ref={chartRef} style={{ ...siblingCard, background: "#fbfbfd" }}>
           <div className="kgo-org-scroll">
             <ul className="kgo-org-tree">
               <li>
