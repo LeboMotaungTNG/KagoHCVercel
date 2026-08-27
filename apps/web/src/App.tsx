@@ -15,7 +15,6 @@ import EmployeeSettingsPage from "./apps/employee/EmployeeSettingsPage";
 import EmployeeDocumentsPage from "./apps/employee/EmployeeDocumentsPage";
 import EmployeePerformance from "./apps/employee/performance";
 import OwnerDashboard from "./apps/Owner/OwnerDashboard";
-import OwnerOrganizationStructurePage from "./apps/Owner/OrganizationStructurePage";
 import ManagerDashboard from "./apps/Manager/ManagerDashboard";
 import ManagerReviewPage from "./apps/Manager/ManagerReviewPage";
 import ManagerAnalyticsPage from "./apps/Manager/ManagerAnalyticsPage";
@@ -82,7 +81,6 @@ const App: React.FC = () => (
 
       {/* ── Owner ─────────────────────────────────────────────────── */}
       <Route path="/owner/*" element={<Guard roles={OwnerArea}><OwnerDashboard /></Guard>} />
-    <Route path="/owner/organization-structure" element={<Guard roles={OwnerArea}><OwnerOrganizationStructurePage /></Guard>} />
 
       {/* ── Employee self-service ─────────────────────────────────── */}
       <Route path="/employee"             element={<Guard roles={EmployeeArea}><EmployeeDashboard /></Guard>} />

@@ -1,32 +1,59 @@
 import React, { useState } from "react";
-import { Link, useNavigate, Routes, Route, useLocation, Navigate } from "react-router-dom";
+
 import {
-  Users, Building2, Home, Menu, LogOut, Award, ChevronDown, ChevronRight, Rocket, TrendingUp,
+  Link,
+  useNavigate,
+  Routes,
+  Route,
+  useLocation,
+  Navigate,
+} from "react-router-dom";
+
+import {
+  Users,
+  Building2,
+  Home,
+  Menu,
+  LogOut,
+  Award,
+  ChevronDown,
+  ChevronRight,
+  Rocket,
+  TrendingUp,
+  Network,
 } from "lucide-react";
+
 import {
   sidebarItemStyle,
   sidebarSubItemStyle,
   SidebarHoverStyle,
 } from "../../shared/components/sidebarStyles";
+
 import NotificationBell from "../../shared/components/NotificationBell";
+
 // @ts-ignore
 import logoKago from "../../assets/images/logo-black-white.png";
 
-// Import pages
+// Owner pages
 import { OwnerOverview } from "./OwnerOverview";
 import { ManagersPage } from "./ManagersPage";
 import { EmployeesPage } from "./EmployeesPage";
-import FrameworkLibraryPage from "../employee/src/pages/owner/FrameworkLibraryPage";
-import FrameworkBuilderPage from "../employee/src/pages/owner/FrameworkBuilderPage";
-import ReviewsDashboardPage from "../employee/src/pages/owner/ReviewsDashboardPage";
-import ObjectivesPage from "../employee/src/pages/owner/ObjectivesPage";
-import AnalyticsInsightsPage from "../employee/src/pages/owner/AnalyticsInsightsPage";
 import { OrganizationSettingsPage } from "./OrganizationSettingsPage";
 import { SubscriptionsPage } from "./SubscriptionsPage";
 import OnboardingPage from "../Manager/OnboardingPage";
 import OwnerLeave from "./OwnerLeave";
 import ManageEmployees from "./ManageEmployees";
 import EmployeeProfile from "../Manager/EmployeeProfile";
+import OwnerOrganizationStructurePage from "./OrganizationStructurePage"; 
+
+// Performance pages
+import FrameworkLibraryPage from "../employee/src/pages/owner/FrameworkLibraryPage";
+import FrameworkBuilderPage from "../employee/src/pages/owner/FrameworkBuilderPage";
+import ReviewsDashboardPage from "../employee/src/pages/owner/ReviewsDashboardPage";
+import ObjectivesPage from "../employee/src/pages/owner/ObjectivesPage";
+import AnalyticsInsightsPage from "../employee/src/pages/owner/AnalyticsInsightsPage";
+
+
 
 // --- Owner Dashboard Layout ---
 
@@ -40,12 +67,15 @@ const OwnerSidebar = () => {
   const hcSubPaths = ["/owner/managers", "/owner/employees", "/owner/manage-employees"];
   const inHumanCapital = isInGroup(...hcSubPaths);
 
+
   const perfSubPaths = [
     "/owner/reviews",
     "/owner/employee-review",
     "/owner/frameworks",
     "/owner/objectives",
     "/owner/analytics",
+
+
   ];
   const inPerformance = isInGroup(...perfSubPaths);
 
@@ -200,6 +230,17 @@ const OwnerSidebar = () => {
               </ul>
             </li>
 
+            {/* Organization Structure */}
+            <li>
+              <Link to="/owner/organization-structure"
+                className={isExact("/owner/organization-structure") ? "sb-active" : ""}
+                style={sidebarItemStyle(isExact("/owner/organization-structure"))}
+              >
+                <Network size={20} style={{ marginRight: "10px" }} />
+                <span>Organization Structure</span>
+              </Link>
+            </li>
+
             {/* Organization Settings */}
             <li>
               <Link to="/owner/organization-settings"
@@ -337,9 +378,11 @@ const OwnerDashboard = () => {
               <Route path="frameworks/:id/edit" element={<FrameworkBuilderPage />} />
               <Route path="objectives" element={<ObjectivesPage />} />
               <Route path="analytics" element={<AnalyticsInsightsPage mode="owner" />} />
+              <Route path="organization-structure" element={<OwnerOrganizationStructurePage embedded />} />
               <Route path="organization-settings" element={<OrganizationSettingsPage />} />
               <Route path="subscriptions" element={<SubscriptionsPage />} />
               <Route path="onboarding" element={<OnboardingPage />} />
+        
             </Routes>
           </div>
         </div>

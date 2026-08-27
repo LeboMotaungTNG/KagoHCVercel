@@ -553,6 +553,8 @@ export async function requestChangesEvaluation(id: string, comment: string): Pro
 export async function queryEvaluations(params: {
   employeeId?: string;
   period?: string;
+  purpose?: EvaluationPurpose;
+  
   type?: EvaluationType;
   status?: EvaluationStatus;
   department?: string;

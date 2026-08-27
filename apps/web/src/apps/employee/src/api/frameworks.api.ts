@@ -124,7 +124,9 @@ export async function updateTenantFramework(
     await sleep();
 
     tenantFrameworksStore = tenantFrameworksStore.map((f) =>
-      f._id === id ? { ...f, categories: patch.categories } : f
+      f._id === id
+        ? { ...f, categories: patch.categories }
+        : f
     );
 
     return tenantFrameworksStore.find(
