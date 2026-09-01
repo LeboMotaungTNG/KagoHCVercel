@@ -46,6 +46,8 @@ import ManageEmployees from "./ManageEmployees";
 import EmployeeProfile from "../Manager/EmployeeProfile";
 import OwnerOrganizationStructurePage from "./OrganizationStructurePage"; 
 
+
+
 // Performance pages
 import FrameworkLibraryPage from "../employee/src/pages/owner/FrameworkLibraryPage";
 import FrameworkBuilderPage from "../employee/src/pages/owner/FrameworkBuilderPage";
@@ -64,7 +66,7 @@ const OwnerSidebar = () => {
   const isExact   = (p: string) => path === p || path === p + "/";
   const isInGroup = (...paths: string[]) => paths.some(p => path === p || path.startsWith(p + "/"));
 
-  const hcSubPaths = ["/owner/managers", "/owner/employees", "/owner/manage-employees"];
+  const hcSubPaths = ["/owner/managers", "/owner/employees", "/owner/manage-employees" , "/owner/positions"];
   const inHumanCapital = isInGroup(...hcSubPaths);
 
 
@@ -171,7 +173,16 @@ const OwnerSidebar = () => {
                   </Link>
                 </li>
               </ul>
+              {/* <li>
+                  <Link to="/owner/positions"
+                    className={isExact("/owner/positions") ? "sb-active" : ""}
+                    style={sidebarSubItemStyle(isExact("/owner/positions"))}
+                  >
+                    Positions
+                  </Link>
+                </li> */}
             </li>
+
 
             {/* Performance (collapsible group) */}
             <li>
@@ -369,7 +380,7 @@ const OwnerDashboard = () => {
               <Route path="/" element={<OwnerOverview />} />
               <Route path="managers" element={<ManagersPage />} />
               <Route path="employees" element={<EmployeesPage />} />
-              <Route path="manage-employees" element={<ManageEmployees embedded />} />
+              <Route path="manage-employees" element={<ManageEmployees embedded />} /> 
               <Route path="profile/:id" element={<EmployeeProfile embedded />} />
               <Route path="leave" element={<OwnerLeave />} />
               <Route path="reviews" element={<ReviewsDashboardPage />} />

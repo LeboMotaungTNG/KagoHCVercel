@@ -402,6 +402,23 @@ const OnboardingPage: React.FC = () => {
       showToast("Select a Business Unit for this department.", "error");
       return;
     }
+
+    // Client-side duplicate guard: the backend enforces a name-uniqueness
+    // check across ALL department records (business units AND leaf
+    // departments share the same collection), so catch it here first.
+    // This gives an immediate, consistent message in every environment
+    // instead of depending on how the backend's 400 response happens to
+    // be worded — which is what made this feel inconsistent between
+    // local and the Vercel/Heroku deployment (same validation, same
+    // result, just surfaced differently depending on network timing).
+    const nameTaken = departments.some(
+      d => d.name.trim().toLowerCase() === name.toLowerCase()
+    );
+    if (nameTaken) {
+      showToast(`"${name}" already exists in your organization structure. Choose a different name.`, "error");
+      return;
+    }
+
     setSavingDept(true);
     try {
       const parentDepartment = deptType === "business_unit" ? null : deptParentId;
@@ -410,7 +427,19 @@ const OnboardingPage: React.FC = () => {
       setDeptDraft({ name: "", description: "" });
       showToast(`${deptType === "business_unit" ? "Business unit" : "Department"} added.`, "success");
     } catch (e: any) {
-      showToast(e?.message || "Failed to add.", "error");
+      // Still handle it gracefully if the client-side check somehow
+      // misses a case the backend catches (e.g. a name added by someone
+      // else a second ago, in a multi-admin scenario) — map common
+      // backend wording to the same friendly message rather than
+      // showing a raw "Request failed (400)".
+      const raw = e?.message || "";
+      const isDuplicate = /already exists|duplicate/i.test(raw);
+      showToast(
+        isDuplicate
+          ? `"${name}" already exists in your organization structure. Choose a different name.`
+          : (raw || "Failed to add. Please try again."),
+        "error"
+      );
     } finally {
       setSavingDept(false);
     }
