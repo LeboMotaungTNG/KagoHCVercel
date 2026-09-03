@@ -37,6 +37,7 @@ import {
   type QueueItem,
   type TableRowData,
 } from "../../shared/utils/manageEmployees";
+import { loadCachedPositions, positionsForDepartment, type OrgPosition } from "../../shared/utils/onboarding";
 
 // All Employee/QueueItem/Allowance/Deduction types, defaults, helpers, validation,
 // reference lists, brand tokens and API calls live in shared/utils/manageEmployees.
@@ -180,13 +181,13 @@ function TextInput({ icon, value, onChange, placeholder, type = "text", maxLengt
   );
 }
 
-function SelectInput({ icon, value, onChange, children }: {
-  icon?: React.ReactNode; value: string; onChange: (v: string) => void; children: React.ReactNode;
+function SelectInput({ icon, value, onChange, children, disabled }: {
+  icon?: React.ReactNode; value: string; onChange: (v: string) => void; children: React.ReactNode; disabled?: boolean;
 }) {
   return (
     <div style={S.inputWrap}>
       {icon && <span style={S.iconLeft}>{icon}</span>}
-      <select value={value} onChange={e => onChange(e.target.value)} style={S.select(!!icon)}>
+      <select value={value} disabled={disabled} onChange={e => onChange(e.target.value)} style={{ ...S.select(!!icon), cursor: disabled ? "not-allowed" : "pointer", color: disabled ? "#98a2b3" : undefined }}>
         {children}
       </select>
     </div>
@@ -443,31 +444,48 @@ function Tab2Contact({ f, upd }: { f: Employee; upd: (k: keyof Employee, v: any)
   );
 }
 
-function Tab3Employment({ f, upd, departments, departmentsLoading }: {
+function Tab3Employment({ f, upd, departments, departmentsLoading, positions }: {
   f: Employee; upd: (k: keyof Employee, v: any) => void;
   departments: string[]; departmentsLoading: boolean;
+  positions: OrgPosition[];
 }) {
   const benefits = benefitsForType(f.employment_type);
   const toggleBenefit = (b: string) => {
     const cur = f.benefits_package;
     upd("benefits_package", cur.includes(b) ? cur.filter(x => x !== b) : [...cur, b]);
   };
+  const posOptions = positionsForDepartment(f.department, positions);
+  const posNames = posOptions.map(p => p.name);
+  const hasLegacyPosition = !!f.position && !posNames.includes(f.position);
 
   return (
     <div>
       <div style={S.sectionTitle}><Ic.Briefcase /> Position & Department</div>
       <div style={S.row2}>
-        <FI label="Position" required icon={<Ic.Briefcase />}>
-          <TextInput value={f.position} onChange={v => upd("position", v)} placeholder="Sales Representative" />
-        </FI>
         <FI label="Department" required icon={<Ic.Layers />}>
-          <SelectInput value={f.department} onChange={v => upd("department", v)}>
+          <SelectInput value={f.department} onChange={v => {
+            upd("department", v);
+            const next = positionsForDepartment(v, positions).map(p => p.name);
+            if (f.position && !next.includes(f.position)) upd("position", "");
+          }}>
             <option value="">{departmentsLoading ? "Loading departments…" : "Select Department"}</option>
             {departments.map(d => <option key={d}>{d}</option>)}
           </SelectInput>
           {!departmentsLoading && departments.length === 0 && (
             <div style={{ color: "#b54708", fontSize: 11, marginTop: 4 }}>
               ⚠ No departments configured yet — set these up under Owner ▸ Onboarding ▸ Structure first.
+            </div>
+          )}
+        </FI>
+        <FI label="Position" required icon={<Ic.Briefcase />}>
+          <SelectInput value={f.position} onChange={v => upd("position", v)} disabled={!f.department}>
+            <option value="">{!f.department ? "Select a department first" : posOptions.length ? "Select Position" : "No positions for this department"}</option>
+            {hasLegacyPosition && <option value={f.position}>{f.position}</option>}
+            {posNames.map(n => <option key={n} value={n}>{n}</option>)}
+          </SelectInput>
+          {!!f.department && posOptions.length === 0 && (
+            <div style={{ color: "#b54708", fontSize: 11, marginTop: 4 }}>
+              ⚠ No positions for this department — add them under Owner ▸ Onboarding ▸ Structure.
             </div>
           )}
         </FI>
@@ -1030,8 +1048,8 @@ function QueueCard({ item, index, onRemove }: { item: QueueItem; index: number; 
 // ─── Table Mode ───────────────────────────────────────────────────────────────
 // TableRowData type is imported from shared/utils/manageEmployees.
 
-function TableModeRow({ data, index, departments, onChange, onRemove }: {
-  data: Partial<TableRowData>; index: number; departments: string[];
+function TableModeRow({ data, index, departments, positions, onChange, onRemove }: {
+  data: Partial<TableRowData>; index: number; departments: string[]; positions: OrgPosition[];
   onChange: (k: keyof TableRowData, v: string) => void; onRemove: () => void;
 }) {
   const inp: React.CSSProperties = { padding: "6px 8px", border: "1px solid #d0d5dd", borderRadius: 6, fontSize: 12.5, outline: "none", width: "100%", boxSizing: "border-box", minWidth: 90 };
@@ -1060,11 +1078,27 @@ function TableModeRow({ data, index, departments, onChange, onRemove }: {
       </td>
       <td style={{ padding: "5px 7px" }}><input style={{ ...inp, minWidth: 70 }} placeholder="2000" maxLength={4} value={data.address_postal_code || ""} onChange={e => onChange("address_postal_code", e.target.value)} /></td>
       <td style={{ padding: "5px 7px" }}>
-        <select style={{ ...sel, minWidth: 120 }} value={data.department || ""} onChange={e => onChange("department", e.target.value)}>
+        <select style={{ ...sel, minWidth: 120 }} value={data.department || ""} onChange={e => {
+          onChange("department", e.target.value);
+          const next = positionsForDepartment(e.target.value, positions).map(p => p.name);
+          if (data.position && !next.includes(data.position)) onChange("position", "");
+        }}>
           <option value="">Dept</option>{departments.map(d => <option key={d}>{d}</option>)}
         </select>
       </td>
-      <td style={{ padding: "5px 7px" }}><input style={{ ...inp, minWidth: 130 }} placeholder="Position" value={data.position || ""} onChange={e => onChange("position", e.target.value)} /></td>
+      <td style={{ padding: "5px 7px" }}>
+        <select
+          style={{ ...sel, minWidth: 130 }}
+          value={data.position || ""}
+          disabled={!data.department}
+          onChange={e => onChange("position", e.target.value)}
+        >
+          <option value="">{data.department ? "Position" : "Dept first"}</option>
+          {positionsForDepartment(data.department || "", positions).map(p => (
+            <option key={p.id} value={p.name}>{p.name}</option>
+          ))}
+        </select>
+      </td>
       <td style={{ padding: "5px 7px" }}>
         <select style={{ ...sel, minWidth: 110 }} value={data.employment_type || ""} onChange={e => onChange("employment_type", e.target.value)}>
           <option value="">Type</option>{(["Full Time","Part Time","Contract","Intern","Temporary","Casual","Probation"] as EmploymentType[]).map(t => <option key={t}>{t}</option>)}
@@ -1104,6 +1138,7 @@ function ManageEmployeesContent() {
   // extended by the owner, so every dropdown here needs live data.
   const [departments, setDepartments] = useState<string[]>([...FALLBACK_DEPARTMENTS]);
   const [departmentsLoading, setDepartmentsLoading] = useState(true);
+  const [positions, setPositions] = useState<OrgPosition[]>([]);
 
   useEffect(() => {
     const token = localStorage.getItem("token");
@@ -1127,6 +1162,7 @@ function ManageEmployeesContent() {
         console.warn("Could not load departments, using fallback list:", err);
       })
       .finally(() => setDepartmentsLoading(false));
+    setPositions(loadCachedPositions());
   }, []);
 
   const upd = useCallback((k: keyof Employee, v: any) => setForm(prev => ({ ...prev, [k]: v })), []);
@@ -1452,7 +1488,7 @@ function ManageEmployeesContent() {
               }}>
                 {activeTab === 1 && <Tab1Personal f={form} upd={upd} />}
                 {activeTab === 2 && <Tab2Contact f={form} upd={upd} />}
-                {activeTab === 3 && <Tab3Employment f={form} upd={upd} departments={departments} departmentsLoading={departmentsLoading} />}
+                {activeTab === 3 && <Tab3Employment f={form} upd={upd} departments={departments} departmentsLoading={departmentsLoading} positions={positions} />}
                 {activeTab === 4 && <Tab4Payment f={form} upd={upd} />}
                 {activeTab === 5 && <Tab5ETI f={form} upd={upd} />}
                 {activeTab === 6 && <Tab6Hours f={form} upd={upd} />}
@@ -1537,7 +1573,7 @@ function ManageEmployeesContent() {
                   </thead>
                   <tbody>
                     {tableRows.map((row, i) => (
-                      <TableModeRow key={i} data={row} index={i + 1} departments={departments}
+                      <TableModeRow key={i} data={row} index={i + 1} departments={departments} positions={positions}
                         onChange={(k, v) => setTableRows(prev => prev.map((r, idx) => idx === i ? { ...r, [k]: v } : r))}
                         onRemove={() => setTableRows(prev => prev.filter((_, idx) => idx !== i))}
                       />

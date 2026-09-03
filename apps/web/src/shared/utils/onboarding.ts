@@ -499,6 +499,17 @@ export interface OnboardingCache {
   company: CompanyData;
   administrators: Administrator[];
   completedSteps: number[];
+  /** Job titles defined under Structure. Local until a positions API exists. */
+  positions?: OrgPosition[];
+}
+
+/** A job title owned by a department. Stored locally until the backend catalog ships. */
+export interface OrgPosition {
+  id: string;
+  name: string;
+  description?: string;
+  departmentId: string;
+  departmentName: string;
 }
 
 export const loadCache = (): OnboardingCache | null => {
@@ -509,8 +520,40 @@ export const loadCache = (): OnboardingCache | null => {
 };
 
 export const saveCache = (state: OnboardingCache): void => {
-  try { localStorage.setItem(CACHE_KEY, JSON.stringify(state)); }
-  catch (err) { console.warn("Failed to cache onboarding:", err); }
+  try {
+    const prev = loadCache();
+    const merged: OnboardingCache = {
+      country: state.country ?? prev?.country ?? "",
+      company: state.company ?? prev?.company ?? EMPTY_COMPANY,
+      administrators: state.administrators ?? prev?.administrators ?? [],
+      completedSteps: state.completedSteps ?? prev?.completedSteps ?? [],
+      positions: state.positions ?? prev?.positions ?? [],
+    };
+    localStorage.setItem(CACHE_KEY, JSON.stringify(merged));
+  } catch (err) { console.warn("Failed to cache onboarding:", err); }
+};
+
+export const loadCachedPositions = (): OrgPosition[] =>
+  loadCache()?.positions || [];
+
+export const saveCachedPositions = (positions: OrgPosition[]): void => {
+  const cached = loadCache() || {
+    country: "",
+    company: EMPTY_COMPANY,
+    administrators: [],
+    completedSteps: [],
+  };
+  saveCache({ ...cached, positions });
+};
+
+export const positionsForDepartment = (
+  departmentName: string,
+  positions?: OrgPosition[],
+): OrgPosition[] => {
+  const list = positions ?? loadCachedPositions();
+  const key = departmentName.trim().toLowerCase();
+  if (!key) return [];
+  return list.filter(p => p.departmentName.trim().toLowerCase() === key);
 };
 
 /* ─────────────────────────────────────────────────────────────────────────
