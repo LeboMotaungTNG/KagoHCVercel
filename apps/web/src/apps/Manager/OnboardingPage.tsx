@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import {
-  Banknote, Building2, Camera, Check, CheckCircle2, ChevronRight, Globe2,
+  Banknote, Briefcase, Building2, Camera, Check, CheckCircle2, ChevronRight, Globe2,
   Landmark, MapPin, Plus, Receipt, Save, Shield, Sparkles, Trash2,
   UserCog, UserPlus, Users, UserSquare2, X,
 } from "lucide-react";
@@ -12,6 +12,7 @@ import {
   type AdministratorDraft,
   type CompanyData,
   type Department,
+  type OrgPosition,
   COMPANY_ADDRESS_FIELDS,
   COMPANY_BANKING_FIELDS,
   COMPANY_BASIC_FIELDS,
@@ -36,8 +37,10 @@ import {
   getByPath,
   initialsFromName,
   loadCache,
+  loadCachedPositions,
   readFileAsDataUrl,
   saveCache,
+  saveCachedPositions,
   saveCompanySettings,
   setByPath,
   validateAdministrator,
@@ -219,7 +222,7 @@ const STEPS = [
   { id: 1, title: "Country",       blurb: "Choose your SADC country",            icon: Globe2,    color: OC.blue },
   { id: 2, title: "Company",       blurb: "Tell us about your organisation",     icon: Building2, color: OC.accent },
   { id: 3, title: "Administrators", blurb: "Invite your administrators",          icon: UserCog,   color: OC.purple },
-  { id: 4, title: "Structure",     blurb: "Departments and system roles",         icon: Users,     color: OC.teal },
+  { id: 4, title: "Structure",     blurb: "Departments, positions, and roles",   icon: Users,     color: OC.teal },
 ] as const;
 type StepId = typeof STEPS[number]["id"];
 
@@ -265,6 +268,12 @@ const OnboardingPage: React.FC = () => {
   const [deptParentId, setDeptParentId] = useState<string>("");
   const [savingDept, setSavingDept] = useState(false);
 
+  // Positions (local catalog until a positions API exists)
+  const [positions, setPositions] = useState<OrgPosition[]>(() => loadCachedPositions());
+  const [posDraft, setPosDraft] = useState({ name: "", description: "", departmentId: "" });
+  const [savingPos, setSavingPos] = useState(false);
+  const persistReady = useRef(false);
+
   // Toast
   const [toast, setToast] = useState<{ message: string; type: "success" | "error" } | null>(null);
   const showToast = (message: string, type: "success" | "error" = "success") => {
@@ -281,7 +290,9 @@ const OnboardingPage: React.FC = () => {
       setCompanyDraft(cached.company || EMPTY_COMPANY);
       setAdministrators(cached.administrators || []);
       setCompletedSteps(cached.completedSteps || []);
+      setPositions(cached.positions || []);
     }
+    persistReady.current = true;
     (async () => {
       try {
         const remote = await fetchCompanySettings();
@@ -302,8 +313,9 @@ const OnboardingPage: React.FC = () => {
 
   // ── Persist progress to local cache ─────────────────────────────────────
   useEffect(() => {
-    saveCache({ country, company, administrators, completedSteps });
-  }, [country, company, administrators, completedSteps]);
+    if (!persistReady.current) return;
+    saveCache({ country, company, administrators, completedSteps, positions });
+  }, [country, company, administrators, completedSteps, positions]);
 
   // ── Step navigation ─────────────────────────────────────────────────────
   const goToStep = (id: StepId) => setCurrentStep(id);
@@ -450,11 +462,61 @@ const OnboardingPage: React.FC = () => {
     if (!window.confirm(`Delete "${d.name}"?`)) return;
     try {
       await deleteDepartment(d.id);
+      const childIds = departments.filter(x => x.parentDepartment === d.id).map(x => x.id);
       setDepartments(prev => prev.filter(x => x.id !== d.id));
+      setPositions(prev => {
+        const next = prev.filter(p => p.departmentId !== d.id && !childIds.includes(p.departmentId));
+        saveCachedPositions(next);
+        return next;
+      });
       showToast("Deleted.", "success");
     } catch (e: any) {
       showToast(e?.message || "Failed to delete.", "error");
     }
+  };
+
+  const handleAddPosition = () => {
+    const name = posDraft.name.trim();
+    if (!name) { showToast("Position name is required.", "error"); return; }
+    if (!posDraft.departmentId) {
+      showToast("Select a department for this position.", "error");
+      return;
+    }
+    const dept = departments.find(d => d.id === posDraft.departmentId);
+    if (!dept) { showToast("Select a valid department.", "error"); return; }
+    const taken = positions.some(
+      p => p.departmentId === posDraft.departmentId && p.name.trim().toLowerCase() === name.toLowerCase()
+    );
+    if (taken) {
+      showToast(`"${name}" already exists in ${dept.name}.`, "error");
+      return;
+    }
+    setSavingPos(true);
+    const created: OrgPosition = {
+      id: (typeof crypto !== "undefined" && crypto.randomUUID) ? crypto.randomUUID() : `pos-${Date.now()}`,
+      name,
+      description: posDraft.description.trim() || undefined,
+      departmentId: posDraft.departmentId,
+      departmentName: dept.name,
+    };
+    setPositions(prev => {
+      const next = [created, ...prev];
+      saveCachedPositions(next);
+      return next;
+    });
+    setPosDraft({ name: "", description: "", departmentId: posDraft.departmentId });
+    setSavingPos(false);
+    showToast("Position added.", "success");
+  };
+
+  const handleDeletePosition = (p: OrgPosition) => {
+    if (!window.confirm(`Delete position "${p.name}"?`)) return;
+    setPositions(prev => {
+      const next = prev.filter(x => x.id !== p.id);
+      saveCachedPositions(next);
+      return next;
+    });
+    showToast("Position deleted.", "success");
   };
 
   // ── Administrator handlers ──────────────────────────────────────────────
@@ -537,6 +599,12 @@ const OnboardingPage: React.FC = () => {
                 onParentChange={setDeptParentId}
                 onAdd={handleAddDepartment}
                 onDelete={handleDeleteDepartment}
+                positions={positions}
+                posDraft={posDraft}
+                savingPos={savingPos}
+                onPosDraftChange={setPosDraft}
+                onAddPosition={handleAddPosition}
+                onDeletePosition={handleDeletePosition}
                 onComplete={handleCompleteOnboarding}
               />
             )}
@@ -1090,10 +1158,18 @@ const StructureStep: React.FC<{
   onParentChange: (id: string) => void;
   onAdd: () => void;
   onDelete: (d: Department) => void;
+  positions: OrgPosition[];
+  posDraft: { name: string; description: string; departmentId: string };
+  savingPos: boolean;
+  onPosDraftChange: (d: { name: string; description: string; departmentId: string }) => void;
+  onAddPosition: () => void;
+  onDeletePosition: (p: OrgPosition) => void;
   onComplete: () => void;
 }> = ({
   departments, loading, deptDraft, deptType, deptParentId, saving,
-  onDraftChange, onTypeChange, onParentChange, onAdd, onDelete, onComplete,
+  onDraftChange, onTypeChange, onParentChange, onAdd, onDelete,
+  positions, posDraft, savingPos, onPosDraftChange, onAddPosition, onDeletePosition,
+  onComplete,
 }) => {
   // Top-level = no parent set = a Business Unit.
   const businessUnits = useMemo(
@@ -1111,6 +1187,20 @@ const StructureStep: React.FC<{
     });
     return map;
   }, [departments]);
+
+  const leafDepartments = useMemo(
+    () => departments.filter(d => !!d.parentDepartment),
+    [departments],
+  );
+
+  const positionsByDept = useMemo(() => {
+    const map = new Map<string, OrgPosition[]>();
+    positions.forEach(p => {
+      if (!map.has(p.departmentId)) map.set(p.departmentId, []);
+      map.get(p.departmentId)!.push(p);
+    });
+    return map;
+  }, [positions]);
 
   // Whether the name field is showing free-text entry instead of the
   // controlled dropdown. Reset whenever the user switches what they're
@@ -1154,11 +1244,9 @@ const StructureStep: React.FC<{
         title={`Organisation Structure`}
         subtitle="Business Units group your Departments — this drives leave approvals and your organisation chart."
       >
-        {/* Two-step guidance banner so the flow reads clearly before any
-            structure exists: create the umbrella group first, then the
-            departments that sit under it. */}
+        {/* Guidance: business unit → department → positions */}
         <div style={{
-          display: "flex", alignItems: "center", gap: 20,
+          display: "flex", alignItems: "center", gap: 20, flexWrap: "wrap",
           padding: "14px 18px", borderRadius: OR.md, marginBottom: 20,
           background: OC.surfaceAlt, border: `1px solid ${OC.line}`,
         }}>
@@ -1189,6 +1277,21 @@ const StructureStep: React.FC<{
             </span>
             <span style={{ fontSize: 13, fontWeight: 600, color: OC.ink }}>
               Add Departments under it <span style={{ color: OC.muted, fontWeight: 400 }}>(e.g. Sales, IT)</span>
+            </span>
+          </div>
+          <ChevronRight size={16} color={OC.faint} />
+          <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+            <span style={{
+              width: 26, height: 26, borderRadius: "50%", flexShrink: 0,
+              background: positions.length > 0 ? OC.okBg : OC.blue + "22",
+              color: positions.length > 0 ? OC.ok : OC.blue,
+              display: "flex", alignItems: "center", justifyContent: "center",
+              fontSize: 12, fontWeight: 700,
+            }}>
+              {positions.length > 0 ? <Check size={14} /> : "3"}
+            </span>
+            <span style={{ fontSize: 13, fontWeight: 600, color: OC.ink }}>
+              Add Positions <span style={{ color: OC.muted, fontWeight: 400 }}>(e.g. Sales Representative)</span>
             </span>
           </div>
         </div>
@@ -1368,6 +1471,137 @@ const StructureStep: React.FC<{
                 </div>
               </div>
             ))}
+          </div>
+        )}
+      </Section>
+
+      <Section
+        icon={<Briefcase size={20} />} iconColor={OC.blue}
+        title="Position management"
+        subtitle="Job titles sit under a department. Employees pick from this list when you add them."
+      >
+        <div style={{
+          display: "grid",
+          gridTemplateColumns: "1.4fr 1.4fr 1.4fr auto",
+          gap: 12, alignItems: "end", marginBottom: 24,
+          padding: 16, borderRadius: OR.md,
+          background: "#fff", border: `1px solid ${OC.line}`,
+        }}>
+          <div>
+            <label style={labelStyle}>Department</label>
+            {leafDepartments.length === 0 ? (
+              <select style={{ ...inputStyle, cursor: "not-allowed", color: OC.faint }} disabled value="">
+                <option>Add a Department first</option>
+              </select>
+            ) : (
+              <select
+                style={{ ...inputStyle, cursor: "pointer" }}
+                value={posDraft.departmentId}
+                onChange={e => onPosDraftChange({ ...posDraft, departmentId: e.target.value })}
+              >
+                <option value="">Select…</option>
+                {leafDepartments.map(d => (
+                  <option key={d.id} value={d.id}>{d.name}</option>
+                ))}
+              </select>
+            )}
+          </div>
+          <div>
+            <label style={labelStyle}>Position name</label>
+            <input
+              style={inputStyle}
+              value={posDraft.name}
+              placeholder="e.g. Sales Representative"
+              disabled={!posDraft.departmentId}
+              onChange={e => onPosDraftChange({ ...posDraft, name: e.target.value })}
+              onKeyDown={e => { if (e.key === "Enter") onAddPosition(); }}
+            />
+          </div>
+          <div>
+            <label style={labelStyle}>Description (optional)</label>
+            <input
+              style={inputStyle}
+              value={posDraft.description}
+              placeholder="What does this role do?"
+              disabled={!posDraft.departmentId}
+              onChange={e => onPosDraftChange({ ...posDraft, description: e.target.value })}
+              onKeyDown={e => { if (e.key === "Enter") onAddPosition(); }}
+            />
+          </div>
+          <button onClick={onAddPosition} style={primaryBtn} disabled={savingPos || !posDraft.departmentId}>
+            <Plus size={14} /> {savingPos ? "Saving…" : "Add"}
+          </button>
+        </div>
+
+        {leafDepartments.length === 0 ? (
+          <EmptyHint
+            icon={<Briefcase size={32} />}
+            title="No departments yet"
+            body="Add a Business Unit and Departments above, then create positions under each department."
+          />
+        ) : positions.length === 0 ? (
+          <EmptyHint
+            icon={<Briefcase size={32} />}
+            title="No positions yet"
+            body="Select a department and add job titles. These will appear on the employee form."
+          />
+        ) : (
+          <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+            {leafDepartments.map(dept => {
+              const titles = positionsByDept.get(dept.id || "") || [];
+              return (
+                <div key={dept.id || dept.name} style={{
+                  border: `1px solid ${OC.line}`, borderRadius: OR.md,
+                  overflow: "hidden", background: "#fff",
+                }}>
+                  <div style={{
+                    display: "flex", alignItems: "center", justifyContent: "space-between",
+                    padding: "12px 16px",
+                    background: OC.blueBg,
+                    borderBottom: `1px solid ${OC.line}`,
+                  }}>
+                    <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                      <span style={{
+                        width: 30, height: 30, borderRadius: 8, flexShrink: 0,
+                        background: "#fff", color: OC.blue,
+                        display: "flex", alignItems: "center", justifyContent: "center",
+                      }}>
+                        <Building2 size={15} />
+                      </span>
+                      <div>
+                        <p style={{ margin: 0, fontSize: 14, fontWeight: 700, color: OC.blue }}>{dept.name}</p>
+                        <p style={{ ...subtle, margin: 0, fontSize: 11.5 }}>
+                          {titles.length} position{titles.length === 1 ? "" : "s"}
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                  <div style={{ padding: 16 }}>
+                    {titles.length === 0 ? (
+                      <span style={{ ...subtle, fontSize: 12.5 }}>No positions yet under this department.</span>
+                    ) : (
+                      <div style={{ display: "flex", flexWrap: "wrap", gap: 10 }}>
+                        {titles.map(p => (
+                          <div key={p.id} style={{
+                            display: "inline-flex", alignItems: "center", gap: 8,
+                            padding: "8px 14px 8px 16px", borderRadius: 999,
+                            background: OC.blueBg, color: OC.blue,
+                            border: `1px solid ${OC.blue}30`,
+                            fontSize: 13, fontWeight: 600,
+                          }}>
+                            <Briefcase size={12} />
+                            {p.name}
+                            <button onClick={() => onDeletePosition(p)} style={{ ...ghostBtn, padding: 2, color: OC.blue }} title={`Delete ${p.name}`}>
+                              <Trash2 size={12} />
+                            </button>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                </div>
+              );
+            })}
           </div>
         )}
       </Section>

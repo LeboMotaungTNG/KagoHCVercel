@@ -5,6 +5,8 @@ import { AiFillEye, AiOutlineSearch, AiOutlineUser, AiOutlineClose } from "react
 import SharedLayout from "./SharedLayout";
 import PhoneInput from "../../shared/components/PhoneInput";
 import { C } from "../../shared/utils/employee";
+import { fetchDepartmentOptions } from "../../shared/utils/manageEmployees";
+import { loadCachedPositions, positionsForDepartment, type OrgPosition } from "../../shared/utils/onboarding";
 
 const API_URL = import.meta.env.VITE_API_URL || "https://employee-evaluation-kago-e63baae4d822.herokuapp.com/api/v1";
 
@@ -56,10 +58,21 @@ function AddEmployeeModal({ onClose, onSuccess }: { onClose: () => void; onSucce
   });
   const [saving, setSaving] = useState(false);
   const [error, setError]   = useState("");
+  const [departments, setDepartments] = useState<string[]>([]);
+  const [positions, setPositions] = useState<OrgPosition[]>([]);
 
   useEffect(() => {
     document.body.style.overflow = "hidden";
     return () => { document.body.style.overflow = ""; };
+  }, []);
+
+  useEffect(() => {
+    const token = localStorage.getItem("token") || "";
+    setPositions(loadCachedPositions());
+    if (!token) return;
+    fetchDepartmentOptions(token)
+      .then(opts => setDepartments(opts.map(o => o.name)))
+      .catch(() => setDepartments([]));
   }, []);
 
   const setField = (field: string) => (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) =>
@@ -160,11 +173,36 @@ function AddEmployeeModal({ onClose, onSuccess }: { onClose: () => void; onSucce
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}>
             <div>
               <label style={labelStyle}>Department *</label>
-              <input style={inputStyle} placeholder="e.g. Design" value={form.department} onChange={setField("department")} />
+              <select
+                style={{ ...inputStyle, cursor: "pointer", background: "#fff" }}
+                value={form.department}
+                onChange={e => {
+                  const department = e.target.value;
+                  const titles = positionsForDepartment(department, positions).map(p => p.name);
+                  setForm(f => ({
+                    ...f,
+                    department,
+                    jobTitle: titles.includes(f.jobTitle) ? f.jobTitle : "",
+                  }));
+                }}
+              >
+                <option value="">Select department</option>
+                {departments.map(d => <option key={d} value={d}>{d}</option>)}
+              </select>
             </div>
             <div>
               <label style={labelStyle}>Job Title</label>
-              <input style={inputStyle} placeholder="e.g. UI Designer" value={form.jobTitle} onChange={setField("jobTitle")} />
+              <select
+                style={{ ...inputStyle, cursor: form.department ? "pointer" : "not-allowed", background: "#fff" }}
+                value={form.jobTitle}
+                disabled={!form.department}
+                onChange={setField("jobTitle")}
+              >
+                <option value="">{form.department ? "Select position" : "Select a department first"}</option>
+                {positionsForDepartment(form.department, positions).map(p => (
+                  <option key={p.id} value={p.name}>{p.name}</option>
+                ))}
+              </select>
             </div>
           </div>
 
