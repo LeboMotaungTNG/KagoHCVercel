@@ -113,9 +113,16 @@ export interface Toast {
   type:    AlertType;
 }
 
+export interface ClockLocationPayload {
+  latitude: number;
+  longitude: number;
+  accuracy?: number;
+  optedIn: boolean;
+}
 // =============================================================================
 // UTILITIES (same as before)
 // =============================================================================
+
 
 
 // Helper: Convert API date to local date string (YYYY-MM-DD)
@@ -139,6 +146,21 @@ export function addDays(base: Date, delta: number): Date {
   const d = new Date(base);
   d.setDate(base.getDate() + delta);
   return d;
+}
+
+export function captureLocation(): Promise<{ latitude: number; longitude: number; accuracy?: number } | null> {
+  return new Promise((resolve) => {
+    if (!navigator.geolocation) { resolve(null); return; }
+    navigator.geolocation.getCurrentPosition(
+      pos => resolve({
+        latitude: pos.coords.latitude,
+        longitude: pos.coords.longitude,
+        accuracy: pos.coords.accuracy,
+      }),
+      () => resolve(null),
+      { enableHighAccuracy: true, timeout: 8000, maximumAge: 0 },
+    );
+  });
 }
 
 export function fmtTime(raw: string | null | undefined): string {
@@ -445,6 +467,8 @@ export function useEmployeeAttendance() {
   const [historyStatus, setHistoryStatus] = useState<AttendanceStatus | "">("");
   const [historyRange, setHistoryRange] = useState<"all" | "week" | "month" | "last_month" | "year">("month");
   const [selectedRecord, setSelectedRecord] = useState<AttendanceRecord | null>(null);
+    const [includeLocation, setIncludeLocation] = useState(false);
+      const [locationTrackingAvailable, setLocationTrackingAvailable] = useState(false);
 
   const showAlert = useCallback((message: string, type: AlertType = "info") => {
     setToast({ message, type });
@@ -467,6 +491,8 @@ export function useEmployeeAttendance() {
         console.warn('Attendance fetch failed:', data);
         return;
       }
+
+
       
       // Try parsing different response shapes
       if (data.data?.data && Array.isArray(data.data.data)) {
@@ -518,6 +544,19 @@ export function useEmployeeAttendance() {
     } catch (error) {
       console.error('Error fetching attendance:', error);
     }
+  }, []);
+
+    useEffect(() => {
+    const token = localStorage.getItem('token');
+    if (!token) return;
+    fetch(`${API_URL}/owner/company/location-tracking-status`, {
+      headers: { Authorization: `Bearer ${token}` },
+    })
+      .then(res => res.json())
+      .then(data => {
+        if (data?.success) setLocationTrackingAvailable(!!data.data?.locationTrackingEnabled);
+      })
+      .catch(() => { /* default false is safe — feature just stays hidden */ });
   }, []);
 
   // Get today's status
@@ -586,14 +625,20 @@ export function useEmployeeAttendance() {
   const handleClockIn = async () => {
     if (clock.clockedIn) return;
     setClockLoading(true);
-    try {
-      const token = localStorage.getItem('token');
+    try {      const token = localStorage.getItem('token');
+      let location: ClockLocationPayload | undefined;
+      if (includeLocation) {
+        const pos = await captureLocation();
+        if (pos) location = { ...pos, optedIn: true };
+        else showAlert("Couldn't access your location — clocking in without it.", "info");
+      }
       const response = await fetch(`${API_URL}/attendance/clock-in`, {
         method: 'POST',
         headers: { 
           'Authorization': `Bearer ${token}`,
           'Content-Type': 'application/json'
-        }
+        },
+        body: JSON.stringify({ location })
       });
       const data = await response.json();
       
@@ -626,14 +671,19 @@ export function useEmployeeAttendance() {
     setClockLoading(true);
     try {
       const token = localStorage.getItem('token');
-      const todayRecord = records.find(r => r.date === todayISO());
+          const todayRecord = records.find(r => r.date === todayISO());
+      let location: ClockLocationPayload | undefined;
+      if (includeLocation) {
+        const pos = await captureLocation();
+        if (pos) location = { ...pos, optedIn: true };
+      }
       const response = await fetch(`${API_URL}/attendance/clock-out`, {
         method: 'POST',
         headers: { 
           'Authorization': `Bearer ${token}`,
           'Content-Type': 'application/json'
         },
-        body: JSON.stringify({ attendance_id: todayRecord?.id })
+        body: JSON.stringify({ attendance_id: todayRecord?.id, location })
       });
       const data = await response.json();
       
@@ -710,6 +760,8 @@ export function useEmployeeAttendance() {
   return {
     records, todayRecord: records.find(r => r.date === todayISO()),
     clock, clockLoading, handleClockIn, handleClockOut,
+    includeLocation, setIncludeLocation,
+    locationTrackingAvailable, setLocationTrackingAvailable,
     monthStats,
     historySearch, setHistorySearch,
     historyStatus, setHistoryStatus,

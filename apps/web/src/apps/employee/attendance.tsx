@@ -170,9 +170,11 @@ interface ClockPanelProps {
   loading:    boolean;
   onBreak?:   boolean;
   breakTotalMs?: number;
+    includeLocation?: boolean;
+  onToggleLocation?: (v: boolean) => void;
 }
 
-const ClockPanel: React.FC<ClockPanelProps> = ({ state, onClockIn, onClockOut, loading, onBreak = false, breakTotalMs = 0 }) => {
+const ClockPanel: React.FC<ClockPanelProps> = ({ state, onClockIn, onClockOut, loading, onBreak = false, breakTotalMs = 0, includeLocation = false, onToggleLocation }) => {
   const [elapsed, setElapsed] = useState("00:00:00");
 
   useEffect(() => {
@@ -236,6 +238,21 @@ const ClockPanel: React.FC<ClockPanelProps> = ({ state, onClockIn, onClockOut, l
           </div>
         ))}
       </div>
+           {!done && onToggleLocation && (
+        <label style={{
+          display: "flex", alignItems: "center", gap: 10, marginBottom: 14,
+          padding: "10px 14px", borderRadius: 10, background: "rgba(255,255,255,0.6)",
+          cursor: "pointer", fontSize: 13, color: "#374151",
+        }}>
+          <input
+            type="checkbox"
+            checked={includeLocation}
+            onChange={e => onToggleLocation(e.target.checked)}
+            style={{ width: 16, height: 16, cursor: "pointer" }}
+          />
+          Include my location {active ? "when I clock out" : "when I clock in"}
+        </label>
+      )}
 
       {/* Action button */}
       <button
@@ -643,9 +660,11 @@ const HistoryTable: React.FC<HistoryTableProps> = ({ records, onSelect }) => {
 
 const EmployeeAttendanceContent: React.FC = () => {
   const {
+    
     records, todayRecord,
     clock, clockLoading,
     handleClockIn, handleClockOut,
+    includeLocation, setIncludeLocation, locationTrackingAvailable,
     monthStats,
     selectedRecord, setSelectedRecord,
     toast, clearToast,
@@ -691,26 +710,32 @@ const EmployeeAttendanceContent: React.FC = () => {
         {/* Left column */}
         <div style={{ display: "flex", flexDirection: "column", gap: 24 }}>
           <ClockPanel
-            state={clock}
+                      state={clock}
             onClockIn={handleClockIn}
             onClockOut={handleClockOut}
             loading={clockLoading}
             onBreak={isOnBreak}
             breakTotalMs={breakTotalMs}
+                        includeLocation={includeLocation}
+            onToggleLocation={locationTrackingAvailable ? setIncludeLocation : undefined}
           />
+          
           <BreakControls
             clockedIn={clock.clockedIn}
             clockedOut={!clock.clockedIn && clock.clockOutTime !== null}
             variant="panel"
           />
+          
           <HistoryTable records={records} onSelect={setSelectedRecord}/>
         </div>
+        
 
         {/* Right column ” sticky */}
         <div style={{ display: "flex", flexDirection: "column", gap: 24, position: "sticky", top: 88 }}>
           <MiniCalendar records={records}/>
           <MonthlyBreakdown stats={monthStats}/>
         </div>
+        
       </div>
 
       {/* Policy notice */}
@@ -724,6 +749,7 @@ const EmployeeAttendanceContent: React.FC = () => {
 
       {selectedRecord && <RecordModal record={selectedRecord} onClose={() => setSelectedRecord(null)}/>}
     </div>
+    
   );
 };
 
