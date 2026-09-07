@@ -47,6 +47,7 @@ export interface CompanyData {
   logo:                 string;
   sector:               string;
   businessType:         string;
+  locationTrackingEnabled: boolean;
   numberOfEmployees:    number;
   email:                string;
   phone:                string;

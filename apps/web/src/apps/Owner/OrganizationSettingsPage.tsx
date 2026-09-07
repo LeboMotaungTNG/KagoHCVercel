@@ -382,6 +382,7 @@ const CompanyDetailsTab = () => {
                 <div style={co_secTitle()}><FaGlobe style={{ color: "#0369A1" }} /> Regional &amp; Display Preferences</div>
                 <FieldRenderer editing={isEditing} data={draft} onChange={handleChange} fields={[
                   { label: "System Language", key: "language", type: "select", options: LANGUAGES },
+                  { label: "Location Capture on Clock-In", key: "locationTrackingEnabled", type: "toggle", hint: "Lets field employees (mining, construction, site work) optionally attach their location when clocking in or out." },
                   { label: "Timezone", key: "timezone", type: "select", options: TIMEZONES },
                   { label: "Date Format", key: "dateFormat", type: "select", options: DATE_FORMATS },
                   { label: "Currency", key: "currency", type: "select", options: CURRENCIES },

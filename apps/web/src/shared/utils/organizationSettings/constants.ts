@@ -12,6 +12,7 @@ import type {
 export const DEFAULT_COMPANY_DATA: CompanyData = {
   name: "", tradingName: "", logo: "",
   sector: "", businessType: "",
+  locationTrackingEnabled: false,
   numberOfEmployees: 0, email: "", phone: "",
   alternativePhone: "", website: "", description: "",
   registrationNumber: "", vatNumber: "",
