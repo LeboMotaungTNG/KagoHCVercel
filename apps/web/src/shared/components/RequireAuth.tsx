@@ -29,12 +29,15 @@ import { clearSession, isJwtExpired } from "../utils/auth";
  */
 export type AppRole =
   | "platform_admin"
+  | "auditor"
   | "owner"
   | "admin"
   | "manager"
   | "hr"
+  | "payroll_officer"
   | "employee"
-  | "user";
+  | "user"
+  | "line_manager";
 
 interface RequireAuthProps {
   children: React.ReactNode;
@@ -46,6 +49,13 @@ interface CurrentUser {
   role?: AppRole | string;
   [k: string]: unknown;
 }
+
+export const normalizeAppRole = (role?: unknown): string => {
+  const value = String(role || "").trim().toLowerCase().replace(/[ -]+/g, "_");
+  if (value === "hr_manager" || value === "human_resources" || value === "human_resources_manager") return "hr";
+  if (value === "line_manager" || value === "linemanager") return "line_manager";
+  return value;
+};
 
 const readUser = (): CurrentUser | null => {
   try {
@@ -59,10 +69,13 @@ const readUser = (): CurrentUser | null => {
 const homeForRole = (role?: string): string => {
   switch (role) {
     case "platform_admin": return "/platform";
+    case "auditor":       return "/auditor";
     case "owner":          return "/owner";
     case "admin":
-    case "hr":
-    case "manager":        return "/manager";
+    case "hr":             return "/manager";
+    case "manager":
+    case "line_manager":
+    case "payroll_officer":
     case "employee":
     case "user":           return "/employee";
     default:               return "/employee"; // safest landing for any unexpected role
@@ -101,8 +114,9 @@ const RequireAuth: React.FC<RequireAuthProps> = ({ children, requireRoles }) => 
   }
 
   // Token present but wrong role for this section → bounce to their own home.
-  if (requireRoles && user?.role && !requireRoles.includes(user.role as AppRole)) {
-    return <Navigate to={homeForRole(user.role as string)} replace />;
+  const role = normalizeAppRole(user?.role);
+  if (requireRoles && role && !requireRoles.some((allowedRole) => normalizeAppRole(allowedRole) === role)) {
+    return <Navigate to={homeForRole(role)} replace />;
   }
 
   return <>{children}</>;

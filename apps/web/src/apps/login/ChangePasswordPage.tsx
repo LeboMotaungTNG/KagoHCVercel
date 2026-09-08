@@ -44,8 +44,13 @@ const changePasswordSchema = Yup.object({
 // existing else-branch behavior exactly.
 const roleRedirect: Record<string, string> = {
   platform_admin: "/platform",
+  auditor: "/auditor",
   owner: "/owner",
   admin: "/manager",
+  hr: "/manager",
+  manager: "/employee",
+  line_manager: "/employee",
+  payroll_officer: "/employee",
 };
 
 const eyeButtonStyle: React.CSSProperties = {

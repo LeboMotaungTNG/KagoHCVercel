@@ -11,6 +11,7 @@ import { touchActivity } from "../../shared/utils/auth";
 import logoKago from "../../assets/images/kago-logo.png";
 import ButtonSubmit from "./ButtonSubmit";
 import { API_BASE } from "../../shared/utils/apiBase";
+import { normalizeAppRole } from "../../shared/components/RequireAuth";
 
 const API_URL = API_BASE;
 
@@ -75,13 +76,17 @@ const LoginForm = () => {
           }
 
           // Navigate based on role
-          const role = data.data.user.role;
+          const role = normalizeAppRole(data.data.user.role);
           if (role === 'platform_admin') {
             navigate("/platform");
+          } else if (role === 'auditor') {
+            navigate("/auditor");
           } else if (role === 'owner') {
             navigate("/owner");
-          } else if (role === 'manager' || role === 'admin' || role === 'hr') {
+          } else if (role === 'admin' || role === 'hr') {
             navigate("/manager");
+          } else if (role === 'manager' || role === 'line_manager' || role === 'payroll_officer') {
+            navigate("/employee");
           } else {
             navigate("/employee");
           }
