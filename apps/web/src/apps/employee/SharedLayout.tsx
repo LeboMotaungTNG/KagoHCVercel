@@ -8,6 +8,7 @@ import {
   Clock,
   TrendingUp,
   Settings,
+  DollarSign,
   Menu,
   LogOut,
 } from "lucide-react";
@@ -19,6 +20,7 @@ import {
 import NotificationBell from "../../shared/components/NotificationBell";
 import MobileBottomNav from "../../shared/components/MobileBottomNav";
 import { C } from "../../shared/utils/employee";
+import { normalizeAppRole } from "../../shared/components/RequireAuth";
 // @ts-ignore
 import logoKago from "../../assets/images/logo-black-white.png";
 
@@ -29,6 +31,7 @@ export interface SharedLayoutProps {
 
 const EmployeeSidebar: React.FC<{ onLogout: () => void }> = ({ onLogout }) => {
   const location = useLocation();
+  const [role, setRole] = useState<string>("employee");
   const isActive = (path: string) => {
     if (path === "/employee") {
       return location.pathname === "/employee" || location.pathname === "/employee/";
@@ -46,12 +49,22 @@ const EmployeeSidebar: React.FC<{ onLogout: () => void }> = ({ onLogout }) => {
 
   const main: { to: string; label: string; icon: React.ReactNode }[] = [
     { to: "/employee",            label: "Dashboard",        icon: <Home size={20} style={{ marginRight: 10 }} /> },
+    ...(role === "manager" || role === "line_manager" ? [{ to: "/employee/team", label: "My Department", icon: <Users size={20} style={{ marginRight: 10 }} /> }] : []),
     { to: "/employee/profile",    label: "My Profile",       icon: <Users size={20} style={{ marginRight: 10 }} /> },
     { to: "/employee/leave",      label: "Leave Management", icon: <Calendar size={20} style={{ marginRight: 10 }} /> },
     { to: "/employee/attendance", label: "Attendance",       icon: <Clock size={20} style={{ marginRight: 10 }} /> },
     { to: "/employee/performance",label: "Performance",      icon: <TrendingUp size={20} style={{ marginRight: 10 }} /> },
     { to: "/employee/documents",  label: "Documents",        icon: <Folder size={20} style={{ marginRight: 10 }} /> },
   ];
+
+  useEffect(() => {
+    try {
+      const storedUser = JSON.parse(localStorage.getItem("user") || "{}");
+      setRole(normalizeAppRole(storedUser.role) || "employee");
+    } catch {
+      setRole("employee");
+    }
+  }, []);
 
   return (
     <div
@@ -103,6 +116,19 @@ const EmployeeSidebar: React.FC<{ onLogout: () => void }> = ({ onLogout }) => {
                 <span>Settings</span>
               </Link>
             </li>
+
+            {role === "payroll_officer" && (
+              <li>
+                <Link
+                  to="/employee/payroll"
+                  className={isActive("/employee/payroll") ? "sb-active" : ""}
+                  style={sidebarItemStyle(isActive("/employee/payroll"))}
+                >
+                  <DollarSign size={20} style={{ marginRight: 10 }} />
+                  <span>Payroll</span>
+                </Link>
+              </li>
+            )}
           </ul>
         </div>
       </div>

@@ -4,7 +4,7 @@ import { API_BASE } from "./apiBase";
 
 export type NotificationCategory = keyof Omit<NotificationSettings, "emailDigest">;
 
-export type NotificationRole = "employee" | "manager" | "owner";
+export type NotificationRole = "employee" | "manager" | "owner" | "auditor";
 
 export interface AppNotification {
   id: string;

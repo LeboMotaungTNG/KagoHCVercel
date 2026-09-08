@@ -12,7 +12,9 @@ import EmployeeLeave from "./apps/employee/leave";
 import EmployeeAttendance from "./apps/employee/attendance";
 import EmployeeProfilePage from "./apps/employee/EmployeeProfilePage";
 import EmployeeSettingsPage from "./apps/employee/EmployeeSettingsPage";
+import PayrollOfficerPage from "./apps/employee/PayrollOfficerPage";
 import EmployeeDocumentsPage from "./apps/employee/EmployeeDocumentsPage";
+import DepartmentEmployeesPage from "./apps/employee/DepartmentEmployeesPage";
 import EmployeePerformance from "./apps/employee/performance";
 import OwnerDashboard from "./apps/Owner/OwnerDashboard";
 import ManagerDashboard from "./apps/Manager/ManagerDashboard";
@@ -29,6 +31,7 @@ import LeavePage from "./apps/Manager/leave";
 import Payroll from "./apps/Manager/Payroll";
 import PlatformAdminPage from "./apps/Platform/PlatformAdminPage";
 import AcceptInvitePage from "./apps/Platform/AcceptInvitePage";
+import AuditorPage from "./apps/Platform/AuditorPage";
 
 
 // Convenience aliases so the route table reads cleanly.
@@ -36,8 +39,10 @@ import AcceptInvitePage from "./apps/Platform/AcceptInvitePage";
 // it is treated as a synonym of "employee" everywhere on the frontend.
 const ManagerArea  = ["manager", "admin", "hr"] as const;
 const OwnerArea    = ["owner"] as const;
-const EmployeeArea = ["employee", "user", "manager", "admin", "hr", "owner"] as const;
+const EmployeeArea = ["employee", "user", "manager", "line_manager", "payroll_officer", "admin", "hr", "owner"] as const;
+const PayrollOfficerArea = ["payroll_officer"] as const;
 const PlatformArea = ["platform_admin"] as const;
+const AuditorArea = ["auditor"] as const;
 
 const Guard: React.FC<{ roles?: readonly string[]; children: React.ReactNode }> = ({ roles, children }) => (
   <RequireAuth requireRoles={roles as any}>{children}</RequireAuth>
@@ -62,6 +67,7 @@ const App: React.FC = () => (
 
       {/* ── Platform admin ────────────────────────────────────────── */}
       <Route path="/platform" element={<Guard roles={PlatformArea}><PlatformAdminPage /></Guard>} />
+      <Route path="/auditor" element={<Guard roles={AuditorArea}><AuditorPage /></Guard>} />
 
       {/* ── Manager / Admin / HR ──────────────────────────────────── */}
       <Route path="/manager"                  element={<Guard roles={ManagerArea}><ManagerDashboard /></Guard>} />
@@ -84,6 +90,7 @@ const App: React.FC = () => (
 
       {/* ── Employee self-service ─────────────────────────────────── */}
       <Route path="/employee"             element={<Guard roles={EmployeeArea}><EmployeeDashboard /></Guard>} />
+      <Route path="/employee/team"        element={<Guard roles={["manager", "line_manager"]}><DepartmentEmployeesPage /></Guard>} />
       <Route path="/employee/leave"       element={<Guard roles={EmployeeArea}><EmployeeLeave /></Guard>} />
       <Route path="/employee/attendance"  element={<Guard roles={EmployeeArea}><EmployeeAttendance /></Guard>} />
       <Route path="/employee/profile"     element={<Guard roles={EmployeeArea}><EmployeeProfilePage /></Guard>} />
@@ -92,6 +99,7 @@ const App: React.FC = () => (
       <Route path="/employee/self-review"   element={<Navigate to="/employee/performance/self-review" replace />} />
       <Route path="/employee/documents"   element={<Guard roles={EmployeeArea}><EmployeeDocumentsPage /></Guard>} />
       <Route path="/employee/settings"    element={<Guard roles={EmployeeArea}><EmployeeSettingsPage /></Guard>} />
+      <Route path="/employee/payroll"     element={<Guard roles={PayrollOfficerArea}><PayrollOfficerPage /></Guard>} />
 
       {/* ── Catch-all → login ─────────────────────────────────────── */}
       <Route path="*" element={<Navigate to="/" replace />} />
