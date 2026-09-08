@@ -406,79 +406,6 @@ const StatsGrid: React.FC<{
   );
 };
 
-/* Mini SVG area chart — Worked vs Focus across 7 days */
-const PulseChart: React.FC<{ worked: number[]; focus: number[] }> = ({ worked, focus }) => {
-  const W = 640, H = 160, P = 20;
-  const max = Math.max(...worked, ...focus, 1);
-  const x = (i: number) => P + (i * (W - 2 * P)) / (worked.length - 1);
-  const y = (v: number) => H - P - (v / max) * (H - 2 * P);
-
-  const path = (vals: number[]) => vals.map((v, i) => `${i ? "L" : "M"}${x(i)},${y(v)}`).join(" ");
-  const area = (vals: number[]) =>
-    `${path(vals)} L${x(vals.length - 1)},${H - P} L${x(0)},${H - P} Z`;
-
-  return (
-    <svg viewBox={`0 0 ${W} ${H}`} width="100%" height={H} style={{ display: "block" }}>
-      <defs>
-        <linearGradient id="g-worked" x1="0" y1="0" x2="0" y2="1">
-          <stop offset="0%"  stopColor={C.coral} stopOpacity="0.35" />
-          <stop offset="100%" stopColor={C.coral} stopOpacity="0" />
-        </linearGradient>
-        <linearGradient id="g-focus" x1="0" y1="0" x2="0" y2="1">
-          <stop offset="0%"  stopColor={C.green} stopOpacity="0.35" />
-          <stop offset="100%" stopColor={C.green} stopOpacity="0" />
-        </linearGradient>
-      </defs>
-
-      {[0.25, 0.5, 0.75].map(p => (
-        <line key={p} x1={P} x2={W - P} y1={H - P - p * (H - 2 * P)} y2={H - P - p * (H - 2 * P)}
-              stroke={C.line} strokeDasharray="3 4" />
-      ))}
-
-      <path d={area(worked)} fill="url(#g-worked)" />
-      <path d={path(worked)} fill="none" stroke={C.coral} strokeWidth={2.5} strokeLinecap="round" />
-
-      <path d={area(focus)}  fill="url(#g-focus)" />
-      <path d={path(focus)}  fill="none" stroke={C.green} strokeWidth={2.5} strokeLinecap="round" />
-
-      {worked.map((v, i) => (
-        <circle key={i} cx={x(i)} cy={y(v)} r={3.5} fill="#fff" stroke={C.coral} strokeWidth={2} />
-      ))}
-    </svg>
-  );
-};
-
-const ProductivityPulseCard: React.FC<{ todayHours: number | null }> = ({ todayHours }) => {
-  const todayIdx = (new Date().getDay() + 6) % 7; // Mon=0..Sun=6
-  const baseW = [7.2, 8.1, 7.6, 8.4, 6.9, 0, 0];
-  const baseF = [4.5, 5.2, 4.8, 5.5, 4.1, 0, 0];
-  const worked = baseW.map((v, i) => (i === todayIdx && todayHours != null ? todayHours : v));
-  const focus  = baseF.map((v, i) => (i === todayIdx && todayHours != null ? Math.max(0, todayHours - 2.5) : v));
-
-  return (
-    <Card>
-      <SectionHead
-        title="Productivity pulse"
-        subtitle="Hours worked vs deep focus, this week"
-        right={(
-          <div style={{ display: "flex", gap: 14, fontSize: 12, color: C.muted }}>
-            <span style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
-              <span style={{ width: 8, height: 8, borderRadius: "50%", background: C.coral }} />Worked
-            </span>
-            <span style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
-              <span style={{ width: 8, height: 8, borderRadius: "50%", background: C.green }} />Focus
-            </span>
-          </div>
-        )}
-      />
-      <PulseChart worked={worked} focus={focus} />
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(7,1fr)", marginTop: 8, fontSize: 11, color: C.faint, textAlign: "center", fontWeight: 600 }}>
-        {["Mon","Tue","Wed","Thu","Fri","Sat","Sun"].map(d => <div key={d}>{d}</div>)}
-      </div>
-    </Card>
-  );
-};
-
 const QUICK_ACTIONS: Array<{
   label: string; icon: React.ReactNode; bg: string; color: string; badge?: string;
 }> = [
@@ -1117,7 +1044,7 @@ const EmployeeDashboard: React.FC = () => {
         @media (min-width: 1100px) {
           .kg-stats-grid   { grid-template-columns: repeat(4, minmax(0, 1fr)); }
           .kg-row-hero     { grid-template-columns: 2fr 1fr; }
-          .kg-row-pulse    { grid-template-columns: 2fr 1fr; }
+          .kg-row-pulse    { grid-template-columns: 1fr; }
           .kg-row-trio     { grid-template-columns: 1fr 1fr 1fr; }
           .kg-row-pair     { grid-template-columns: 1fr 1fr; }
         }
@@ -1155,7 +1082,6 @@ const EmployeeDashboard: React.FC = () => {
         </div>
 
         <div className="kg-row kg-row-pulse">
-          <ProductivityPulseCard todayHours={today.work_hours} />
           <QuickActionsCard />
         </div>
 

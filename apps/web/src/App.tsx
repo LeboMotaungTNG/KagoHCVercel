@@ -22,7 +22,6 @@ import ManagerReviewPage from "./apps/Manager/ManagerReviewPage";
 import ManagerAnalyticsPage from "./apps/Manager/ManagerAnalyticsPage";
 import ManagerModerationPage from "./apps/Manager/ManagerModerationPage";
 import ManagerTeamGoalsPage from "./apps/Manager/ManagerTeamGoalsPage";
-import ManagerOrganizationStructurePage  from "./apps/Manager/OrganizationStructurePage";
 import EmployeeProfile from "./apps/Manager/EmployeeProfile";
 import ManageEmployees from "./apps/Manager/ManageEmployees";
 import EmployeesPage from "./apps/Manager/EmployeesPage";
@@ -78,7 +77,6 @@ const App: React.FC = () => (
       <Route path="/manager/employees"        element={<Guard roles={ManagerArea}><EmployeesPage /></Guard>} />
       <Route path="/manager/attendance"       element={<Guard roles={ManagerArea}><AttendancePage /></Guard>} />
       <Route path="/manager/leave-requests"   element={<Guard roles={ManagerArea}><LeavePage /></Guard>} />
-      <Route path="/manager/organization-structure" element={<Guard roles={ManagerArea}><ManagerOrganizationStructurePage /></Guard>} />
       <Route path="/manager/payroll"          element={<Guard roles={ManagerArea}><Payroll /></Guard>} />
       <Route path="/manager/performance"     element={<Guard roles={ManagerArea}><ManagerReviewPage /></Guard>} />
       <Route path="/manager/team-goals"      element={<Guard roles={ManagerArea}><ManagerTeamGoalsPage /></Guard>} />

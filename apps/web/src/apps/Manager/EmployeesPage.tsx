@@ -16,7 +16,12 @@ interface Employee {
   email: string; department: any; position: string; status: string; onPayroll: boolean;
 }
 
-function EmployeesContent() {
+export interface EmployeesContentProps {
+  departmentOnly?: string;
+  readOnly?: boolean;
+}
+
+export function EmployeesContent({ departmentOnly, readOnly = false }: EmployeesContentProps = {}) {
   const navigate  = useNavigate();
   const [search, setSearch]       = useState("");
   const [employees, setEmployees] = useState<Employee[]>([]);
@@ -47,24 +52,28 @@ function EmployeesContent() {
 
   const getDept = (emp: Employee) => emp.department?.name || emp.department || "Unassigned";
 
-  const filtered = employees.filter(e => {
+  const departmentEmployees = departmentOnly
+    ? employees.filter(e => getDept(e).toLowerCase() === departmentOnly.toLowerCase())
+    : employees;
+
+  const filtered = departmentEmployees.filter(e => {
     if (!search) return true;
     const q = search.toLowerCase();
     return [e.firstName, e.lastName, e.employeeId, e.email, getDept(e), e.position].some(f => f?.toLowerCase().includes(q));
   });
 
   const stats = {
-    total:    employees.length,
-    depts:    new Set(employees.map(getDept)).size,
-    active:   employees.filter(e => e.status === "active").length,
-    onPayroll:employees.filter(e => e.onPayroll === true).length,
+    total:    departmentEmployees.length,
+    depts:    new Set(departmentEmployees.map(getDept)).size,
+    active:   departmentEmployees.filter(e => e.status === "active").length,
+    onPayroll:departmentEmployees.filter(e => e.onPayroll === true).length,
   };
 
   return (
     <div style={{ maxWidth: 1200, margin: "0 auto" }}>
       <div style={{ marginBottom: 24 }}>
-        <h2 style={{ fontSize: 22, fontWeight: 700, color: "#1d2939", margin: 0 }}>All Employees</h2>
-        <p style={{ margin: "4px 0 0", fontSize: 14, color: "#667085" }}>Home ù All Employees</p>
+        <h2 style={{ fontSize: 22, fontWeight: 700, color: "#1d2939", margin: 0 }}>{departmentOnly ? "My Department" : "All Employees"}</h2>
+        <p style={{ margin: "4px 0 0", fontSize: 14, color: "#667085" }}>{departmentOnly ? `Employees in ${departmentOnly}` : "Home ? All Employees"}</p>
       </div>
 
       <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(200px,1fr))", gap: 16, marginBottom: 24 }}>
@@ -85,13 +94,13 @@ function EmployeesContent() {
         <div style={{ display: "flex", flexWrap: "wrap", alignItems: "center", justifyContent: "space-between", gap: 16, marginBottom: 20 }}>
           <div>
             <h3 style={{ margin: 0, fontSize: 17, fontWeight: 600, color: "#1d2939" }}>Employee Directory</h3>
-            <p style={{ margin: "4px 0 0", fontSize: 13, color: "#667085" }}>Showing {filtered.length} of {employees.length}</p>
+            <p style={{ margin: "4px 0 0", fontSize: 13, color: "#667085" }}>Showing {filtered.length} of {departmentEmployees.length}</p>
           </div>
           <div style={{ display: "flex", gap: 10 }}>
-            <input type="text" placeholder="Search employeesù" value={search} onChange={e => setSearch(e.target.value)}
+            <input type="text" placeholder="Search employees?" value={search} onChange={e => setSearch(e.target.value)}
               style={{ height: 40, width: 260, borderRadius: 8, border: "1px solid #d1d5db", padding: "0 12px", fontSize: 14, outline: "none" }} />
             <button onClick={fetchEmployees} style={{ padding: "8px 16px", borderRadius: 8, border: "none", background: C.coral, color: "#fff", fontSize: 14, fontWeight: 500, cursor: "pointer" }}>Refresh</button>
-            <button onClick={() => navigate("/manager/manage-employees")} style={{ padding: "8px 16px", borderRadius: 8, border: "none", background: "#1d2939", color: "#fff", fontSize: 14, fontWeight: 500, cursor: "pointer" }}>+ Add</button>
+            {!readOnly && <button onClick={() => navigate("/manager/manage-employees")} style={{ padding: "8px 16px", borderRadius: 8, border: "none", background: "#1d2939", color: "#fff", fontSize: 14, fontWeight: 500, cursor: "pointer" }}>+ Add</button>}
           </div>
         </div>
 
@@ -101,7 +110,7 @@ function EmployeesContent() {
           <div style={{ padding: "48px 0", textAlign: "center" }}>
             <div style={{ display: "inline-block", width: 36, height: 36, border: "3px solid #f3f4f6", borderTopColor: C.coral, borderRadius: "50%", animation: "spin 0.8s linear infinite" }} />
             <style>{`@keyframes spin{to{transform:rotate(360deg)}}`}</style>
-            <p style={{ marginTop: 12, color: "#9ca3af" }}>Loading employeesù</p>
+            <p style={{ marginTop: 12, color: "#9ca3af" }}>Loading employees?</p>
           </div>
         ) : (
           <div style={{ overflowX: "auto", borderRadius: 12, border: "1px solid #e4e7ec" }}>
@@ -133,7 +142,7 @@ function EmployeesContent() {
                       </div>
                     </td>
                     <td style={{ padding: "12px 16px", fontSize: 14, color: "#667085" }}>{getDept(emp)}</td>
-                    <td style={{ padding: "12px 16px", fontSize: 14, color: "#667085" }}>{emp.position || "ù"}</td>
+                    <td style={{ padding: "12px 16px", fontSize: 14, color: "#667085" }}>{emp.position || "?"}</td>
                     <td style={{ padding: "12px 16px" }}>
                       <span style={{ display: "inline-block", padding: "2px 10px", borderRadius: 20, fontSize: 12, fontWeight: 600,
                         background: emp.status === "active" ? "#ecfdf3" : "#fef3c7",
@@ -142,12 +151,12 @@ function EmployeesContent() {
                       </span>
                     </td>
                     <td style={{ padding: "12px 16px" }}>
-                      <button onClick={() => navigate(`/manager/profile?id=${emp._id}`)}
+                      {!readOnly && <button onClick={() => navigate(`/manager/profile?id=${emp._id}`)}
                         style={{ display: "inline-flex", alignItems: "center", gap: 4, padding: "5px 12px", borderRadius: 7, fontSize: 12, fontWeight: 500, cursor: "pointer", border: "1px solid #d0d5dd", background: "#fff", color: "#344054" }}
                         onMouseEnter={e => (e.currentTarget.style.background = "#f9fafb")}
                         onMouseLeave={e => (e.currentTarget.style.background = "#fff")}>
                         View Profile
-                      </button>
+                      </button>}
                     </td>
                   </tr>
                 ))}
