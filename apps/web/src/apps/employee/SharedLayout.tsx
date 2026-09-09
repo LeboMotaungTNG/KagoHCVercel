@@ -21,6 +21,7 @@ import NotificationBell from "../../shared/components/NotificationBell";
 import MobileBottomNav from "../../shared/components/MobileBottomNav";
 import { C } from "../../shared/utils/employee";
 import { normalizeAppRole } from "../../shared/components/RequireAuth";
+import DelegationActingBanner from "../../components/delegation/DelegationActingBanner";
 // @ts-ignore
 import logoKago from "../../assets/images/logo-black-white.png";
 
@@ -53,6 +54,8 @@ const EmployeeSidebar: React.FC<{ onLogout: () => void }> = ({ onLogout }) => {
     { to: "/employee/profile",    label: "My Profile",       icon: <Users size={20} style={{ marginRight: 10 }} /> },
     { to: "/employee/leave",      label: "Leave Management", icon: <Calendar size={20} style={{ marginRight: 10 }} /> },
     { to: "/employee/attendance", label: "Attendance",       icon: <Clock size={20} style={{ marginRight: 10 }} /> },
+    { to: "/employee/overtime-request", label: "Request Overtime", icon: <Clock size={20} style={{ marginRight: 10 }} /> },
+    { to: "/employee/my-overtime", label: "My Overtime", icon: <TrendingUp size={20} style={{ marginRight: 10 }} /> },
     { to: "/employee/performance",label: "Performance",      icon: <TrendingUp size={20} style={{ marginRight: 10 }} /> },
     { to: "/employee/documents",  label: "Documents",        icon: <Folder size={20} style={{ marginRight: 10 }} /> },
   ];
@@ -260,7 +263,10 @@ const SharedLayout: React.FC<SharedLayoutProps> = ({ children }) => {
         className="page-content"
         style={{ backgroundColor: "#f9f7f5", minHeight: "100vh" }}
       >
-        <div className="container-fluid">{children}</div>
+        <div className="container-fluid">
+          <DelegationActingBanner />
+          {children}
+        </div>
       </div>
     </div>
     <EmployeeFooter />

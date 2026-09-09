@@ -52,7 +52,14 @@ interface CurrentUser {
 
 export const normalizeAppRole = (role?: unknown): string => {
   const value = String(role || "").trim().toLowerCase().replace(/[ -]+/g, "_");
-  if (value === "hr_manager" || value === "human_resources" || value === "human_resources_manager") return "hr";
+  if (
+    value === "hr_manager" ||
+    value === "hrmanager" ||
+    value === "human_resource" ||
+    value === "human_resources" ||
+    value === "human_resource_manager" ||
+    value === "human_resources_manager"
+  ) return "hr";
   if (value === "line_manager" || value === "linemanager") return "line_manager";
   return value;
 };

@@ -99,6 +99,8 @@ export interface PayrollSettings {
   payDay:                   string;
   currency:                 string;
   taxYear:                  string;
+  standardHoursPerDay:       number;
+  standardDaysPerMonth:      number;
   overtimeRate:             string;
   weekendRate:              string;
   holidayRate:              string;
@@ -109,6 +111,30 @@ export interface PayrollSettings {
   payeEnabled:              boolean;
   autoGeneratePayslips:     boolean;
   allowSelfServicePayslips: boolean;
+}
+
+export interface OvertimeSettings {
+  standardHoursPerDay: number;
+  overtimeRate: number;
+  weekendRate: number;
+  holidayRate: number;
+  approvalRequired: boolean;
+  approvalThreshold: number;
+  maxOvertimePerDay: number;
+}
+
+export interface OvertimeRequest {
+  id: string;
+  employeeId?: string;
+  employeeName?: string;
+  date: string;
+  startTime: string;
+  endTime: string;
+  hours: number;
+  rate?: number;
+  reason: string;
+  status: "pending" | "approved" | "rejected";
+  notes?: string;
 }
 
 export interface PayrollRun {

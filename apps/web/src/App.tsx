@@ -33,6 +33,8 @@ import Payroll from "./apps/Manager/Payroll";
 import PlatformAdminPage from "./apps/Platform/PlatformAdminPage";
 import AcceptInvitePage from "./apps/Platform/AcceptInvitePage";
 import AuditorPage from "./apps/Platform/AuditorPage";
+import DelegationManagement from "./pages/DelegationManagement";
+import OvertimeControlPanel from "./apps/Owner/OvertimeControlPanel";
 
 
 // Convenience aliases so the route table reads cleanly.
@@ -82,10 +84,14 @@ const App: React.FC = () => (
       <Route path="/manager/leave-requests"   element={<Guard roles={ManagerArea}><LeavePage /></Guard>} />
       <Route path="/manager/organization-structure" element={<Guard roles={ManagerArea}><ManagerOrganizationStructurePage /></Guard>} />
       <Route path="/manager/payroll"          element={<Guard roles={ManagerArea}><Payroll /></Guard>} />
+      <Route path="/manager/overtime-approvals" element={<Guard roles={ManagerArea}><OvertimeControlPanel role="manager" /></Guard>} />
+      <Route path="/manager/team-overtime"      element={<Guard roles={ManagerArea}><OvertimeControlPanel role="manager" /></Guard>} />
       <Route path="/manager/performance"     element={<Guard roles={[...ManagerArea, ...HrKpiArea]}><ManagerReviewPage /></Guard>} />
       <Route path="/manager/team-goals"      element={<Guard roles={ManagerArea}><ManagerTeamGoalsPage /></Guard>} />
       <Route path="/manager/insights"        element={<Guard roles={[...ManagerArea, ...HrKpiArea]}><ManagerAnalyticsPage /></Guard>} />
       <Route path="/manager/moderate/:id"    element={<Guard roles={ManagerArea}><ManagerModerationPage /></Guard>} />
+      <Route path="/delegations"             element={<Guard roles={['manager', 'admin', 'hr', 'owner', 'line_manager', 'payroll_officer', 'hr_manager']}><DelegationManagement /></Guard>} />
+      <Route path="/delegations/:id"         element={<Guard roles={['manager', 'admin', 'hr', 'owner', 'line_manager', 'payroll_officer', 'hr_manager']}><DelegationManagement /></Guard>} />
 
       {/* ── Owner ─────────────────────────────────────────────────── */}
       <Route path="/owner/*" element={<Guard roles={OwnerArea}><OwnerDashboard /></Guard>} />
@@ -103,6 +109,8 @@ const App: React.FC = () => (
       <Route path="/employee/documents"   element={<Guard roles={EmployeeArea}><EmployeeDocumentsPage /></Guard>} />
       <Route path="/employee/settings"    element={<Guard roles={EmployeeArea}><EmployeeSettingsPage /></Guard>} />
       <Route path="/employee/payroll"     element={<Guard roles={PayrollOfficerArea}><PayrollOfficerPage /></Guard>} />
+      <Route path="/employee/overtime-request" element={<Guard roles={EmployeeArea}><OvertimeControlPanel role="employee" /></Guard>} />
+      <Route path="/employee/my-overtime"      element={<Guard roles={EmployeeArea}><OvertimeControlPanel role="employee" /></Guard>} />
 
       {/* ── Catch-all → login ─────────────────────────────────────── */}
       <Route path="*" element={<Navigate to="/" replace />} />

@@ -10,6 +10,7 @@ import LeaveRequestDetail from "./LeaveRequestDetail";
 import { heroStyle, statChip, numStyle, subtle } from "./leaveStyles";
 import { Toast } from "./leaveUiHelpers";
 import type { LeaveBalanceMap, LeaveFormData, LeavePolicy, LeaveRequest } from "./types";
+import { resolveCurrentEmployee } from "../src/utils/resolveEmployee";
 
 const API_URL = import.meta.env.VITE_API_URL || "https://employee-evaluation-kago-e63baae4d822.herokuapp.com/api/v1";
 
@@ -190,35 +191,7 @@ const EmployeeLeavePage: React.FC = () => {
         setUser(userData);
 
         const leaveTypesData = await fetchAvailableLeaveTypes(token);
-        let foundEmployee: any = null;
-
-        if (userData._id) {
-          try {
-            const empResponse = await fetch(`${API_URL}/employees?userId=${userData._id}`, {
-              headers: { Authorization: `Bearer ${token}` },
-            });
-            const empData = await empResponse.json();
-            if (empData.success && empData.data?.length > 0) {
-              foundEmployee = empData.data[0];
-            }
-          } catch (err) {
-            console.warn("Failed to fetch employee by userId:", err);
-          }
-        }
-
-        if (!foundEmployee && userData.email) {
-          try {
-            const allEmps = await fetch(`${API_URL}/employees`, {
-              headers: { Authorization: `Bearer ${token}` },
-            });
-            const allData = await allEmps.json();
-            if (allData.success && allData.data) {
-              foundEmployee = allData.data.find((emp: any) => emp.email === userData.email);
-            }
-          } catch (err) {
-            console.warn("Failed to fetch employees for matching:", err);
-          }
-        }
+        const foundEmployee = await resolveCurrentEmployee();
 
         if (foundEmployee) {
           setEmployee(foundEmployee);

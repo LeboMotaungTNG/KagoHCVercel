@@ -7,6 +7,7 @@ import {
   Building2,
   Award,
   Network,
+  ShieldCheck,
   Menu,
   LogOut,
   ChevronDown,
@@ -112,6 +113,17 @@ const OwnerSidebar: React.FC<{ onLogout: () => void }> = ({ onLogout }) => {
               >
                 <Home size={20} style={{ marginRight: "10px" }} />
                 <span>Dashboard</span>
+              </Link>
+            </li>
+
+            <li>
+              <Link
+                to="/delegations"
+                className={isActive("/delegations") ? "sb-active" : ""}
+                style={sidebarItemStyle(isActive("/delegations"))}
+              >
+                <ShieldCheck size={20} style={{ marginRight: "10px" }} />
+                <span>Delegations</span>
               </Link>
             </li>
 

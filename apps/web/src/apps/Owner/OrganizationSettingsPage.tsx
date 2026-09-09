@@ -16,6 +16,7 @@ import {
 } from "react-icons/fa";
 import { ClipboardList } from "lucide-react";
 import DocumentsLibraryTab from "./DocumentsLibraryTab";
+import OvertimeControlPanel from "./OvertimeControlPanel";
 import { C } from "../../shared/utils/employee";
 
 // All cross-cutting types, defaults, API calls and icon mappings now live in
@@ -480,6 +481,8 @@ export const PayrollSettingsTab = () => {
   const buildSettingsFromApi = (api: any): PayrollSettings => ({
     ...DEFAULT_PAYROLL_SETTINGS,
     taxYear:      api.taxYear ?? DEFAULT_PAYROLL_SETTINGS.taxYear,
+    standardHoursPerDay: api.standardHoursPerDay ?? DEFAULT_PAYROLL_SETTINGS.standardHoursPerDay,
+    standardDaysPerMonth: api.standardDaysPerMonth ?? DEFAULT_PAYROLL_SETTINGS.standardDaysPerMonth,
     overtimeRate: api.overtimeRate?.toString() ?? DEFAULT_PAYROLL_SETTINGS.overtimeRate,
     weekendRate:  api.weekendRate?.toString()  ?? DEFAULT_PAYROLL_SETTINGS.weekendRate,
     holidayRate:  api.holidayRate?.toString()  ?? DEFAULT_PAYROLL_SETTINGS.holidayRate,
@@ -699,8 +702,10 @@ export const PayrollSettingsTab = () => {
           <Row className="g-3">
             <Col md={3}><FormGroup><Label className="small text-muted fw-bold">Pay Cycle Frequency</Label>{isEditingSettings ? <Input type="select" value={settingsFormData.frequency} onChange={(e) => setSettingsFormData({ ...settingsFormData, frequency: e.target.value })}><option>Weekly</option><option>Bi-Weekly</option><option>Monthly</option></Input> : <p className="h6 fw-normal mt-1">{payrollSettings.frequency}</p>}</FormGroup></Col>
             <Col md={3}><FormGroup><Label className="small text-muted fw-bold">Pay Day</Label>{isEditingSettings ? <Input type="select" value={settingsFormData.payDay} onChange={(e) => setSettingsFormData({ ...settingsFormData, payDay: e.target.value })}>{[...Array(31)].map((_, i) => <option key={i+1}>{i+1}</option>)}</Input> : <p className="h6 fw-normal mt-1">Day {payrollSettings.payDay}</p>}</FormGroup></Col>
+            <Col md={3}><FormGroup><Label className="small text-muted fw-bold">Standard hours per day</Label>{isEditingSettings ? <Input type="number" min="1" max="24" value={settingsFormData.standardHoursPerDay} onChange={(e) => setSettingsFormData({ ...settingsFormData, standardHoursPerDay: Number(e.target.value) })} /> : <p className="h6 fw-normal mt-1">{payrollSettings.standardHoursPerDay} hours</p>}</FormGroup></Col>
+            <Col md={3}><FormGroup><Label className="small text-muted fw-bold">Standard days per month</Label>{isEditingSettings ? <Input type="number" min="1" max="31" value={settingsFormData.standardDaysPerMonth} onChange={(e) => setSettingsFormData({ ...settingsFormData, standardDaysPerMonth: Number(e.target.value) })} /> : <p className="h6 fw-normal mt-1">{payrollSettings.standardDaysPerMonth} days</p>}</FormGroup></Col>
             <Col md={3}><FormGroup><Label className="small text-muted fw-bold">Currency</Label>{isEditingSettings ? <Input type="select" value={settingsFormData.currency} onChange={(e) => setSettingsFormData({ ...settingsFormData, currency: e.target.value })}><option>ZAR - South African Rand</option><option>USD - US Dollar</option></Input> : <p className="h6 fw-normal mt-1">{payrollSettings.currency}</p>}</FormGroup></Col>
-            <Col md={3}><FormGroup><Label className="small text-muted fw-bold">Tax Year</Label>{isEditingSettings ? <Input type="select" value={settingsFormData.taxYear} onChange={(e) => setSettingsFormData({ ...settingsFormData, taxYear: e.target.value })}><option>2025</option><option>2026</option></Input> : <p className="h6 fw-normal mt-1">{payrollSettings.taxYear}</p>}</FormGroup></Col>
+            <Col md={3}><FormGroup><Label className="small text-muted fw-bold">Tax Year</Label>{isEditingSettings ? <Input type="select" value={settingsFormData.taxYear} onChange={(e) => setSettingsFormData({ ...settingsFormData, taxYear: e.target.value })}><option>2026</option><option>2027</option></Input> : <p className="h6 fw-normal mt-1">{payrollSettings.taxYear}</p>}</FormGroup></Col>
           </Row>
           <hr className="my-4" />
           <h5 className="fw-bold text-info mb-3">Statutory Contributions</h5>
@@ -711,6 +716,7 @@ export const PayrollSettingsTab = () => {
           </Row>
         </CardBody>
       </Card>
+      <OvertimeControlPanel role="owner" />
 
       <div className="d-flex justify-content-between align-items-center mb-4 mt-5">
         <div><h4 className="fw-bold mb-1 text-dark">Payroll Runs</h4><p className="text-muted small mb-0">Manage and process payroll periods</p></div>
