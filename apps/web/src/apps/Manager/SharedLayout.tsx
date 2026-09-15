@@ -11,8 +11,10 @@ import {
    Home,
   Users,
   Calendar,
+  Clock,
   ClipboardList,
   TrendingUp,
+  ShieldCheck,
   Menu,
   LogOut,
   ChevronDown,
@@ -28,6 +30,7 @@ import {
 import NotificationBell from "../../shared/components/NotificationBell";
 import MobileBottomNav from "../../shared/components/MobileBottomNav";
 import { C } from "../../shared/utils/employee";
+import DelegationActingBanner from "../../components/delegation/DelegationActingBanner";
 // @ts-ignore
 import logoKago from "../../assets/images/logo-black-white.png";
 
@@ -59,6 +62,9 @@ const topItems: { to: string; label: string; icon: React.ReactNode; exact?: bool
   { to: "/manager/employees", label: "All Employees", icon: <Users size={20} style={{ marginRight: 10 }} /> },
   { to: "/manager/attendance", label: "Attendance", icon: <Calendar size={20} style={{ marginRight: 10 }} /> },
   { to: "/manager/leave-requests", label: "Leave Requests", icon: <ClipboardList size={20} style={{ marginRight: 10 }} /> },
+  { to: "/manager/overtime-approvals", label: "Overtime Approvals", icon: <Clock size={20} style={{ marginRight: 10 }} /> },
+  { to: "/manager/team-overtime", label: "Team Overtime", icon: <TrendingUp size={20} style={{ marginRight: 10 }} /> },
+  { to: "/delegations", label: "Delegations", icon: <ShieldCheck size={20} style={{ marginRight: 10 }} /> },
 ];
 
   const bottomItems: { to: string; label: string; icon: React.ReactNode }[] = [
@@ -297,7 +303,10 @@ const SharedLayout: React.FC<SharedLayoutProps> = ({ children }) => {
           className="page-content"
           style={{ backgroundColor: "#f9f7f5", minHeight: "100vh" }}
         >
-          <div className="container-fluid">{children}</div>
+          <div className="container-fluid">
+            <DelegationActingBanner />
+            {children}
+          </div>
         </div>
       </div>
       <ManagerFooter />
