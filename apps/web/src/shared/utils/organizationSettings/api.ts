@@ -67,8 +67,8 @@ export const savePayrollSettingsApi = (settings: PayrollSettings) =>
     sdlRate:              parseFloat(settings.sdlRate) / 100,
     payeEnabled:          settings.payeEnabled,
     taxYear:              settings.taxYear,
-    standardHoursPerDay:  8,
-    standardDaysPerMonth: 20,
+    standardHoursPerDay:  settings.standardHoursPerDay,
+    standardDaysPerMonth: settings.standardDaysPerMonth,
   });
 
 export const createPayrollRun = (period: string, frequency: string, start: string, end: string) =>
@@ -88,6 +88,26 @@ export const calculatePayrollRun = (runId: string, settings: PayrollSettings) =>
     sdlRate:      parseFloat(settings.sdlRate) / 100,
     payeEnabled:  settings.payeEnabled,
   });
+
+/* ── Overtime ────────────────────────────────────────────────────── */
+
+export const loadOvertimeSettings = () =>
+  getJSON<any>("/attendance/overtime/settings");
+
+export const saveOvertimeSettings = (settings: unknown) =>
+  send<any>("/attendance/overtime/settings", "PUT", settings);
+
+export const requestOvertime = (request: Pick<import("./types").OvertimeRequest, "date" | "startTime" | "endTime" | "reason">) =>
+  send<any>("/attendance/overtime/request", "POST", request);
+
+export const loadOvertimeRequests = () =>
+  getJSON<any[]>("/attendance/overtime/requests");
+
+export const approveOvertime = (id: string, notes = "") =>
+  send<any>(`/attendance/overtime/requests/${id}/approve`, "PUT", { notes });
+
+export const rejectOvertime = (id: string, notes = "") =>
+  send<any>(`/attendance/overtime/requests/${id}/reject`, "PUT", { notes });
 
 export const approvePayrollRunApi = (runId: string) =>
   send<any>(`/payroll/runs/${runId}/approve`, "POST");

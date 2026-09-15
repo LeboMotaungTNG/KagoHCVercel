@@ -4,7 +4,7 @@
  */
 
 import type {
-  CompanyData, CustomLeaveType, LeaveTypeConfig, PayrollSettings, WorkSchedule,
+  CompanyData, CustomLeaveType, LeaveTypeConfig, OvertimeSettings, PayrollSettings, WorkSchedule,
 } from "./types";
 
 /* ── Company defaults ─────────────────────────────────────────────── */
@@ -115,6 +115,8 @@ export const DEFAULT_PAYROLL_SETTINGS: PayrollSettings = {
   payDay: "25",
   currency: "ZAR",
   taxYear: "2026",
+  standardHoursPerDay: 8,
+  standardDaysPerMonth: 20,
   overtimeRate: "1.5",
   weekendRate: "2.0",
   holidayRate: "2.5",
@@ -125,6 +127,16 @@ export const DEFAULT_PAYROLL_SETTINGS: PayrollSettings = {
   payeEnabled: true,
   autoGeneratePayslips: true,
   allowSelfServicePayslips: true,
+};
+
+export const DEFAULT_OVERTIME_SETTINGS: OvertimeSettings = {
+  standardHoursPerDay: 8,
+  overtimeRate: 1.5,
+  weekendRate: 2,
+  holidayRate: 2.5,
+  approvalRequired: true,
+  approvalThreshold: 2,
+  maxOvertimePerDay: 4,
 };
 
 /* ── Leave defaults ──────────────────────────────────────────────── */
