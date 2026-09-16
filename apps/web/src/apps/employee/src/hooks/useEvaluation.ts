@@ -49,14 +49,18 @@ export function useEvaluation({ employeeId, period, purpose, type }: UseEvaluati
     setLoading(true);
     setError(null);
 
-//************************* */
 (async () => {
-  const existing = await queryEvaluations({
-    employeeId,
-    period,
-    purpose,
-    type,
-  });
+  let existing: Evaluation[] = [];
+  try {
+    existing = await queryEvaluations({
+      employeeId,
+      period,
+      purpose,
+      type,
+    });
+  } catch {
+    existing = [];
+  }
 
   if (existing.length > 0) {
     return existing[0];

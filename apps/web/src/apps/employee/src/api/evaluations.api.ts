@@ -46,6 +46,65 @@ function empRefOf(e: Evaluation): Evaluation['employeeId'] {
   return e.employeeId;
 }
 
+function asEvaluationList(data: unknown): Evaluation[] {
+  if (Array.isArray(data)) return data;
+  if (data && typeof data === 'object') {
+    const rec = data as Record<string, unknown>;
+    for (const key of ['evaluations', 'items', 'docs', 'results']) {
+      if (Array.isArray(rec[key])) return rec[key] as Evaluation[];
+    }
+  }
+  return [];
+}
+
+function matchesEvaluationQuery(
+  e: Evaluation,
+  params: {
+    employeeId?: string;
+    period?: string;
+    purpose?: EvaluationPurpose;
+    type?: EvaluationType;
+    status?: EvaluationStatus;
+    department?: string;
+    pendingModeration?: boolean;
+    pendingOwner?: boolean;
+  },
+): boolean {
+  const empId = empIdOf(e);
+  if (params.employeeId) {
+    const matches =
+      empId === params.employeeId || (empId === 'emp-demo' && params.employeeId !== 'emp-demo');
+    if (!matches) return false;
+  }
+  if (params.period && e.period !== params.period) return false;
+  if (params.purpose && e.purpose !== params.purpose) return false;
+  if (params.type && e.type !== params.type) return false;
+  if (params.status && e.status !== params.status) return false;
+  if (params.pendingModeration) {
+    if (e.type !== 'manager_review' || !e.linkedEvaluationId) return false;
+    if (!['manager_in_progress', 'draft', 'submitted', 'changes_requested'].includes(e.status)) {
+      return false;
+    }
+  }
+  if (params.pendingOwner && e.status !== 'pending_owner') return false;
+  if (params.department) {
+    const dept = typeof e.employeeId === 'string' ? undefined : e.employeeId.department;
+    if (dept !== params.department) return false;
+  }
+  return true;
+}
+
+async function fetchEmployeeEvaluations(employeeId: string): Promise<Evaluation[]> {
+  try {
+    const data = await http.get<unknown>(`/evaluations/employee/${encodeURIComponent(employeeId)}`);
+    return asEvaluationList(data);
+  } catch (err) {
+    // Live API has no /evaluations/employee/:id (404 "Not Found").
+    if (err instanceof ApiError && (err.status === 404 || err.status === 403)) return [];
+    throw err;
+  }
+}
+
 function displayName(e: Evaluation): string {
   const session = getSessionUser();
   return (
@@ -181,18 +240,24 @@ export async function createEvaluation(payload: {
     evaluationsStore = [...evaluationsStore, scoreEvaluation(draft)];
     return evaluationsStore.find((e) => e._id === draft._id)!;
   }
-  // Resume existing eval when possible to avoid create loops / lag.
+  // Resume from the employee-scoped list. GET /evaluations is owner/admin/hr_manager only.
   try {
-    const existing = await http.get<Evaluation[]>(
-      `/evaluations?employeeId=${encodeURIComponent(payload.employeeId)}&period=${encodeURIComponent(payload.period)}&type=${payload.type}`
-    );
-    const list = Array.isArray(existing) ? existing : [];
+    const list = await fetchEmployeeEvaluations(payload.employeeId);
     const resumable = list.find((e) =>
+      e.period === payload.period &&
+      e.type === payload.type &&
       ['draft', 'submitted', 'manager_in_progress', 'changes_requested', 'pending_owner'].includes(e.status)
     );
-    if (resumable?._id) return getEvaluationById(resumable._id);
+    if (resumable?._id) {
+      if (resumable.frameworkSnapshot?.categories?.length) return resumable;
+      try {
+        return await getEvaluationById(resumable._id);
+      } catch {
+        return resumable;
+      }
+    }
   } catch {
-    /* list may be restricted for some roles */
+    /* own-list may be empty or unavailable; try create */
   }
 
   try {
@@ -436,9 +501,7 @@ export async function getEmployeeEvaluations(
     return evaluationsStore.filter((e) => empIdOf(e) === employeeId);
   }
 
-  return http.get<Evaluation[]>(
-    `/evaluations/employee/${employeeId}`
-  );
+  return fetchEmployeeEvaluations(employeeId);
 }
 
 
@@ -554,7 +617,6 @@ export async function queryEvaluations(params: {
   employeeId?: string;
   period?: string;
   purpose?: EvaluationPurpose;
-  
   type?: EvaluationType;
   status?: EvaluationStatus;
   department?: string;
@@ -564,53 +626,21 @@ export async function queryEvaluations(params: {
 }): Promise<Evaluation[]> {
   if (USE_MOCKS) {
     await sleep();
-    return evaluationsStore.filter((e) => {
-      const empId = empIdOf(e);
-      if (params.employeeId) {
-        const matches =
-          empId === params.employeeId || (empId === 'emp-demo' && params.employeeId !== 'emp-demo');
-        if (!matches) return false;
-      }
-      if (params.period && e.period !== params.period) return false;
-      if (params.type && e.type !== params.type) return false;
-      if (params.status && e.status !== params.status) return false;
-      if (params.pendingModeration) {
-        if (e.type !== 'manager_review') return false;
-        if (!e.linkedEvaluationId) return false;
-        if (
-          e.status !== 'manager_in_progress' &&
-          e.status !== 'draft' &&
-          e.status !== 'submitted' &&
-          e.status !== 'changes_requested'
-        ) {
-          return false;
-        }
-      }
-      if (params.pendingOwner) {
-        if (e.status !== 'pending_owner') return false;
-      }
-      if (params.department) {
-        const dept = typeof e.employeeId === 'string' ? undefined : e.employeeId.department;
-        if (dept !== params.department) return false;
-      }
-      return true;
-    });
+    return evaluationsStore.filter((e) => matchesEvaluationQuery(e, params));
   }
+
+  // Employees cannot call GET /evaluations (owner/admin/hr_manager only).
+  const canUseOwnList = Boolean(params.employeeId) && !params.pendingModeration && !params.pendingOwner;
+  if (canUseOwnList) {
+    const list = await fetchEmployeeEvaluations(String(params.employeeId));
+    return list.filter((e) => matchesEvaluationQuery(e, params));
+  }
+
   const qs = new URLSearchParams(
     Object.entries(params)
       .filter(([, v]) => v !== undefined && v !== false)
       .map(([k, v]) => [k, String(v)])
   ).toString();
-  const data = await http.get<Evaluation[]>(`/evaluations?${qs}`);
-  const list = Array.isArray(data) ? data : [];
-  return list.filter((e) => {
-    if (params.pendingModeration) {
-      if (e.type !== 'manager_review' || !e.linkedEvaluationId) return false;
-      return ['manager_in_progress', 'draft', 'submitted', 'changes_requested'].includes(e.status);
-    }
-    if (params.pendingOwner && e.status !== 'pending_owner') return false;
-    return true;
-  });
-
- 
+  const data = await http.get<unknown>(`/evaluations?${qs}`);
+  return asEvaluationList(data).filter((e) => matchesEvaluationQuery(e, params));
 }
