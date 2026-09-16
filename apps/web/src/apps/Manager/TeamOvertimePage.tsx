@@ -7,7 +7,7 @@ import {
 } from "../../shared/components/overtimeUi";
 import type { OvertimeRequest } from "../../shared/utils/organizationSettings";
 
-const TeamOvertimeContent: React.FC = () => {
+export const TeamOvertimeContent: React.FC = () => {
   const { requests, loading, message } = useOvertimeRequests();
   const [search, setSearch] = useState("");
   const [status, setStatus] = useState<"" | OvertimeRequest["status"]>("");

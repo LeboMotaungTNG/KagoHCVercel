@@ -56,6 +56,10 @@ const EmployeeSidebar: React.FC<{ onLogout: () => void }> = ({ onLogout }) => {
     { to: "/employee/attendance", label: "Attendance",       icon: <Clock size={20} style={{ marginRight: 10 }} /> },
     { to: "/employee/overtime-request", label: "Request Overtime", icon: <Clock size={20} style={{ marginRight: 10 }} /> },
     { to: "/employee/my-overtime", label: "My Overtime", icon: <TrendingUp size={20} style={{ marginRight: 10 }} /> },
+    ...(role === "payroll_officer" ? [
+      { to: "/employee/overtime-approvals", label: "Overtime Approvals", icon: <Clock size={20} style={{ marginRight: 10 }} /> },
+      { to: "/employee/team-overtime", label: "Team Overtime", icon: <TrendingUp size={20} style={{ marginRight: 10 }} /> },
+    ] : []),
     { to: "/employee/performance",label: "Performance",      icon: <TrendingUp size={20} style={{ marginRight: 10 }} /> },
     { to: "/employee/documents",  label: "Documents",        icon: <Folder size={20} style={{ marginRight: 10 }} /> },
   ];

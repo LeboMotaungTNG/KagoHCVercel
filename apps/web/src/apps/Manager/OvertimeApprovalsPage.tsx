@@ -8,7 +8,7 @@ import {
   StatTiles, overtimeStatusPill, useOvertimeRequests,
 } from "../../shared/components/overtimeUi";
 
-const OvertimeApprovalsContent: React.FC = () => {
+export const OvertimeApprovalsContent: React.FC = () => {
   const { requests, setRequests, loading, message, setMessage } = useOvertimeRequests();
   const pending = requests.filter((row) => row.status === "pending");
   const approvedHours = requests

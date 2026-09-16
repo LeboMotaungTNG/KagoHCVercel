@@ -13,6 +13,7 @@ import EmployeeAttendance from "./apps/employee/attendance";
 import EmployeeProfilePage from "./apps/employee/EmployeeProfilePage";
 import EmployeeSettingsPage from "./apps/employee/EmployeeSettingsPage";
 import PayrollOfficerPage from "./apps/employee/PayrollOfficerPage";
+import { PayrollOvertimeApprovalsPage, PayrollTeamOvertimePage } from "./apps/employee/PayrollOvertimePages";
 import EmployeeDocumentsPage from "./apps/employee/EmployeeDocumentsPage";
 import DepartmentEmployeesPage from "./apps/employee/DepartmentEmployeesPage";
 import EmployeePerformance from "./apps/employee/performance";
@@ -107,6 +108,8 @@ const App: React.FC = () => (
       <Route path="/employee/documents"   element={<Guard roles={EmployeeArea}><EmployeeDocumentsPage /></Guard>} />
       <Route path="/employee/settings"    element={<Guard roles={EmployeeArea}><EmployeeSettingsPage /></Guard>} />
       <Route path="/employee/payroll"     element={<Guard roles={PayrollOfficerArea}><PayrollOfficerPage /></Guard>} />
+      <Route path="/employee/overtime-approvals" element={<Guard roles={PayrollOfficerArea}><PayrollOvertimeApprovalsPage /></Guard>} />
+      <Route path="/employee/team-overtime"      element={<Guard roles={PayrollOfficerArea}><PayrollTeamOvertimePage /></Guard>} />
       <Route path="/employee/overtime-request" element={<Guard roles={EmployeeArea}><OvertimeRequestPage /></Guard>} />
       <Route path="/employee/my-overtime"      element={<Guard roles={EmployeeArea}><MyOvertimePage /></Guard>} />
 
