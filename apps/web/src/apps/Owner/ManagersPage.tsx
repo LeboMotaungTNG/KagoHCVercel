@@ -202,10 +202,15 @@ function PromoteToManagerModal({ onClose, onSuccess }: { onClose: () => void; on
           )}
 
           <div>
-            <label style={labelStyle}>Manager Level</label>
+            <label style={labelStyle}>Role *</label>
             <select style={inputStyle} value={managerLevel} onChange={(e) => setManagerLevel(e.target.value)}>
-              <option value="team_lead">Team Lead</option>
               <option value="manager">Manager</option>
+              <option value="line_manager">Line Manager</option>
+              <option value="payroll_officer">Payroll Officer</option>
+              <option value="hr">HR</option>
+              <option value="hr_manager">HR Manager</option>
+              <option value="admin">Administrator</option>
+              <option value="team_lead">Team Lead</option>
               <option value="senior_manager">Senior Manager</option>
               <option value="director">Director</option>
             </select>
