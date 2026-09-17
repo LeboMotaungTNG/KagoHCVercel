@@ -405,19 +405,22 @@ export const ManagersPage = () => {
     setFetchError("");
     try {
       const token = localStorage.getItem("token");
-      const response = await fetch(`${API_URL}/employees`, {
-        headers: { "Authorization": `Bearer ${token}`, "Content-Type": "application/json" },
-      });
-      const data = await response.json();
-      
-      let rows: any[] = [];
-      if (data.success && Array.isArray(data.data)) {
-        rows = data.data;
-      } else if (Array.isArray(data)) {
-        rows = data;
-      }
-      
-      setManagers(rows.filter((row) => PROMOTED_ROLE_KEYS.has(row?.role) || PROMOTED_ROLE_KEYS.has(row?.managerLevel)));
+      const [allEmployeesResponse, managersResponse] = await Promise.all([
+        fetch(`${API_URL}/employees`, {
+          headers: { "Authorization": `Bearer ${token}`, "Content-Type": "application/json" },
+        }),
+        fetch(`${API_URL}/employees?isManager=true`, {
+          headers: { "Authorization": `Bearer ${token}`, "Content-Type": "application/json" },
+        }),
+      ]);
+      const [allEmployeesData, managersData] = await Promise.all([
+        allEmployeesResponse.json(),
+        managersResponse.json(),
+      ]);
+      const readRows = (data: any): any[] => data?.success && Array.isArray(data.data) ? data.data : Array.isArray(data) ? data : [];
+      const rows = [...readRows(allEmployeesData), ...readRows(managersData)];
+      const uniqueRows = Array.from(new Map(rows.map((row) => [row?._id || row?.id, row])).values());
+      setManagers(uniqueRows.filter((row) => row?.isManager === true || PROMOTED_ROLE_KEYS.has(row?.role) || PROMOTED_ROLE_KEYS.has(row?.managerLevel)));
     } catch (err) {
       console.error(err);
       setFetchError("Failed to load managers. Please try again.");
@@ -452,7 +455,7 @@ export const ManagersPage = () => {
     {
       name: <span className="font-weight-bold fs-13">Manager Level</span>,
       cell: (row: any) => {
-        const level = row?.managerLevel || "manager";
+        const level = row?.managerLevel || row?.role || "manager";
         const colors: Record<string, string> = {
           team_lead: "#8b5cf6",
           manager: "#10b981",
