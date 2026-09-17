@@ -52,6 +52,8 @@ const ButtonBtn = ({ Title, BackgroundColor, ColorText, BorderColor, borderRadiu
 function PromoteToManagerModal({ onClose, onSuccess }: { onClose: () => void; onSuccess: () => void }) {
   const [employees, setEmployees] = useState<any[]>([]);
   const [selectedEmployee, setSelectedEmployee] = useState<any>(null);
+  const [managers, setManagers] = useState<any[]>([]);
+  const [reportsTo, setReportsTo] = useState("");
   const [managerLevel, setManagerLevel] = useState("manager");
   const [reason, setReason] = useState("");
   const [loading, setLoading] = useState(true);
@@ -67,10 +69,16 @@ function PromoteToManagerModal({ onClose, onSuccess }: { onClose: () => void; on
   const fetchEligibleEmployees = async () => {
     try {
       const token = localStorage.getItem("token");
-      const response = await fetch(`${API_URL}/employees?isManager=false`, {
-        headers: { "Authorization": `Bearer ${token}` }
-      });
+      const [response, managersResponse] = await Promise.all([
+        fetch(`${API_URL}/employees?isManager=false`, {
+          headers: { "Authorization": `Bearer ${token}` }
+        }),
+        fetch(`${API_URL}/employees/managers`, {
+          headers: { "Authorization": `Bearer ${token}` }
+        })
+      ]);
       const data = await response.json();
+      const managersData = await managersResponse.json();
       let employeesList: any[] = [];
       if (data.success && Array.isArray(data.data)) {
         employeesList = data.data;
@@ -78,6 +86,7 @@ function PromoteToManagerModal({ onClose, onSuccess }: { onClose: () => void; on
         employeesList = data;
       }
       setEmployees(employeesList);
+      setManagers(Array.isArray(managersData.data) ? managersData.data : managersData);
     } catch (err) {
       console.error(err);
       setError("Failed to load employees");
@@ -87,8 +96,8 @@ function PromoteToManagerModal({ onClose, onSuccess }: { onClose: () => void; on
   };
 
   const handlePromote = async () => {
-    if (!selectedEmployee) {
-      setError("Please select an employee");
+    if (!selectedEmployee || !reportsTo) {
+      setError("Please select an employee and reporting manager");
       return;
     }
 
@@ -104,6 +113,7 @@ function PromoteToManagerModal({ onClose, onSuccess }: { onClose: () => void; on
         headers: { "Authorization": `Bearer ${token}`, "Content-Type": "application/json" },
         body: JSON.stringify({
           managerLevel: managerLevel,
+          reportsTo,
           reason: reason || `Promoted to ${managerLevel}`
         }),
       });
@@ -198,6 +208,18 @@ function PromoteToManagerModal({ onClose, onSuccess }: { onClose: () => void; on
               <option value="manager">Manager</option>
               <option value="senior_manager">Senior Manager</option>
               <option value="director">Director</option>
+            </select>
+          </div>
+
+          <div>
+            <label style={labelStyle}>Reports To *</label>
+            <select style={inputStyle} value={reportsTo} onChange={(e) => setReportsTo(e.target.value)} required>
+              <option value="">-- Select a manager --</option>
+              {managers.map(manager => (
+                <option key={manager._id} value={manager._id}>
+                  {manager.firstName} {manager.lastName}
+                </option>
+              ))}
             </select>
           </div>
 
