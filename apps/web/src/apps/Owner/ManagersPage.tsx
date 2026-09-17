@@ -11,6 +11,11 @@ import { C } from "../../shared/utils/employee";
 
 const API_URL = import.meta.env.VITE_API_URL || "https://employee-evaluation-kago-e63baae4d822.herokuapp.com/api/v1";
 
+const PROMOTED_ROLE_KEYS = new Set([
+  "manager", "line_manager", "payroll_officer", "hr", "hr_manager",
+  "admin", "team_lead", "senior_manager", "director",
+]);
+
 // ─── Styles ───────────────────────────────────────────────────────────────────
 const employeeTblTitle = {
   width: "100%", display: "flex", padding: 5,
@@ -394,13 +399,13 @@ export const ManagersPage = () => {
   const [viewManager, setViewManager] = useState<any | null>(null);
   const [demoteManager, setDemoteManager] = useState<any | null>(null);
 
-  // Fetch managers (users with isManager = true)
+  // Fetch all employees so every promoted role can appear in this directory.
   const fetchManagers = async () => {
     setLoadingData(true);
     setFetchError("");
     try {
       const token = localStorage.getItem("token");
-      const response = await fetch(`${API_URL}/employees?isManager=true`, {
+      const response = await fetch(`${API_URL}/employees`, {
         headers: { "Authorization": `Bearer ${token}`, "Content-Type": "application/json" },
       });
       const data = await response.json();
@@ -412,7 +417,7 @@ export const ManagersPage = () => {
         rows = data;
       }
       
-      setManagers(rows);
+      setManagers(rows.filter((row) => PROMOTED_ROLE_KEYS.has(row?.role) || PROMOTED_ROLE_KEYS.has(row?.managerLevel)));
     } catch (err) {
       console.error(err);
       setFetchError("Failed to load managers. Please try again.");
@@ -451,16 +456,27 @@ export const ManagersPage = () => {
         const colors: Record<string, string> = {
           team_lead: "#8b5cf6",
           manager: "#10b981",
+          line_manager: "#14b8a6",
+          payroll_officer: "#0891b2",
+          hr: "#ec4899",
+          hr_manager: "#db2777",
+          admin: "#6366f1",
           senior_manager: "#3b82f6",
           director: "#f59e0b",
         };
         const labels: Record<string, string> = {
           team_lead: "Team Lead",
           manager: "Manager",
+          line_manager: "Line Manager",
+          payroll_officer: "Payroll Officer",
+          hr: "HR",
+          hr_manager: "HR Manager",
+          admin: "Administrator",
           senior_manager: "Senior Manager",
           director: "Director",
         };
-        return <span style={{ background: `${colors[level]}20`, color: colors[level], padding: "4px 10px", borderRadius: 20, fontSize: 12, fontWeight: 600 }}>{labels[level] || "Manager"}</span>;
+        const color = colors[level] || "#64748b";
+        return <span style={{ background: `${color}20`, color, padding: "4px 10px", borderRadius: 20, fontSize: 12, fontWeight: 600 }}>{labels[level] || level}</span>;
       },
     },
     {

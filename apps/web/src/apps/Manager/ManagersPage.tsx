@@ -20,6 +20,11 @@ interface Manager {
   department: string;
 }
 
+const PROMOTED_ROLE_KEYS = new Set([
+  'manager', 'line_manager', 'payroll_officer', 'hr', 'hr_manager',
+  'admin', 'team_lead', 'senior_manager', 'director',
+]);
+
 const ManagersPage: React.FC = () => {
   const [managers, setManagers] = useState<Manager[]>([]);
   const [isPromoteModalOpen, setIsPromoteModalOpen] = useState(false);
@@ -39,7 +44,7 @@ const ManagersPage: React.FC = () => {
       const token = localStorage.getItem('token');
       const API_URL = import.meta.env.VITE_API_URL || 'https://employee-evaluation-kago-e63baae4d822.herokuapp.com/api/v1';
 
-      const response = await fetch(`${API_URL}/employees?isManager=true`, {
+      const response = await fetch(`${API_URL}/employees`, {
         headers: { 'Authorization': `Bearer ${token}` }
       });
 
@@ -48,7 +53,7 @@ const ManagersPage: React.FC = () => {
       }
 
       const data = await response.json();
-      setManagers(data.data.filter((emp: any) => emp.isManager));
+      setManagers(data.data.filter((emp: any) => PROMOTED_ROLE_KEYS.has(emp.role) || PROMOTED_ROLE_KEYS.has(emp.managerLevel)));
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to load managers');
       console.error('Fetch error:', err);
