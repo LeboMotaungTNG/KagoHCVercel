@@ -57,7 +57,7 @@ const ManagersPage: React.FC = () => {
     }
   };
 
-  const handlePromote = async (employeeId: string, managerLevel: string, reportsTo: string, reason?: string) => {
+  const handlePromote = async (employeeId: string, managerLevel: string, reason?: string) => {
     try {
       const token = localStorage.getItem('token');
       const API_URL = import.meta.env.VITE_API_URL || 'https://employee-evaluation-kago-e63baae4d822.herokuapp.com/api/v1';
@@ -70,7 +70,6 @@ const ManagersPage: React.FC = () => {
         },
         body: JSON.stringify({
           managerLevel,
-          reportsTo,
           reason
         })
       });

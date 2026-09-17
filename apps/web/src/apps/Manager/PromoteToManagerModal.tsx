@@ -25,16 +25,10 @@ export interface Employee {
   isManager: boolean;
 }
 
-interface ManagerOption {
-  _id: string;
-  firstName: string;
-  lastName: string;
-}
-
 interface PromoteToManagerModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onPromote: (employeeId: string, managerLevel: string, reportsTo: string, reason?: string) => Promise<void>;
+  onPromote: (employeeId: string, managerLevel: string, reason?: string) => Promise<void>;
 }
 
 const PromoteToManagerModal: React.FC<PromoteToManagerModalProps> = ({
@@ -44,10 +38,8 @@ const PromoteToManagerModal: React.FC<PromoteToManagerModalProps> = ({
 }) => {
   const [selectedEmployee, setSelectedEmployee] = useState<string>('');
   const [managerLevel, setManagerLevel] = useState<string>('manager');
-  const [reportsTo, setReportsTo] = useState<string>('');
   const [reason, setReason] = useState<string>('');
   const [employees, setEmployees] = useState<Employee[]>([]);
-  const [managers, setManagers] = useState<ManagerOption[]>([]);
   const [loading, setLoading] = useState<boolean>(false);
   const [error, setError] = useState<string>('');
 
@@ -61,29 +53,18 @@ const PromoteToManagerModal: React.FC<PromoteToManagerModalProps> = ({
           const token = localStorage.getItem('token');
           const API_URL = (import.meta as any).env?.VITE_API_URL || 'https://employee-evaluation-kago-e63baae4d822.herokuapp.com/api/v1';
           
-          const [employeesResponse, managersResponse] = await Promise.all([
-            fetch(`${API_URL}/employees?isManager=false`, {
-              headers: { 'Authorization': `Bearer ${token}` }
-            }),
-            fetch(`${API_URL}/employees/managers`, {
-              headers: { 'Authorization': `Bearer ${token}` }
-            })
-          ]);
-          const response = employeesResponse;
-          if (!managersResponse.ok) {
-            throw new Error('Failed to fetch managers');
-          }
+          const response = await fetch(`${API_URL}/employees?isManager=false`, {
+            headers: { 'Authorization': `Bearer ${token}` }
+          });
           
           if (!response.ok) {
             throw new Error('Failed to fetch employees');
           }
           
           const data = await response.json();
-          const managersData = await managersResponse.json();
           // Filter out managers
           const nonManagers = data.data.filter((emp: Employee) => !emp.isManager);
           setEmployees(nonManagers);
-          setManagers(Array.isArray(managersData.data) ? managersData.data : managersData);
         } catch (err) {
           setError(err instanceof Error ? err.message : 'Failed to load employees');
           console.error('Fetch error:', err);
@@ -97,20 +78,19 @@ const PromoteToManagerModal: React.FC<PromoteToManagerModalProps> = ({
   }, [isOpen]);
 
   const handlePromote = async () => {
-    if (!selectedEmployee || !reportsTo) {
-      setError('Please select an employee and reporting manager');
+    if (!selectedEmployee) {
+      setError('Please select an employee');
       return;
     }
 
     try {
       setLoading(true);
       setError('');
-      await onPromote(selectedEmployee, managerLevel, reportsTo, reason);
+      await onPromote(selectedEmployee, managerLevel, reason);
       
       // Reset form
       setSelectedEmployee('');
       setManagerLevel('manager');
-      setReportsTo('');
       setReason('');
       onClose();
     } catch (err) {
@@ -210,26 +190,6 @@ const PromoteToManagerModal: React.FC<PromoteToManagerModalProps> = ({
               No non-manager employees available
             </p>
           )}
-        </div>
-
-        <div style={{ marginBottom: '16px' }}>
-          <label style={{ display: 'block', marginBottom: '8px', fontWeight: '500', fontSize: '14px' }}>
-            Reports To *
-          </label>
-          <select
-            value={reportsTo}
-            onChange={e => setReportsTo(e.target.value)}
-            disabled={loading}
-            style={{ width: '100%', padding: '10px', fontSize: '14px', border: '1px solid #ddd', borderRadius: '4px', fontFamily: 'inherit' }}
-            required
-          >
-            <option value="">-- Select a manager --</option>
-            {managers.map(manager => (
-              <option key={manager._id} value={manager._id}>
-                {manager.firstName} {manager.lastName}
-              </option>
-            ))}
-          </select>
         </div>
 
         {/* Role Selection */}
