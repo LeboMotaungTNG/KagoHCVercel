@@ -390,8 +390,10 @@ const StatsGrid: React.FC<{
   balances: LeaveBalance[];
   today: TodayAttendance;
   stats: AttendanceStats;
+  teamOnlineCount: number;
+  teamTotal: number;
   teamOnLeaveCount: number;
-}> = ({ balances, today, stats, teamOnLeaveCount }) => {
+}> = ({ balances, today, stats, teamOnlineCount, teamTotal, teamOnLeaveCount }) => {
   const totalLeave = balances.reduce((a, b) => a + Math.max(0, b.total - b.used), 0);
   const pendingLeave = balances.length;
   const monthHours = today.work_hours ? (today.work_hours * 22).toFixed(0) : "0";
@@ -413,7 +415,7 @@ const StatsGrid: React.FC<{
         icon={<TrendingUp size={20} />} iconBg={C.greenBg} iconColor={C.green}
       />
       <StatTile
-        label="Team online" value={`${Math.max(0, 18 - teamOnLeaveCount)}/18`}
+        label="Team online" value={`${teamOnlineCount}/${teamTotal}`}
         sub={`${teamOnLeaveCount} on leave today`}
         icon={<Users size={20} />} iconBg={C.blueBg} iconColor={C.blue}
       />
@@ -1003,6 +1005,16 @@ const EmployeeDashboardBody: React.FC<Props> = ({
   const onLeave = !!activeLeave || today.status === "leave";
   const canClock = mode === "employee";
   const canApplyLeave = mode === "employee";
+  const teamPresence = useMemo(() => {
+    const online = teammateRoster.filter((member) => member.state === "office" || member.state === "remote").length;
+    const onLeaveCount = teammateRoster.filter((member) => member.state === "leave").length;
+    const currentUserCount = user ? 1 : 0;
+    return {
+      online: online + (user && !onLeave ? 1 : 0),
+      total: teammateRoster.length + currentUserCount,
+      onLeave: onLeaveCount + (user && onLeave ? 1 : 0),
+    };
+  }, [teammateRoster, user, onLeave]);
 
   // Align leave stats / history with the same leave API mapping used by apps/employee/leave.tsx
   // (EmployeeDashboardBody currently relies on useEmployeeData's inferred balances/history).
@@ -1077,7 +1089,14 @@ const EmployeeDashboardBody: React.FC<Props> = ({
         </div>
 
         <div style={{ marginBottom: 22 }}>
-          <StatsGrid balances={balances} today={today} stats={stats} teamOnLeaveCount={(teamOnLeave as any[]).length} />
+          <StatsGrid
+            balances={balances}
+            today={today}
+            stats={stats}
+            teamOnlineCount={teamPresence.online}
+            teamTotal={teamPresence.total}
+            teamOnLeaveCount={teamPresence.onLeave}
+          />
         </div>
 
         <div className="kg-row kg-row-pulse">
