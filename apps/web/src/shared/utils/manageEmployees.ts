@@ -458,6 +458,7 @@ export async function createEmployeeWithOnboarding(
       method: "POST",
       headers: authHeaders(token),
       body: JSON.stringify({
+        ...emp,
         firstName: emp.first_name,
         lastName: emp.surname,
         email: emp.email,
@@ -469,7 +470,7 @@ export async function createEmployeeWithOnboarding(
         employment_type: emp.employment_type,
         create_account: true,
         password: emp.password || "Welcome123!",
-        send_email: false,
+        send_email: emp.send_email,
       }),
     });
     const data = await res.json().catch(() => ({}));
