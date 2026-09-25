@@ -14,10 +14,11 @@ import {
   FaFileAlt, FaShieldAlt, FaUserTie, FaIdCard,
   FaExclamationCircle, FaFolderOpen,
 } from "react-icons/fa";
-import { ClipboardList } from "lucide-react";
+import { Building2, ClipboardList } from "lucide-react";
 import DocumentsLibraryTab from "./DocumentsLibraryTab";
 import OvertimeControlPanel from "./OvertimeControlPanel";
 import { C } from "../../shared/utils/employee";
+import { FilterTabs, PageHero, PerformancePage } from "./ownerUi";
 
 // All cross-cutting types, defaults, API calls and icon mappings now live in
 // shared/utils/organizationSettings. This page just composes them.
@@ -46,10 +47,10 @@ import {
 // SHARED DESIGN TOKENS (matches Leave tab style)
 // ─────────────────────────────────────────────
 const co_card: React.CSSProperties = {
-  backgroundColor: "white", borderRadius: "12px", border: "1px solid #E2E8F0",
+  backgroundColor: "white", borderRadius: "16px", border: `1px solid ${C.line}`,
   boxShadow: "0 1px 4px rgba(0,0,0,0.06)", padding: "22px", marginBottom: "18px",
 };
-const co_secTitle = (color = "#0369A1"): React.CSSProperties => ({
+const co_secTitle = (color = C.primary): React.CSSProperties => ({
   fontSize: "13px", fontWeight: 700, color, marginBottom: "16px",
   display: "flex", alignItems: "center", gap: "8px",
   textTransform: "uppercase", letterSpacing: "0.05em",
@@ -209,12 +210,7 @@ const CompanyDetailsTab = () => {
   ];
 
   return (
-    <div style={{ padding: "28px", fontFamily: "'Segoe UI', system-ui, -apple-system, sans-serif" }}>
-      <div style={{ marginBottom: "20px" }}>
-        <h3 style={{ fontSize: "22px", fontWeight: 700, color: "#1A202C", margin: 0 }}>Company Details</h3>
-        <p style={{ fontSize: "14px", color: "#718096", marginTop: "4px", marginBottom: 0 }}>Manage your company profile, legal registration, banking and system preferences</p>
-      </div>
-
+    <div style={{ padding: "0 0 8px", fontFamily: "'Segoe UI', system-ui, -apple-system, sans-serif" }}>
       {isLoading && <div style={{ textAlign: "center", padding: "60px" }}><Spinner color="primary" /><p style={{ color: "#718096", marginTop: "12px" }}>Loading…</p></div>}
 
       {!isLoading && (
@@ -223,7 +219,7 @@ const CompanyDetailsTab = () => {
 
           {/* Identity bar */}
           <div style={{ ...co_card, display: "flex", alignItems: "center", gap: "18px", padding: "16px 22px" }}>
-            <div style={{ width: "56px", height: "56px", borderRadius: "12px", backgroundColor: "#0369A1", display: "flex", alignItems: "center", justifyContent: "center", color: "white", fontSize: "24px", fontWeight: 700, flexShrink: 0 }}>
+            <div style={{ width: "56px", height: "56px", borderRadius: "12px", backgroundColor: C.primary, display: "flex", alignItems: "center", justifyContent: "center", color: "white", fontSize: "24px", fontWeight: 700, flexShrink: 0 }}>
               {(data.name || "K").charAt(0)}
             </div>
             <div style={{ flex: 1 }}>
@@ -235,7 +231,7 @@ const CompanyDetailsTab = () => {
               ? <button onClick={() => setIsEditing(true)} style={{ padding: "7px 16px", borderRadius: "8px", border: "1px solid #CBD5E0", backgroundColor: "white", color: "#374151", fontSize: "13px", fontWeight: 600, cursor: "pointer", display: "flex", alignItems: "center", gap: "6px" }}><FaEdit size={11} /> Edit</button>
               : <div style={{ display: "flex", gap: "8px" }}>
                   <button onClick={() => { setDraft(data); setIsEditing(false); }} style={{ padding: "7px 14px", borderRadius: "8px", border: "1px solid #CBD5E0", backgroundColor: "white", color: "#6B7280", fontSize: "13px", cursor: "pointer" }}>Cancel</button>
-                  <button onClick={handleSave} style={{ padding: "7px 16px", borderRadius: "8px", border: "none", backgroundColor: "#0369A1", color: "white", fontSize: "13px", fontWeight: 600, cursor: "pointer", display: "flex", alignItems: "center", gap: "6px" }}><FaSave size={11} /> Save</button>
+                  <button onClick={handleSave} style={{ padding: "7px 16px", borderRadius: "10px", border: "none", backgroundColor: C.primary, color: "white", fontSize: "13px", fontWeight: 600, cursor: "pointer", display: "flex", alignItems: "center", gap: "6px" }}><FaSave size={11} /> Save</button>
                 </div>
             }
           </div>
@@ -245,7 +241,7 @@ const CompanyDetailsTab = () => {
           {/* Sub-tabs */}
           <div style={{ display: "flex", gap: 0, borderBottom: "2px solid #EDF2F7", marginBottom: "22px" }}>
             {TABS.map((tab) => (
-              <button key={tab.id} onClick={() => setActiveSection(tab.id)} style={{ padding: "10px 18px", fontSize: "13px", fontWeight: 600, color: activeSection === tab.id ? "#0369A1" : "#718096", background: "none", border: "none", borderBottom: activeSection === tab.id ? "2px solid #0369A1" : "2px solid transparent", cursor: "pointer", marginBottom: "-2px", display: "flex", alignItems: "center", gap: "6px" }}>
+              <button key={tab.id} onClick={() => setActiveSection(tab.id)} style={{ padding: "10px 18px", fontSize: "13px", fontWeight: 600, color: activeSection === tab.id ? C.primary : "#718096", background: "none", border: "none", borderBottom: activeSection === tab.id ? `2px solid ${C.primary}` : "2px solid transparent", cursor: "pointer", marginBottom: "-2px", display: "flex", alignItems: "center", gap: "6px" }}>
                 {tab.icon} {tab.label}
               </button>
             ))}
@@ -271,7 +267,7 @@ const CompanyDetailsTab = () => {
                 ]} />
               </div>
               <div style={co_card}>
-                <div style={co_secTitle()}><FaMapMarkerAlt style={{ color: "#0369A1" }} /> Address</div>
+                <div style={co_secTitle()}><FaMapMarkerAlt style={{ color: C.primary }} /> Address</div>
                 <FieldRenderer editing={isEditing} data={draft} onChange={handleChange} fields={[
                   { label: "Physical Address", key: "address.physicalAddress", type: "textarea", span: 2, required: true, placeholder: "Street, Suburb, City, Province, Postal Code" },
                   { label: "Postal Address", key: "address.postalAddress", type: "textarea", span: 2, placeholder: "PO Box or same as physical address" },
@@ -289,8 +285,8 @@ const CompanyDetailsTab = () => {
           {/* LEGAL */}
           {activeSection === "legal" && (
             <>
-              <div style={{ ...co_infoBox("#0369A1"), marginBottom: "18px" }}>
-                <FaInfoCircle style={{ color: "#0369A1", flexShrink: 0, marginTop: "2px" }} />
+              <div style={{ ...co_infoBox(C.primary), marginBottom: "18px" }}>
+                <FaInfoCircle style={{ color: C.primary, flexShrink: 0, marginTop: "2px" }} />
                 <span>All registration numbers must match your CIPC and SARS records exactly. These are used for statutory reporting (EMP201, IRP5, UIF declarations) and compliance verification.</span>
               </div>
               <div style={co_card}>
@@ -353,8 +349,8 @@ const CompanyDetailsTab = () => {
           {/* CONTACTS */}
           {activeSection === "contacts" && (
             <>
-              <div style={{ ...co_infoBox("#0369A1"), marginBottom: "18px" }}>
-                <FaInfoCircle style={{ color: "#0369A1", flexShrink: 0, marginTop: "2px" }} />
+              <div style={{ ...co_infoBox(C.primary), marginBottom: "18px" }}>
+                <FaInfoCircle style={{ color: C.primary, flexShrink: 0, marginTop: "2px" }} />
                 <span>These contacts are used for system notifications, SARS correspondence, audit queries, and escalations. Ensure all details are current.</span>
               </div>
               {/* Each contact role renders the same card with a Lucide icon
@@ -380,7 +376,7 @@ const CompanyDetailsTab = () => {
           {activeSection === "settings" && (
             <>
               <div style={co_card}>
-                <div style={co_secTitle()}><FaGlobe style={{ color: "#0369A1" }} /> Regional &amp; Display Preferences</div>
+                <div style={co_secTitle()}><FaGlobe style={{ color: C.primary }} /> Regional &amp; Display Preferences</div>
                 <FieldRenderer editing={isEditing} data={draft} onChange={handleChange} fields={[
                   { label: "System Language", key: "language", type: "select", options: LANGUAGES },
                   { label: "Location Capture on Clock-In", key: "locationTrackingEnabled", type: "toggle", hint: "Lets field employees (mining, construction, site work) optionally attach their location when clocking in or out." },
@@ -390,9 +386,9 @@ const CompanyDetailsTab = () => {
                 ]} />
               </div>
               <div style={co_card}>
-                <div style={co_secTitle()}><FaCalendarAlt style={{ color: "#0369A1" }} /> Fiscal Year</div>
-                <div style={{ ...co_infoBox("#0369A1"), marginBottom: "16px" }}>
-                  <FaInfoCircle style={{ color: "#0369A1", flexShrink: 0, marginTop: "2px" }} />
+                <div style={co_secTitle()}><FaCalendarAlt style={{ color: C.primary }} /> Fiscal Year</div>
+                <div style={{ ...co_infoBox(C.primary), marginBottom: "16px" }}>
+                  <FaInfoCircle style={{ color: C.primary, flexShrink: 0, marginTop: "2px" }} />
                   <span>The SARS tax year runs <strong>1 March – 28/29 February</strong>. Your company fiscal year may differ. This setting affects payroll period groupings and year-end IRP5 reconciliation (EMP501).</span>
                 </div>
                 <FieldRenderer editing={isEditing} data={draft} onChange={handleChange} fields={[
@@ -1487,26 +1483,30 @@ const LeaveSettingsTab = () => {
 export const OrganizationSettingsPage = () => {
   const [activeTab, setActiveTab] = useState<"company" | "payroll" | "leave" | "documents">("company");
 
-  const tabStyle = (isActive: boolean): React.CSSProperties => ({
-    padding: "12px 24px", backgroundColor: isActive ? C.primary : "transparent",
-    color: isActive ? "white" : "#4A5568", border: "none", borderRadius: "8px 8px 0 0",
-    cursor: "pointer", fontWeight: 500, transition: "all 0.2s ease",
-    display: "flex", alignItems: "center", gap: "8px"
-  });
-
   return (
-    <div className="w-100" style={{ padding: "20px" }}>
-      <div style={{ display: "flex", gap: "8px", borderBottom: "1px solid #E2E8F0", marginBottom: "24px" }}>
-        <button onClick={() => setActiveTab("company")} style={tabStyle(activeTab === "company")}><FaBuilding size={16} /> Company Details</button>
-        <button onClick={() => setActiveTab("payroll")} style={tabStyle(activeTab === "payroll")}><FaMoneyBillWave size={16} /> Payroll</button>
-        <button onClick={() => setActiveTab("leave")} style={tabStyle(activeTab === "leave")}><FaCalendarAlt size={16} /> Leave</button>
-        <button onClick={() => setActiveTab("documents")} style={tabStyle(activeTab === "documents")}><FaFolderOpen size={16} /> Documents Library</button>
+    <PerformancePage maxWidth={1200}>
+      <PageHero
+        icon={<Building2 size={24} color="#fff" />}
+        title="Organisation settings"
+        subtitle="Company profile, payroll rules, leave types, and documents."
+      />
+      <div className="mb-4">
+        <FilterTabs
+          tabs={[
+            { key: "company", label: "Company Details" },
+            { key: "payroll", label: "Payroll" },
+            { key: "leave", label: "Leave" },
+            { key: "documents", label: "Documents Library" },
+          ]}
+          value={activeTab}
+          onChange={setActiveTab}
+        />
       </div>
       {activeTab === "company" && <CompanyDetailsTab />}
       {activeTab === "payroll" && <PayrollSettingsTab />}
       {activeTab === "leave" && <LeaveSettingsTab />}
       {activeTab === "documents" && <DocumentsLibraryTab />}
-    </div>
+    </PerformancePage>
   );
 };
 

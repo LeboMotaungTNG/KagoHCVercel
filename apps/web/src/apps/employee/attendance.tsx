@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect, useMemo } from "react";
 import SharedLayout from "./SharedLayout";
-import { C } from "../../shared/utils/employee";
+import { C, R, SHADOW } from "../../shared/utils/employee";
 import {
   type AttendanceStatus,
   type AttendanceRecord,
@@ -17,15 +17,16 @@ import {
 } from "../../shared/utils/attendance";
 import BreakControls from "../../shared/components/BreakControls";
 import { useBreakSession, fmtBreakShort } from "../../shared/utils/breaks";
+import { PageHero } from "./src/components/PerformanceUI";
 
 
 const CARD: React.CSSProperties = {
-  background: "#fff", borderRadius: 16, border: "1px solid #e4e7ec", padding: 24,
+  background: C.surface, borderRadius: R.xl, border: `1px solid ${C.line}`, padding: 24, boxShadow: SHADOW,
 };
 
 const INPUT: React.CSSProperties = {
-  height: 40, padding: "0 12px", borderRadius: 8, border: "1px solid #d0d5dd",
-  fontSize: 14, color: "#344054", outline: "none", background: "#fff",
+  height: 40, padding: "0 12px", borderRadius: 12, border: `1px solid ${C.line}`,
+  fontSize: 14, color: C.ink, outline: "none", background: C.surface,
   width: "100%", boxSizing: "border-box" as const, cursor: "pointer",
 };
 
@@ -133,8 +134,8 @@ const LiveClock: React.FC = () => {
 
   return (
     <div style={{
-      background:     "linear-gradient(135deg, #1a1a1a 0%, #2d2d2d 100%)",
-      borderRadius:   16,
+      background:     `linear-gradient(135deg, ${C.primaryDark} 0%, ${C.primary} 60%, ${C.primaryLight} 100%)`,
+      borderRadius:   22,
       padding:        "22px 28px",
       display:        "flex",
       alignItems:     "center",
@@ -142,9 +143,10 @@ const LiveClock: React.FC = () => {
       flexWrap:       "wrap",
       gap:            16,
       marginBottom:   24,
+      color:          "#fff",
     }}>
       <div>
-        <p style={{ margin: "0 0 3px", fontSize: 11, color: "rgba(255,255,255,0.4)", fontWeight: 700, letterSpacing: 1.2, textTransform: "uppercase" }}>
+        <p style={{ margin: "0 0 3px", fontSize: 11, color: "rgba(255,255,255,0.7)", fontWeight: 700, letterSpacing: 1.2, textTransform: "uppercase" }}>
           {now.toLocaleDateString("en-ZA", { weekday: "long" })}
         </p>
         <p style={{ margin: 0, fontSize: 20, fontWeight: 700, color: "#fff", letterSpacing: -0.3 }}>
@@ -152,8 +154,8 @@ const LiveClock: React.FC = () => {
         </p>
       </div>
       <div style={{ textAlign: "right" }}>
-        <p style={{ margin: "0 0 2px", fontSize: 10, color: "rgba(255,255,255,0.35)", textTransform: "uppercase", letterSpacing: 1.2 }}>Current Time</p>
-        <p style={{ margin: 0, fontSize: 38, fontWeight: 800, fontVariantNumeric: "tabular-nums", letterSpacing: -1.5, color: C.primary }}>
+        <p style={{ margin: "0 0 2px", fontSize: 10, color: "rgba(255,255,255,0.65)", textTransform: "uppercase", letterSpacing: 1.2 }}>Current Time</p>
+        <p style={{ margin: 0, fontSize: 38, fontWeight: 800, fontVariantNumeric: "tabular-nums", letterSpacing: -1.5, color: "#fff" }}>
           {`${pad2(now.getHours())}:${pad2(now.getMinutes())}:${pad2(now.getSeconds())}`}
         </p>
       </div>
@@ -678,31 +680,22 @@ const EmployeeAttendanceContent: React.FC = () => {
       {toast && <Toast message={toast.message} type={toast.type} onClose={clearToast}/>}
 
       {/* Page heading */}
-      <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", flexWrap: "wrap", gap: 12, marginBottom: 28 }}>
-        <div>
-          <h1 style={{ margin: "0 0 4px", fontSize: 26, fontWeight: 800, color: "#1d2939", letterSpacing: -0.5 }}>
-            My Attendance
-          </h1>
-          <p style={{ margin: 0, fontSize: 14, color: "#9ca3af" }}>
-            Track your working hours and view your personal attendance history.
-          </p>
-        </div>
-        {todayRecord && (
-          <span style={{ ...badgeStyle(todayRecord.status), padding: "6px 16px", borderRadius: 20, fontSize: 13, fontWeight: 700, textTransform: "capitalize", alignSelf: "center" }}>
-            Today: {todayRecord.status.replace("_"," ")}
-          </span>
-        )}
-      </div>
+      <PageHero
+        icon={<span style={{ color: "#fff", display: "flex" }}><Icon.Clock /></span>}
+        title="My Attendance"
+        subtitle="Track your working hours and view your personal attendance history."
+        badge={todayRecord ? { value: todayRecord.status.replace("_", " "), label: "Today" } : undefined}
+      />
 
       {/* Live clock */}
       <LiveClock />
 
       {/* KPI row */}
       <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(185px,1fr))", gap: 16, marginBottom: 24 }}>
-        <StatCard label="Attendance Rate"  value={`${monthStats.rate}%`}                  sub="This month"                         icon={<Icon.TrendUp />}        accentBg="#f0fdf4" accentColor="#10b981"/>
-        <StatCard label="Days Present"     value={monthStats.present}                      sub={`of ${monthStats.total} work days`} icon={<Icon.Check />}          accentBg="#eff6ff" accentColor="#3b82f6"/>
-        <StatCard label="Avg Hours / Day"  value={`${monthStats.avgHours.toFixed(1)}h`}   sub="This month"                         icon={<Icon.Clock size={20} />} accentBg="#fff7ed" accentColor="#f97316"/>
-        <StatCard label="Late Arrivals"    value={monthStats.late}                         sub="This month"                         icon={<Icon.AlertCircle />}    accentBg="#fffaeb" accentColor="#f59e0b"/>
+        <StatCard label="Attendance Rate"  value={`${monthStats.rate}%`}                  sub="This month"                         icon={<Icon.TrendUp />}        accentBg={C.okBg} accentColor={C.ok}/>
+        <StatCard label="Days Present"     value={monthStats.present}                      sub={`of ${monthStats.total} work days`} icon={<Icon.Check />}          accentBg={C.primaryBg} accentColor={C.primary}/>
+        <StatCard label="Avg Hours / Day"  value={`${monthStats.avgHours.toFixed(1)}h`}   sub="This month"                         icon={<Icon.Clock size={20} />} accentBg={C.amberBg} accentColor={C.amber}/>
+        <StatCard label="Late Arrivals"    value={monthStats.late}                         sub="This month"                         icon={<Icon.AlertCircle />}    accentBg={C.warnBg} accentColor={C.amber}/>
       </div>
 
       {/* Two-column content grid */}

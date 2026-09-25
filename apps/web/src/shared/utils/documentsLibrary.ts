@@ -79,31 +79,38 @@ export const loadOrgDocumentsAsync = async (): Promise<OrgDocument[]> => {
 };
 
 export const getEmployeeDocument = async (id: string): Promise<OrgDocument | null> => {
+  const mapDoc = (doc: any): OrgDocument => ({
+    id: doc._id || doc.id,
+    _id: doc._id,
+    title: doc.title,
+    description: doc.description,
+    category: doc.category || "Other",
+    fileName: doc.fileName,
+    mimeType: doc.mimeType,
+    size: doc.fileSize || doc.size || 0,
+    dataUrl: doc.dataUrl || "",
+    uploadedAt: doc.uploadedAt || doc.createdAt,
+    uploadedBy: doc.uploadedBy?.firstName
+      ? `${doc.uploadedBy.firstName} ${doc.uploadedBy.lastName}`
+      : "HR",
+    audience: "all",
+  });
+
   try {
     const result = await apiRequest(`/documents/employee/${encodeURIComponent(id)}`);
-    const doc = result.data;
-    if (!doc) return null;
-
-    return {
-      id: doc._id || doc.id,
-      _id: doc._id,
-      title: doc.title,
-      description: doc.description,
-      category: doc.category || "Other",
-      fileName: doc.fileName,
-      mimeType: doc.mimeType,
-      size: doc.fileSize || doc.size || 0,
-      dataUrl: doc.dataUrl || "",
-      uploadedAt: doc.uploadedAt || doc.createdAt,
-      uploadedBy: doc.uploadedBy?.firstName
-        ? `${doc.uploadedBy.firstName} ${doc.uploadedBy.lastName}`
-        : "HR",
-      audience: "all",
-    };
+    if (result.data) return mapDoc(result.data);
   } catch (error) {
-    console.error("[documentsLibrary] Error getting document:", error);
-    return null;
+    console.error("[documentsLibrary] Employee document fetch failed:", error);
   }
+
+  try {
+    const result = await apiRequest(`/documents/${encodeURIComponent(id)}`);
+    if (result.data) return mapDoc(result.data);
+  } catch (error) {
+    console.error("[documentsLibrary] Owner document fetch failed:", error);
+  }
+
+  return null;
 };
 
 export const loadOrgDocumentsOwner = async (): Promise<OrgDocument[]> => {

@@ -9,6 +9,8 @@ import { useNavigate } from "react-router-dom";
 import SharedLayout from "./SharedLayout";
 import PhoneInput from "../../shared/components/PhoneInput";
 import { C } from "../../shared/utils/employee";
+import { Users } from "lucide-react";
+import { PageHero, perfBtnHero } from "./managerUi";
 
 function generateRandomEmployeeCode(): string {
   const year = new Date().getFullYear();
@@ -958,44 +960,17 @@ function ManageEmployeesContent() {
         </div>
       )}
 
-      {/* Header */}
-      <div style={{
-        background: "#fff", padding: "24px 32px", borderRadius: 16,
-        display: "flex", justifyContent: "space-between", alignItems: "center",
-        marginBottom: 24, boxShadow: "0 1px 3px 0 rgba(16,24,40,0.1), 0 1px 2px 0 rgba(16,24,40,0.06)",
-        border: "1px solid #e4e7ec"
-      }}>
-        <div>
-          <h1 style={{ fontSize: 24, fontWeight: 700, color: "#1d2939", marginBottom: 4 }}>
-            Employee Onboarding
-          </h1>
-          <p style={{ color: "#667085", fontSize: 14 }}>Add multiple employees efficiently</p>
-        </div>
-        <div style={{ display: "flex", gap: 12 }}>
-          <button
-            onClick={saveDraft}
-            style={{
-              display: "inline-flex", alignItems: "center", gap: 8,
-              padding: "10px 16px", borderRadius: 8,
-              fontSize: 14, fontWeight: 500, cursor: "pointer",
-              background: "#fff", color: "#344054", border: "1px solid #d0d5dd"
-            }}
-          >
-            <IconSave /> Save Draft
-          </button>
-          <button
-            onClick={closeWindow}
-            style={{
-              display: "inline-flex", alignItems: "center", gap: 8,
-              padding: "10px 16px", borderRadius: 8,
-              fontSize: 14, fontWeight: 500, cursor: "pointer",
-              background: "#fff", color: "#344054", border: "1px solid #d0d5dd"
-            }}
-          >
-            <IconClose />
-          </button>
-        </div>
-      </div>
+      <PageHero
+        icon={<Users size={24} color="#fff" />}
+        title="Employee Onboarding"
+        subtitle="Add multiple employees efficiently"
+        actions={
+          <>
+            <button type="button" onClick={saveDraft} style={perfBtnHero}><IconSave /> Save Draft</button>
+            <button type="button" onClick={closeWindow} style={perfBtnHero}><IconClose /> Close</button>
+          </>
+        }
+      />
 
       {/* Mode Selector */}
       <div style={{

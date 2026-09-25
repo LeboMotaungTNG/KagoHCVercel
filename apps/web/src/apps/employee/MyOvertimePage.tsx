@@ -5,6 +5,7 @@ import {
   CARD, TD, TH, ErrorBanner, LoadingBlock, PageHeader,
   StatTiles, overtimeStatusPill, useOvertimeRequests,
 } from "../../shared/components/overtimeUi";
+import { PerformancePage } from "./src/components/PerformanceUI";
 
 const MyOvertimeContent: React.FC = () => {
   const { requests, loading, message } = useOvertimeRequests();
@@ -12,7 +13,7 @@ const MyOvertimeContent: React.FC = () => {
   const pending = requests.filter((row) => row.status === "pending").length;
 
   return (
-    <div style={{ maxWidth: 1200, margin: "0 auto" }}>
+    <PerformancePage maxWidth={1200}>
       <PageHeader title="My Overtime" subtitle="Track submitted extra hours and their approval status" />
       {message ? <ErrorBanner message={message} /> : null}
       <StatTiles items={[
@@ -47,7 +48,7 @@ const MyOvertimeContent: React.FC = () => {
           </div>
         )}
       </div>
-    </div>
+    </PerformancePage>
   );
 };
 

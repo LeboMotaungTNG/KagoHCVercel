@@ -1,5 +1,6 @@
 import React from "react";
 import { Eye, User } from "lucide-react";
+import { C, R, SHADOW } from "../../shared/utils/employee";
 
 export const ModernEmployeeTable = ({ Navigate, filteredEmployeesData }: any) => {
   const toggleAction = (id: string) => {
@@ -8,18 +9,20 @@ export const ModernEmployeeTable = ({ Navigate, filteredEmployeesData }: any) =>
 
   const tableHeaderStyle: React.CSSProperties = {
     padding: "16px 24px",
-    fontSize: "14px",
-    fontWeight: "600",
-    color: "#718096",
+    fontSize: "12px",
+    fontWeight: "700",
+    letterSpacing: 0.4,
+    textTransform: "uppercase",
+    color: C.muted,
     textAlign: "left",
-    borderBottom: "1px solid #E2E8F0",
+    borderBottom: `1px solid ${C.line}`,
   };
 
   const tableCellStyle: React.CSSProperties = {
     padding: "16px 24px",
     fontSize: "14px",
-    color: "#2D3748",
-    borderBottom: "1px solid #F7FAFC",
+    color: C.ink,
+    borderBottom: `1px solid ${C.line}`,
   };
 
   const actionButtonStyle: React.CSSProperties = {
@@ -29,7 +32,7 @@ export const ModernEmployeeTable = ({ Navigate, filteredEmployeesData }: any) =>
     width: "36px",
     height: "36px",
     borderRadius: "8px",
-    backgroundColor: "#EBF8FF",
+    backgroundColor: C.primaryBg,
     border: "none",
     cursor: "pointer",
     transition: "all 0.2s ease",
@@ -37,27 +40,28 @@ export const ModernEmployeeTable = ({ Navigate, filteredEmployeesData }: any) =>
 
   return (
     <div style={{
-      backgroundColor: "white",
-      borderRadius: "16px",
-      boxShadow: "0 4px 12px rgba(0,0,0,0.05)",
+      backgroundColor: C.surface,
+      borderRadius: R.xl,
+      boxShadow: SHADOW,
+      border: `1px solid ${C.line}`,
       marginBottom: "32px",
       overflow: "hidden",
     }}>
       <div style={{
         padding: "24px",
-        borderBottom: "1px solid #E2E8F0",
+        borderBottom: `1px solid ${C.line}`,
       }}>
         <h2 style={{
           fontSize: "20px",
           fontWeight: "600",
-          color: "#2D3748",
+          color: C.ink,
           margin: 0,
         }}>
           Employee Performance Overview
         </h2>
         <p style={{
           fontSize: "14px",
-          color: "#718096",
+          color: C.muted,
           margin: "4px 0 0 0",
         }}>
           Track individual employee performance and metrics
@@ -99,7 +103,7 @@ export const ModernEmployeeTable = ({ Navigate, filteredEmployeesData }: any) =>
                         width: "40px",
                         height: "40px",
                         borderRadius: "50%",
-                        backgroundColor: employee?.photo ? "transparent" : "#4FD1C5",
+                        backgroundColor: employee?.photo ? "transparent" : C.primary,
                         display: "flex",
                         alignItems: "center",
                         justifyContent: "center",

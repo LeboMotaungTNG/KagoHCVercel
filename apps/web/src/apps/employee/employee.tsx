@@ -21,6 +21,7 @@ import {
 } from "../../shared/utils/employee";
 import BreakControls from "../../shared/components/BreakControls";
 import { useBreakSession, fmtBreakShort, totalBreakMs } from "../../shared/utils/breaks";
+import { PageHero } from "./src/components/PerformanceUI";
 /* ─────────────────────────────────────────────────────────────────────────────
  * Primitives
  * ────────────────────────────────────────────────────────────────────────── */
@@ -118,31 +119,12 @@ const linkBtn: React.CSSProperties = {
  * Sections
  * ────────────────────────────────────────────────────────────────────────── */
 const GreetingHeader: React.FC<{ user: UserProfile | null; onLeave: boolean }> = ({ user, onLeave }) => (
-  <header style={{
-    display: "flex", justifyContent: "space-between", alignItems: "center",
-    gap: 20, flexWrap: "wrap", marginBottom: 22,
-  }}>
-    <div>
-      <h1 style={{ margin: 0, fontSize: 36, fontWeight: 800, color: C.ink, letterSpacing: -0.9, lineHeight: 1.05 }}>
-        {greetingFor()}, {user?.firstName || "there"} {onLeave ? "🌴" : "👋"}
-      </h1>
-      <p style={{ margin: "8px 0 0", color: C.muted, fontSize: 15 }}>
-        {onLeave ? "You're currently on leave. Enjoy your time off!" : "Here's what's happening in your workspace today."}
-      </p>
-    </div>
-    <div style={{
-      display: "inline-flex", alignItems: "center", gap: 10,
-      padding: "9px 18px", borderRadius: 999,
-      background: "#fff", border: `1px solid ${C.line}`,
-      boxShadow: SHADOW,
-      fontSize: 13.5, fontWeight: 600, color: C.text,
-    }}>
-      <span style={{ width: 8, height: 8, borderRadius: "50%", background: C.ok, boxShadow: "0 0 0 4px rgba(16,185,129,0.18)" }} />
-      <strong style={{ color: C.ink, fontWeight: 700 }}>All systems normal</strong>
-      <span style={{ color: C.faint }}>·</span>
-      <span style={{ color: C.muted }}>{longDate()}</span>
-    </div>
-  </header>
+  <PageHero
+    icon={<Sparkles size={24} color="#fff" />}
+    title={`${greetingFor()}, ${user?.firstName || "there"}`}
+    subtitle={onLeave ? "You're currently on leave. Enjoy your time off!" : "Here's what's happening in your workspace today."}
+    badge={{ value: onLeave ? "Leave" : "Online", label: longDate() }}
+  />
 );
 
 const TodaysSessionCard: React.FC<{

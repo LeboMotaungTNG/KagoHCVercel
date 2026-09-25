@@ -287,9 +287,10 @@ export interface LeaveManagementProps {
   canReview?: boolean;
   title?: string;
   subtitle?: string;
+  hideTitle?: boolean;
 }
 
-export function LeaveManagement({ accent = C.primary, canReview = true, title = "Leave Requests Management", subtitle = "Home › Leave Requests" }: LeaveManagementProps) {
+export function LeaveManagement({ accent = C.primary, canReview = true, title = "Leave Requests Management", subtitle = "Home › Leave Requests", hideTitle = false }: LeaveManagementProps) {
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -502,11 +503,13 @@ export function LeaveManagement({ accent = C.primary, canReview = true, title = 
   const inputStyle: React.CSSProperties = { height: 40, borderRadius: 8, border: "1px solid #d1d5db", padding: "0 12px", fontSize: 14, outline: "none", color: "#344054", background: "#fff" };
 
   return (
-    <div style={{ maxWidth: 1400, margin: "0 auto" }}>
-      <div style={{ marginBottom: 24 }}>
-        <h2 style={{ fontSize: 22, fontWeight: 700, color: "#1d2939", margin: 0 }}>{title}</h2>
-        <p style={{ margin: "4px 0 0", fontSize: 14, color: "#667085" }}>{subtitle}</p>
-      </div>
+    <div style={{ maxWidth: hideTitle ? "none" : 1400, margin: hideTitle ? 0 : "0 auto" }}>
+      {!hideTitle && (
+        <div style={{ marginBottom: 24 }}>
+          <h2 style={{ fontSize: 22, fontWeight: 700, color: "#1d2939", margin: 0 }}>{title}</h2>
+          <p style={{ margin: "4px 0 0", fontSize: 14, color: "#667085" }}>{subtitle}</p>
+        </div>
+      )}
 
       {alert && <AlertBanner message={alert.message} type={alert.type} onClose={() => setAlert(null)}/>}
 

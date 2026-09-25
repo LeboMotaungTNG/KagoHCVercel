@@ -9,6 +9,8 @@ import DelegationList from "../components/delegation/DelegationList";
 import DelegationAuditTrail from "../components/delegation/DelegationAuditTrail";
 import { CARD, PageHeader, PrimaryButton } from "../shared/components/overtimeUi";
 import { C } from "../shared/utils/employee";
+import { FilterTabs } from "../apps/Manager/managerUi";
+import { ShieldCheck } from "lucide-react";
 
 const DelegationManagement: React.FC = () => {
   const { user } = useAuth();
@@ -20,6 +22,7 @@ const DelegationManagement: React.FC = () => {
   const content = (
     <div style={{ maxWidth: 1200, margin: "0 auto" }}>
       <PageHeader
+        icon={<ShieldCheck size={24} color="#fff" />}
         title="Delegations"
         subtitle="Hand off approval authority when you are away"
         right={canCreateDelegation ? (
@@ -43,31 +46,15 @@ const DelegationManagement: React.FC = () => {
         </div>
       )}
 
-      <div style={{ display: "flex", gap: 8, marginBottom: 16 }}>
-        {([
-          { id: "delegations", label: "Delegations" },
-          { id: "audit", label: "Audit trail" },
-        ] as const).map((tab) => {
-          const active = activeTab === tab.id;
-          return (
-            <button
-              key={tab.id}
-              onClick={() => setActiveTab(tab.id)}
-              style={{
-                padding: "8px 14px",
-                borderRadius: 20,
-                border: "none",
-                background: active ? C.primaryBg : "#f2f4f7",
-                color: active ? C.primaryDark : C.muted,
-                fontSize: 13,
-                fontWeight: 700,
-                cursor: "pointer",
-              }}
-            >
-              {tab.label}
-            </button>
-          );
-        })}
+      <div className="mb-4">
+        <FilterTabs
+          tabs={[
+            { key: "delegations", label: "Delegations" },
+            { key: "audit", label: "Audit trail" },
+          ]}
+          value={activeTab}
+          onChange={setActiveTab}
+        />
       </div>
 
       {activeTab === "delegations" ? <DelegationList /> : <DelegationAuditTrail />}

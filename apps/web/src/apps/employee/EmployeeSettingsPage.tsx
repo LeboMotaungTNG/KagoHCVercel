@@ -303,9 +303,9 @@ const HeroBanner: React.FC<{
 }> = ({ name, initials, email, role }) => (
   <div style={{
     borderRadius: R.hero,
-    background: `linear-gradient(135deg, ${ACCENT} 0%, ${ACCENT_DK} 100%)`,
-    color: "#fff", padding: "28px 32px",
-    boxShadow: "0 14px 36px rgba(13,148,136,0.30)",
+      background: `linear-gradient(135deg, ${ACCENT_DK} 0%, ${ACCENT} 55%, ${C.primaryLight} 130%)`,
+      color: "#fff", padding: "28px 32px",
+      boxShadow: SHADOW,
     position: "relative", overflow: "hidden",
   }}>
     <div style={{

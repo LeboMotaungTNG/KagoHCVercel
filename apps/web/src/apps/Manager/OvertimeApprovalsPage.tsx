@@ -7,6 +7,7 @@ import {
   CARD, TD, TH, ErrorBanner, GhostButton, LoadingBlock, PageHeader, PersonCell,
   StatTiles, overtimeStatusPill, useOvertimeRequests,
 } from "../../shared/components/overtimeUi";
+import { PerformancePage } from "./managerUi";
 
 export const OvertimeApprovalsContent: React.FC = () => {
   const { requests, setRequests, loading, message, setMessage } = useOvertimeRequests();
@@ -30,7 +31,7 @@ export const OvertimeApprovalsContent: React.FC = () => {
   };
 
   return (
-    <div style={{ maxWidth: 1200, margin: "0 auto" }}>
+    <PerformancePage maxWidth={1200}>
       <PageHeader
         title="Overtime Approvals"
         subtitle="Review pending extra-hours requests from your team"
@@ -93,7 +94,7 @@ export const OvertimeApprovalsContent: React.FC = () => {
           </div>
         )}
       </div>
-    </div>
+    </PerformancePage>
   );
 };
 

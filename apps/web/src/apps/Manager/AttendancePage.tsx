@@ -14,6 +14,7 @@ import {
   useManagerAttendance,
 } from "../../shared/utils/attendance";
 import { API_URL, C } from "../../shared/utils/employee";
+import { PageHero, perfBtnHero } from "./managerUi";
 
 // ─── Utilities ────────────────────────────────────────────────────────────────
 
@@ -37,12 +38,12 @@ const asText = (v: any, fallback = "—"): string => {
 // ─── Style Tokens ─────────────────────────────────────────────────────────────
 
 const CARD: React.CSSProperties = {
-  background: "#fff", borderRadius: 16, border: "1px solid #e4e7ec", padding: 24,
+  background: C.surface, borderRadius: 22, border: `1px solid ${C.line}`, padding: 24, boxShadow: "0 1px 4px rgba(16,24,40,0.06)",
 };
 
 const INPUT: React.CSSProperties = {
-  height: 40, padding: "0 12px", borderRadius: 8, border: "1px solid #d0d5dd",
-  fontSize: 14, color: "#344054", outline: "none", background: "#fff",
+  height: 40, padding: "0 12px", borderRadius: 12, border: `1px solid ${C.line}`,
+  fontSize: 14, color: C.ink, outline: "none", background: C.surface,
   width: "100%", boxSizing: "border-box" as const, cursor: "pointer",
 };
 
@@ -161,14 +162,14 @@ const LiveClock: React.FC = () => {
   const [now, setNow] = useState(new Date());
   useEffect(() => { const id = setInterval(() => setNow(new Date()), 1000); return () => clearInterval(id); }, []);
   return (
-    <div style={{ background: "linear-gradient(135deg, #1a1a1a 0%, #2d2d2d 100%)", borderRadius: 16, padding: "22px 28px", display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: 16, marginBottom: 24 }}>
+    <div style={{ background: `linear-gradient(135deg, ${C.primaryDark} 0%, ${C.primary} 60%, ${C.primaryLight} 100%)`, borderRadius: 22, padding: "22px 28px", display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: 16, marginBottom: 24, color: "#fff" }}>
       <div>
-        <p style={{ margin: "0 0 3px", fontSize: 11, color: "rgba(255,255,255,0.4)", fontWeight: 700, letterSpacing: 1.2, textTransform: "uppercase" }}>{now.toLocaleDateString("en-ZA", { weekday: "long" })}</p>
+        <p style={{ margin: "0 0 3px", fontSize: 11, color: "rgba(255,255,255,0.7)", fontWeight: 700, letterSpacing: 1.2, textTransform: "uppercase" }}>{now.toLocaleDateString("en-ZA", { weekday: "long" })}</p>
         <p style={{ margin: 0, fontSize: 20, fontWeight: 700, color: "#fff", letterSpacing: -0.3 }}>{now.toLocaleDateString("en-ZA", { day: "numeric", month: "long", year: "numeric" })}</p>
       </div>
       <div style={{ textAlign: "right" }}>
-        <p style={{ margin: "0 0 2px", fontSize: 10, color: "rgba(255,255,255,0.35)", textTransform: "uppercase", letterSpacing: 1.2 }}>Current Time</p>
-        <p style={{ margin: 0, fontSize: 38, fontWeight: 800, fontVariantNumeric: "tabular-nums", letterSpacing: -1.5, color: C.coral }}>{`${pad2(now.getHours())}:${pad2(now.getMinutes())}:${pad2(now.getSeconds())}`}</p>
+        <p style={{ margin: "0 0 2px", fontSize: 10, color: "rgba(255,255,255,0.65)", textTransform: "uppercase", letterSpacing: 1.2 }}>Current Time</p>
+        <p style={{ margin: 0, fontSize: 38, fontWeight: 800, fontVariantNumeric: "tabular-nums", letterSpacing: -1.5, color: "#fff" }}>{`${pad2(now.getHours())}:${pad2(now.getMinutes())}:${pad2(now.getSeconds())}`}</p>
       </div>
     </div>
   );
@@ -434,7 +435,7 @@ function AttendanceContent() {
   } = useManagerAttendance();
 
   return (
-    <div style={{ maxWidth: 1280, margin: "0 auto" }}>
+    <div style={{ maxWidth: 1280, margin: "0 auto" }} className="py-3">
       {alert && <Toast message={alert.message} type={alert.type} onClose={clearAlert} />}
 
       {loading ? (
@@ -445,26 +446,24 @@ function AttendanceContent() {
         </div>
       ) : (
         <>
-          <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", flexWrap: "wrap", gap: 12, marginBottom: 28 }}>
-            <div>
-              <h1 style={{ margin: "0 0 4px", fontSize: 26, fontWeight: 800, color: "#1d2939", letterSpacing: -0.5 }}>Attendance Dashboard</h1>
-              <p style={{ margin: 0, fontSize: 14, color: "#9ca3af" }}>Monitor your team's attendance, track patterns, and manage daily records.</p>
-            </div>
-            <button onClick={handleRefresh}
-              style={{ display: "flex", alignItems: "center", gap: 8, padding: "10px 20px", borderRadius: 10, border: "none", background: "#1a1a1a", color: "#fff", fontSize: 14, fontWeight: 600, cursor: "pointer", boxShadow: "0 4px 14px rgba(0,0,0,0.18)" }}
-              onMouseEnter={e => { e.currentTarget.style.transform = "translateY(-1px)"; }}
-              onMouseLeave={e => { e.currentTarget.style.transform = ""; }}>
-              <Icon.Refresh /> Refresh Data
-            </button>
-          </div>
+          <PageHero
+            icon={<span style={{ color: "#fff", display: "flex" }}><Icon.Calendar /></span>}
+            title="Attendance Dashboard"
+            subtitle="Monitor your team's attendance, track patterns, and manage daily records."
+            actions={
+              <button type="button" onClick={handleRefresh} style={perfBtnHero}>
+                <Icon.Refresh /> Refresh Data
+              </button>
+            }
+          />
 
           <LiveClock />
 
           <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(185px,1fr))", gap: 16, marginBottom: 24 }}>
-            <StatCard label="Today's Attendance" value={`${stats.todayPresent}/${stats.totalEmployees}`} sub={`${stats.todayPercentage}% present`} icon={<Icon.Users />} accentBg="#f0fdf4" accentColor="#10b981" />
-            <StatCard label="Late Arrivals"       value={stats.todayLate}     sub="Arrived after 09:00"  icon={<Icon.AlertCircle />} accentBg="#fffaeb" accentColor="#f59e0b" />
-            <StatCard label="Absent Today"        value={stats.todayAbsent}   sub="On leave / sick"      icon={<Icon.UserX />}       accentBg="#fef3f2" accentColor="#ef4444" />
-            <StatCard label="Monthly Average"     value={`${stats.monthlyAverage}%`} sub="Attendance rate" icon={<Icon.TrendUp />} accentBg="#eff6ff" accentColor="#3b82f6" />
+            <StatCard label="Today's Attendance" value={`${stats.todayPresent}/${stats.totalEmployees}`} sub={`${stats.todayPercentage}% present`} icon={<Icon.Users />} accentBg={C.okBg} accentColor={C.ok} />
+            <StatCard label="Late Arrivals"       value={stats.todayLate}     sub="Arrived after 09:00"  icon={<Icon.AlertCircle />} accentBg={C.warnBg} accentColor={C.amber} />
+            <StatCard label="Absent Today"        value={stats.todayAbsent}   sub="On leave / sick"      icon={<Icon.UserX />}       accentBg={C.badBg} accentColor={C.bad} />
+            <StatCard label="Monthly Average"     value={`${stats.monthlyAverage}%`} sub="Attendance rate" icon={<Icon.TrendUp />} accentBg={C.primaryBg} accentColor={C.primary} />
           </div>
 
           <div style={{ display: "grid", gridTemplateColumns: "minmax(0,2fr) minmax(0,1fr)", gap: 24, marginBottom: 24, alignItems: "start" }}>

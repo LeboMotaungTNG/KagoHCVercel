@@ -38,6 +38,7 @@ import {
   type TableRowData,
 } from "../../shared/utils/manageEmployees";
 import { loadCachedPositions, positionsForDepartment, type OrgPosition } from "../../shared/utils/onboarding";
+import { PageHero, PerformancePage, perfBtnHero } from "./ownerUi";
 
 // All Employee/QueueItem/Allowance/Deduction types, defaults, helpers, validation,
 // reference lists, brand tokens and API calls live in shared/utils/manageEmployees.
@@ -1233,9 +1234,9 @@ function ManageEmployeesContent() {
 
   // Sibling-page card styling (matches ManagersPage / EmployeesPage exactly)
   const siblingCard: React.CSSProperties = {
-    borderRadius: 10,
+    borderRadius: 16,
     padding: 5,
-    borderWidth: 2, borderStyle: "solid", borderColor: BRAND.cardBorder,
+    borderWidth: 1, borderStyle: "solid", borderColor: BRAND.cardBorder,
     boxShadow: BRAND.cardShadow,
     background: "#fff",
   };
@@ -1244,22 +1245,9 @@ function ManageEmployeesContent() {
     justifyContent: "center", alignItems: "center",
     fontSize: 16, fontWeight: 800, color: BRAND.ink,
   };
-  // Pill button (mirrors ButtonBtn / SearchInput pill radius 20)
-  const pillBtn = (variant: "primary" | "secondary" | "ghost" = "primary"): React.CSSProperties => ({
-    display: "inline-flex", alignItems: "center", gap: 6,
-    padding: "9px 18px", borderRadius: 20,
-    fontWeight: 600, fontSize: 13, cursor: "pointer",
-    borderWidth: 2, borderStyle: "solid",
-    background:    variant === "primary" ? BRAND.primary : "#fff",
-    color:         variant === "primary" ? "#fff"        : BRAND.text,
-    borderColor:   variant === "primary" ? BRAND.primary : BRAND.cardBorder,
-    boxShadow:     variant === "primary" ? BRAND.primaryGlow : "none",
-    transition: "transform .12s ease, box-shadow .12s ease",
-    opacity: variant === "ghost" ? 0.85 : 1,
-  });
 
   return (
-    <div className="container-fluid mt-3 mb-5 w-100" style={{ padding: "0 12px" }}>
+    <PerformancePage maxWidth={1280}>
       {/* Scoped CSS for interactive states that cannot be expressed inline */}
       <style>{`
         .me-page input:not([type=checkbox]):not([type=radio]):focus,
@@ -1306,55 +1294,18 @@ function ManageEmployeesContent() {
       )}
 
       <div className="me-page" style={{ width: "100%" }}>
-        {/* ── Top action row — mirrors sibling pages exactly ──────────────── */}
-        <div className="mt-3 mb-3" style={{
-          width: "100%",
-          display: "flex", justifyContent: "space-between", alignItems: "center",
-          gap: 16, flexWrap: "wrap",
-        }}>
-          {/* Title pill — same dimensions as sibling SearchInput */}
-          <div style={{
-            width: 300, height: "3em",
-            display: "flex", alignItems: "center",
-            background: "#ffffff",
-            paddingTop: ".58rem", paddingBottom: ".5rem",
-            paddingLeft: "1rem", paddingRight: "1rem",
-            marginRight: 32,
-            border: "solid", borderWidth: 0.1,
-            borderRadius: 20,
-            gap: 10,
-          }}>
-            <span style={{
-              width: 28, height: 28, borderRadius: "50%",
-              background: BRAND.primary, color: "#fff",
-              display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0,
-            }}><Ic.Users /></span>
-            <div style={{ minWidth: 0 }}>
-              <div style={{ fontSize: 14, fontWeight: 700, color: BRAND.ink, lineHeight: 1.15 }}>
-                Manage Employees
-              </div>
-              <div style={{ fontSize: 11, color: BRAND.textMuted, lineHeight: 1.2 }}>
-                UIF · ETI · SDL · OID compliance
-              </div>
-            </div>
-          </div>
-
-          {/* Right actions — pill buttons mirroring sibling ButtonBtn */}
-          <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap", fontSize: 18, fontWeight: "bolder" }}>
-            <span style={{
-              display: "inline-flex", alignItems: "center", gap: 6,
-              padding: "8px 14px", borderRadius: 20,
-              background: BRAND.tint100, color: BRAND.primaryDeep,
-              border: `2px solid ${BRAND.tint200}`,
-              fontSize: 13, fontWeight: 700,
-            }}>
-              <Ic.Inbox /> {queue.length} in queue
-            </span>
-            <button className="me-btn" onClick={saveDraft} style={pillBtn("secondary")}><Ic.Save /> Save Draft</button>
-            <button className="me-btn" onClick={() => window.history.back()} aria-label="Close" title="Close"
-              style={{ ...pillBtn("secondary"), padding: "9px 12px" }}><Ic.X /></button>
-          </div>
-        </div>
+        <PageHero
+          icon={<span style={{ color: "#fff", display: "flex" }}><Ic.Users /></span>}
+          title="Manage Employees"
+          subtitle="UIF · ETI · SDL · OID compliance"
+          badge={{ value: queue.length, label: "in queue" }}
+          actions={
+            <>
+              <button type="button" className="me-btn" onClick={saveDraft} style={perfBtnHero}><Ic.Save /> Save Draft</button>
+              <button type="button" className="me-btn" onClick={() => window.history.back()} aria-label="Close" title="Close" style={perfBtnHero}><Ic.X /></button>
+            </>
+          }
+        />
 
         {/* ── Mode Selector — sibling-style bordered Card ─────────────────── */}
         <div style={{ ...siblingCard, padding: "12px 14px", marginBottom: 14 }}>
@@ -1771,7 +1722,7 @@ function ManageEmployeesContent() {
           </span>
         </div>
       </div>
-    </div>
+    </PerformancePage>
   );
 }
 

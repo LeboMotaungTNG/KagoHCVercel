@@ -7,7 +7,8 @@ import LeaveBalanceGrid from "./LeaveBalanceGrid";
 import LeaveRequestForm from "./LeaveRequestForm";
 import LeaveRequestHistory from "./LeaveRequestHistory";
 import LeaveRequestDetail from "./LeaveRequestDetail";
-import { heroStyle, statChip, numStyle, subtle } from "./leaveStyles";
+import { statChip, numStyle, heroStyle } from "./leaveStyles";
+import { PageHero } from "../src/components/PerformanceUI";
 import { Toast } from "./leaveUiHelpers";
 import type { LeaveBalanceMap, LeaveFormData, LeavePolicy, LeaveRequest } from "./types";
 
@@ -356,30 +357,18 @@ const EmployeeLeavePage: React.FC = () => {
       )}
 
       <div style={{ maxWidth: 1100, margin: "0 auto" }}>
-        <header style={heroStyle}>
-          <div style={{ display: "flex", alignItems: "flex-start", gap: 14, marginBottom: 20 }}>
-            <span style={{
-              width: 48, height: 48, borderRadius: 14,
-              background: C.primaryBg, color: C.primary,
-              display: "flex", alignItems: "center", justifyContent: "center",
-            }}>
-              <Calendar size={24} />
-            </span>
-            <div>
-              <h1 style={{ margin: "0 0 6px", fontSize: 28, fontWeight: 800, color: C.ink, letterSpacing: -0.5 }}>
-                Leave Management
-              </h1>
-              <p style={{ ...subtle, margin: 0, maxWidth: 520 }}>
-                View your leave balance, submit new requests, and track approval status.
-              </p>
-            </div>
-          </div>
-
-          <div style={{
-            display: "grid",
-            gridTemplateColumns: "repeat(auto-fit, minmax(140px, 1fr))",
-            gap: 12,
-          }}>
+        <PageHero
+          icon={<Calendar size={24} color="#fff" />}
+          title="Leave Management"
+          subtitle="View your leave balance, submit new requests, and track approval status."
+          badge={{ value: stats.daysRemaining, label: "days left" }}
+        />
+        <div style={{
+          display: "grid",
+          gridTemplateColumns: "repeat(auto-fit, minmax(140px, 1fr))",
+          gap: 12,
+          marginBottom: 24,
+        }}>
             <div style={statChip}>
               <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 6 }}>
                 <Hourglass size={15} color={C.amber} />
@@ -401,8 +390,7 @@ const EmployeeLeavePage: React.FC = () => {
               </div>
               <div style={numStyle}>{stats.daysRemaining}</div>
             </div>
-          </div>
-        </header>
+        </div>
 
         <div
           className="leave-page-grid"

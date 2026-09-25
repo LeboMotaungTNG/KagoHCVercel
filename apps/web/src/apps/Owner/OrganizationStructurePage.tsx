@@ -18,6 +18,8 @@ import {
 // shared/utils/onboarding's fetchCompanySettings, which hits a different,
 // effectively unused endpoint and was why the name never showed up here.
 import { orgApi } from "../../shared/utils/organizationSettings";
+import { PageHero, PerformancePage } from "./ownerUi";
+import { C, R, SHADOW } from "../../shared/utils/employee";
 
 /* ──────────────────────────────────────────────────────────────────────────
  * Icons
@@ -40,9 +42,9 @@ const Ic = {
  * Shared styling
  * ─────────────────────────────────────────────────────────────────────── */
 const siblingCard: React.CSSProperties = {
-  borderRadius: 10,
-  borderWidth: 2, borderStyle: "solid", borderColor: BRAND.cardBorder,
-  boxShadow: BRAND.cardShadow,
+  borderRadius: R.xl,
+  borderWidth: 1, borderStyle: "solid", borderColor: C.line,
+  boxShadow: SHADOW,
   background: "#fff",
 };
 const initials = (a?: string, b?: string) =>
@@ -665,51 +667,38 @@ function OrganizationStructureContent() {
 
   // ── Render ───────────────────────────────────────────────────────────────
   return (
-    <div className="container-fluid mt-3 mb-5 w-100" style={{ padding: "0 12px" }}>
+    <PerformancePage maxWidth={1280}>
       <TreeStyles />
       {toast && <Toast message={toast.message} type={toast.type} />}
 
-      {/* Header */}
-      <div className="mt-3 mb-3" style={{
-        width: "100%", display: "flex", justifyContent: "space-between",
-        alignItems: "center", gap: 16, flexWrap: "wrap",
-      }}>
-        <div style={{
-          display: "flex", alignItems: "center", gap: 12,
-          background: "#fff", border: "1px solid #e4e7ec", borderRadius: 20,
-          padding: "10px 18px 10px 14px",
-        }}>
-          <span style={{
-            width: 34, height: 34, borderRadius: "50%", background: BRAND.primary,
-            color: "#fff", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0,
-          }}><Ic.Landmark /></span>
-          <div>
-            <div style={{ fontSize: 15, fontWeight: 700, color: BRAND.ink, lineHeight: 1.2 }}>Organization Structure</div>
-            <div style={{ fontSize: 11.5, color: BRAND.textMuted }}>Business units, departments, and who manages whom</div>
-          </div>
-        </div>
+      <PageHero
+        icon={<span style={{ color: "#fff", display: "flex" }}><Ic.Landmark /></span>}
+        title="Organization Structure"
+        subtitle="Business units, departments, and who manages whom"
+        actions={
+          <>
+            <div style={{ position: "relative" }}>
+              <span style={{ position: "absolute", left: 12, top: "50%", transform: "translateY(-50%)", color: "rgba(255,255,255,0.75)" }}><Ic.Search /></span>
+              <input
+                value={query}
+                onChange={e => setQuery(e.target.value)}
+                placeholder="Find a person or department…"
+                style={{
+                  width: 240, padding: "9px 12px 9px 34px", borderRadius: 12,
+                  border: "1px solid rgba(255,255,255,0.35)", fontSize: 13, outline: "none", boxSizing: "border-box",
+                  background: "rgba(255,255,255,0.16)", color: "#fff",
+                }}
+              />
+            </div>
+            <DownloadMenu onPNG={exportPNG} onPDF={exportPDF} busy={exporting} />
+          </>
+        }
+      />
 
-        {/* Legend + in-chart search + download */}
-        <div style={{ display: "flex", alignItems: "center", gap: 18, flexWrap: "wrap" }}>
-          <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
-            <LegendDot color="#805AD5" label="Business Unit" />
-            <LegendDot color="#fff" border={BRAND.cardBorder} label="Department" />
-            <LegendDot color="#fef3c7" border="#fedf89" label="Needs manager" />
-          </div>
-          <div style={{ position: "relative" }}>
-            <span style={{ position: "absolute", left: 12, top: "50%", transform: "translateY(-50%)", color: BRAND.textFaint }}><Ic.Search /></span>
-            <input
-              value={query}
-              onChange={e => setQuery(e.target.value)}
-              placeholder="Find a person or department…"
-              style={{
-                width: 240, padding: "9px 12px 9px 34px", borderRadius: 20,
-                border: `1px solid ${BRAND.border}`, fontSize: 13, outline: "none", boxSizing: "border-box",
-              }}
-            />
-          </div>
-          <DownloadMenu onPNG={exportPNG} onPDF={exportPDF} busy={exporting} />
-        </div>
+      <div className="mb-3 d-flex align-items-center gap-3 flex-wrap">
+        <LegendDot color="#805AD5" label="Business Unit" />
+        <LegendDot color="#fff" border={BRAND.cardBorder} label="Department" />
+        <LegendDot color="#fef3c7" border="#fedf89" label="Needs manager" />
       </div>
 
       {/* Stat tiles */}
@@ -792,7 +781,7 @@ function OrganizationStructureContent() {
           </div>
         </div>
       )}
-    </div>
+    </PerformancePage>
   );
 }
 
