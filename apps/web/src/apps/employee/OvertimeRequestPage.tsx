@@ -6,6 +6,7 @@ import {
   CARD, INPUT, TD, TH, ErrorBanner, LoadingBlock, PageHeader,
   PrimaryButton, SuccessBanner, hoursBetween, overtimeStatusPill, useOvertimeRequests,
 } from "../../shared/components/overtimeUi";
+import { PerformancePage } from "./src/components/PerformanceUI";
 
 const Field: React.FC<{ label: string; children: React.ReactNode }> = ({ label, children }) => (
   <label style={{ display: "block" }}>
@@ -43,7 +44,7 @@ const OvertimeRequestContent: React.FC = () => {
   const isError = message && !message.toLowerCase().includes("submitted");
 
   return (
-    <div style={{ maxWidth: 1200, margin: "0 auto" }}>
+    <PerformancePage maxWidth={1200}>
       <PageHeader title="Request Overtime" subtitle="Submit extra hours to your manager for approval" />
       {message && isError ? <ErrorBanner message={message} /> : null}
       {message && !isError ? <SuccessBanner message={message} /> : null}
@@ -106,7 +107,7 @@ const OvertimeRequestContent: React.FC = () => {
           </div>
         )}
       </div>
-    </div>
+    </PerformancePage>
   );
 };
 

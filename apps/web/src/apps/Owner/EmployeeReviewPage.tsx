@@ -1,59 +1,21 @@
 import React, { useState } from "react";
-import { Container, Card, CardBody } from "reactstrap";
 import DataTable from "react-data-table-component";
 import { AiFillEye, AiOutlineSearch } from "react-icons/ai";
 import { FaEdit } from "react-icons/fa";
+import { ClipboardList } from "lucide-react";
+import { C } from "../../shared/utils/employee";
+import { PageHero, PerformancePage, SectionCard, ownerSearch, ownerInput, ownerTableStyles } from "./ownerUi";
 
-// Styles identical to original TableStyle.js
-const employeeTblTitle = {
-  width: "100%",
-  display: "flex",
-  padding: 5,
-  justifyContent: "center",
-  alignItems: "center",
-  fontSize: 16,
-  fontWeight: "bolder",
-};
-
-const employeeTbl = {
-  borderRadius: 10,
-  padding: 5,
-  borderWidth: 2,
-  borderStyle: "solid",
-  borderColor: "#D9D9D9",
-  boxShadow: "0px 4px 8px rgba(0, 0, 0, 0.1)",
-};
-
-const SearchInput = ({ Title, search, setSearch, radius }: any) => {
+const SearchInput = ({ Title, search, setSearch }: any) => {
   return (
-    <div
-      style={{
-        width: 300,
-        height: "3em",
-        display: "flex",
-        alignItems: "center",
-        background: "#ffffff",
-        paddingTop: ".58rem",
-        paddingBottom: ".5rem",
-        paddingLeft: "1rem",
-        paddingRight: "1rem",
-        marginRight: 32,
-        border: "solid",
-        borderWidth: 0.1,
-        borderRadius: radius,
-      }}
-    >
-      <AiOutlineSearch size={24} />
+    <div style={ownerSearch}>
+      <AiOutlineSearch size={18} color={C.muted} />
       <input
         type="text"
         placeholder={Title}
         value={search}
         onChange={(e) => setSearch(e.target.value)}
-        style={{
-          border: "none",
-          marginLeft: 8,
-          paddingRight: 24,
-        }}
+        style={ownerInput}
       />
     </div>
   );
@@ -202,31 +164,27 @@ export const EmployeeReviewPage = () => {
 
   return (
     <React.Fragment>
-      <Container fluid={true}>
-        <div className="mt-3 mb-5 w-100">
+      <PerformancePage maxWidth={1200}>
+        <PageHero
+          icon={<ClipboardList size={24} color="#fff" />}
+          title="Employee Review"
+          subtitle="Track review status across the organisation."
+        />
+        <SectionCard>
           <div className="w-100 mb-4 d-flex justify-content-between">
-            <SearchInput
-              Title={"Search"}
-              search={search}
-              setSearch={setSearch}
-              radius={20}
-            />
+            <SearchInput Title="Search" search={search} setSearch={setSearch} />
           </div>
-          <Card>
-            <CardBody style={employeeTbl}>
-              <div style={employeeTblTitle}>Employee Review</div>
-              <DataTable
-                fixedHeader
-                fixedHeaderScrollHeight="300px"
-                columns={columns}
-                responsive
-                data={filteredEmployeeTable}
-                pagination
-              />
-            </CardBody>
-          </Card>
-        </div>
-      </Container>
+          <DataTable
+            customStyles={ownerTableStyles}
+            fixedHeader
+            fixedHeaderScrollHeight="300px"
+            columns={columns}
+            responsive
+            data={filteredEmployeeTable}
+            pagination
+          />
+        </SectionCard>
+      </PerformancePage>
     </React.Fragment>
   );
 };

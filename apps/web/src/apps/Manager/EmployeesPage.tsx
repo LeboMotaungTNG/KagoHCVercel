@@ -2,6 +2,8 @@ import React, { useState, useEffect, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import SharedLayout from "./SharedLayout";
 import { API_URL, C } from "../../shared/utils/employee";
+import { Users } from "lucide-react";
+import { PageHero, PerformancePage, SectionCard, StatTile, perfBtnHero, mgrSearch, mgrInput } from "./managerUi";
 
 const getToken = () => localStorage.getItem("token") || "";
 
@@ -70,40 +72,42 @@ export function EmployeesContent({ departmentOnly, readOnly = false }: Employees
   };
 
   return (
-    <div style={{ maxWidth: 1200, margin: "0 auto" }}>
-      <div style={{ marginBottom: 24 }}>
-        <h2 style={{ fontSize: 22, fontWeight: 700, color: "#1d2939", margin: 0 }}>{departmentOnly ? "My Department" : "All Employees"}</h2>
-        <p style={{ margin: "4px 0 0", fontSize: 14, color: "#667085" }}>{departmentOnly ? `Employees in ${departmentOnly}` : "Home ? All Employees"}</p>
-      </div>
+    <PerformancePage maxWidth={1200}>
+      <PageHero
+        icon={<Users size={24} color="#fff" />}
+        title={departmentOnly ? "My Department" : "All Employees"}
+        subtitle={departmentOnly ? `Employees in ${departmentOnly}` : "Search the team directory and open profiles."}
+        actions={
+          <>
+            <button type="button" onClick={fetchEmployees} style={perfBtnHero}>Refresh</button>
+            {!readOnly && (
+              <button type="button" onClick={() => navigate("/manager/manage-employees")} style={perfBtnHero}>
+                + Add
+              </button>
+            )}
+          </>
+        }
+      />
 
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(200px,1fr))", gap: 16, marginBottom: 24 }}>
+      <div className="row g-3 mb-4">
         {[
-          { label: "Total Employees", value: stats.total,     color: C.coral },
-          { label: "Departments",     value: stats.depts,     color: "#12b76a" },
-          { label: "Active",          value: stats.active,    color: "#f79009" },
-          { label: "On Payroll",      value: stats.onPayroll, color: "#7a5af8" },
+          { label: "Total Employees", value: String(stats.total), color: C.primary, bg: C.primaryBg, icon: <Users size={16} /> },
+          { label: "Departments", value: String(stats.depts), color: C.green, bg: C.greenBg, icon: <Users size={16} /> },
+          { label: "Active", value: String(stats.active), color: C.amber, bg: C.amberBg, icon: <Users size={16} /> },
+          { label: "On Payroll", value: String(stats.onPayroll), color: C.purple, bg: C.purpleBg, icon: <Users size={16} /> },
         ].map(s => (
-          <div key={s.label} style={{ borderRadius: 16, border: "1px solid #e4e7ec", padding: 20, background: "#fff" }}>
-            <p style={{ margin: 0, fontSize: 13, fontWeight: 500, color: s.color }}>{s.label}</p>
-            <p style={{ margin: "6px 0 0", fontSize: 26, fontWeight: 700, color: "#1d2939" }}>{s.value}</p>
+          <div key={s.label} className="col-6 col-md-3">
+            <StatTile label={s.label} value={s.value} icon={s.icon} color={s.color} bg={s.bg} />
           </div>
         ))}
       </div>
 
-      <div style={{ background: "#fff", borderRadius: 16, border: "1px solid #e4e7ec", padding: 20 }}>
-        <div style={{ display: "flex", flexWrap: "wrap", alignItems: "center", justifyContent: "space-between", gap: 16, marginBottom: 20 }}>
-          <div>
-            <h3 style={{ margin: 0, fontSize: 17, fontWeight: 600, color: "#1d2939" }}>Employee Directory</h3>
-            <p style={{ margin: "4px 0 0", fontSize: 13, color: "#667085" }}>Showing {filtered.length} of {departmentEmployees.length}</p>
-          </div>
-          <div style={{ display: "flex", gap: 10 }}>
-            <input type="text" placeholder="Search employees?" value={search} onChange={e => setSearch(e.target.value)}
-              style={{ height: 40, width: 260, borderRadius: 8, border: "1px solid #d1d5db", padding: "0 12px", fontSize: 14, outline: "none" }} />
-            <button onClick={fetchEmployees} style={{ padding: "8px 16px", borderRadius: 8, border: "none", background: C.coral, color: "#fff", fontSize: 14, fontWeight: 500, cursor: "pointer" }}>Refresh</button>
-            {!readOnly && <button onClick={() => navigate("/manager/manage-employees")} style={{ padding: "8px 16px", borderRadius: 8, border: "none", background: "#1d2939", color: "#fff", fontSize: 14, fontWeight: 500, cursor: "pointer" }}>+ Add</button>}
-          </div>
+      <SectionCard title="Employee Directory" actions={
+        <div style={mgrSearch}>
+          <input type="text" placeholder="Search employees" value={search} onChange={e => setSearch(e.target.value)} style={mgrInput} />
         </div>
-
+      }>
+        <p className="small mb-3" style={{ color: C.muted }}>Showing {filtered.length} of {departmentEmployees.length}</p>
         {error && <div style={{ padding: "12px 16px", marginBottom: 16, borderRadius: 8, background: "#fef2f2", border: "1px solid #fca5a5", color: "#dc2626", fontSize: 14 }}>{error}</div>}
 
         {loading ? (
@@ -164,8 +168,8 @@ export function EmployeesContent({ departmentOnly, readOnly = false }: Employees
             </table>
           </div>
         )}
-      </div>
-    </div>
+      </SectionCard>
+    </PerformancePage>
   );
 }
 

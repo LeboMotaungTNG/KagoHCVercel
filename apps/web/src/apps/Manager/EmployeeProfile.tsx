@@ -1,5 +1,5 @@
 /**
- * EmployeeProfile ù rich profile view for a single employee.
+ * EmployeeProfile ? rich profile view for a single employee.
  *
  * Fetches and presents personal details, employment info and
  * related records in a manager-friendly layout via `SharedLayout`.
@@ -8,6 +8,8 @@ import React, { useState, useEffect, useRef, useCallback } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import SharedLayout from "./SharedLayout";
 import { C } from "../../shared/utils/employee";
+import { Users } from "lucide-react";
+import { PageHero } from "./managerUi";
 
 // --- Types (previously from admin/employee-profile.types) --------------------
 
@@ -787,22 +789,11 @@ function EmployeeProfileContent() {
       <main style={{ flex: 1, padding: 24, background: "#f9fafb", overflowY: "auto" }}>
         <div style={{ maxWidth: 1536, margin: "0 auto" }}>
             {/* Breadcrumb */}
-            <div style={{ marginBottom: 24, display: "flex", flexWrap: "wrap", alignItems: "center", justifyContent: "space-between", gap: 12 }}>
-              <h2 style={{ fontSize: 20, fontWeight: 600, color: "#1d2939", margin: 0 }}>
-                Employee Profile Management
-              </h2>
-              <nav>
-                <ol style={{ display: "flex", alignItems: "center", gap: 6, listStyle: "none", padding: 0, margin: 0 }}>
-                  <li>
-                    <a href="/admin" style={{ color: "#667085", fontSize: 14, textDecoration: "none" }}>
-                      Home
-                      <i className="bi-chevron-right" style={{ marginLeft: 4, fontSize: 12 }}></i>
-                    </a>
-                  </li>
-                  <li style={{ color: "#1d2939", fontSize: 14 }}>Employee Profile</li>
-                </ol>
-              </nav>
-            </div>
+            <PageHero
+              icon={<Users size={24} color="#fff" />}
+              title="Employee Profile"
+              subtitle="Select a person to view or update their record."
+            />
 
             {/* Alert Messages */}
             {alert.show && (

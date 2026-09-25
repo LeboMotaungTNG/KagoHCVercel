@@ -17,7 +17,7 @@ import {
 } from "lucide-react";
 import SharedLayout from "./SharedLayout";
 import PhoneInput from "../../shared/components/PhoneInput";
-import { C, FONT_NUM, R, SHADOW } from "../../shared/utils/employee";
+import { C, FONT_NUM, R, SHADOW, SHADOW_L } from "../../shared/utils/employee";
 import {
   type DocumentCategory,
   type DocumentEntry,
@@ -671,9 +671,9 @@ const HeroBanner: React.FC<{
   return (
     <div style={{
       borderRadius: R.hero,
-      background: `linear-gradient(135deg, ${ACCENT} 0%, ${ACCENT_DK} 100%)`,
+      background: `linear-gradient(135deg, ${ACCENT_DK} 0%, ${ACCENT} 55%, ${C.primaryLight} 130%)`,
       color: "#fff", padding: "28px 32px",
-      boxShadow: "0 14px 36px rgba(13,148,136,0.30)",
+      boxShadow: SHADOW_L,
       position: "relative", overflow: "hidden",
     }}>
       <div style={{

@@ -1,23 +1,26 @@
-import React, { useCallback, useEffect, useState } from "react";
-import { C } from "../utils/employee";
+import React, { useCallback, useEffect, useState, type ReactNode } from "react";
+import { Clock } from "lucide-react";
+import { C, R, SHADOW } from "../utils/employee";
 import { orgApi, type OvertimeRequest } from "../utils/organizationSettings";
+import { PageHero } from "../../apps/employee/src/components/PerformanceUI";
 
 export const CARD: React.CSSProperties = {
-  background: "#fff",
-  borderRadius: 16,
-  border: "1px solid #e4e7ec",
+  background: C.surface,
+  borderRadius: R.xl,
+  border: `1px solid ${C.line}`,
   padding: 24,
+  boxShadow: SHADOW,
 };
 
 export const INPUT: React.CSSProperties = {
   height: 40,
   padding: "0 12px",
-  borderRadius: 8,
-  border: "1px solid #d1d5db",
+  borderRadius: 12,
+  border: `1px solid ${C.line}`,
   fontSize: 14,
-  color: "#344054",
+  color: C.ink,
   outline: "none",
-  background: "#fff",
+  background: C.surface,
   width: "100%",
   boxSizing: "border-box",
 };
@@ -25,11 +28,11 @@ export const INPUT: React.CSSProperties = {
 export const TH: React.CSSProperties = {
   padding: "10px 16px",
   textAlign: "left",
-  fontSize: 12,
-  fontWeight: 600,
-  color: "#667085",
+  fontSize: 11,
+  fontWeight: 700,
+  color: C.muted,
   textTransform: "uppercase",
-  letterSpacing: 0.5,
+  letterSpacing: 0.4,
 };
 
 export const TD: React.CSSProperties = {
@@ -87,23 +90,29 @@ export const nameInitials = (name?: string) => {
   return `${parts[0]?.[0] || "E"}${parts[1]?.[0] || ""}`.toUpperCase();
 };
 
-export const PageHeader: React.FC<{ title: string; subtitle: string; right?: React.ReactNode }> = ({
-  title, subtitle, right,
+export const PageHeader: React.FC<{ title: string; subtitle: string; right?: ReactNode; icon?: ReactNode }> = ({
+  title, subtitle, right, icon,
 }) => (
-  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 16, marginBottom: 24, flexWrap: "wrap" }}>
-    <div>
-      <h2 style={{ fontSize: 22, fontWeight: 700, color: C.ink, margin: 0 }}>{title}</h2>
-      <p style={{ margin: "4px 0 0", fontSize: 14, color: C.muted }}>{subtitle}</p>
-    </div>
-    {right}
-  </div>
+  <PageHero
+    icon={icon ?? <Clock size={24} color="#fff" />}
+    title={title}
+    subtitle={subtitle}
+    actions={right}
+  />
 );
 
 export const StatTiles: React.FC<{ items: { label: string; value: string | number; color: string }[] }> = ({ items }) => (
   <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(200px,1fr))", gap: 16, marginBottom: 24 }}>
     {items.map((item) => (
-      <div key={item.label} style={{ borderRadius: 16, border: "1px solid #e4e7ec", padding: 20, background: "#fff" }}>
-        <p style={{ margin: 0, fontSize: 13, fontWeight: 500, color: item.color }}>{item.label}</p>
+      <div key={item.label} style={{
+        borderRadius: R.xl,
+        border: `1px solid ${C.line}`,
+        borderTop: `3px solid ${item.color}`,
+        padding: 20,
+        background: C.surface,
+        boxShadow: SHADOW,
+      }}>
+        <p style={{ margin: 0, fontSize: 12, fontWeight: 700, textTransform: "uppercase", color: item.color }}>{item.label}</p>
         <p style={{ margin: "6px 0 0", fontSize: 26, fontWeight: 700, color: C.ink }}>{item.value}</p>
       </div>
     ))}
@@ -114,7 +123,7 @@ export const LoadingBlock: React.FC<{ label: string }> = ({ label }) => (
   <div style={{ padding: "48px 0", textAlign: "center" }}>
     <div style={{
       display: "inline-block", width: 36, height: 36,
-      border: "3px solid #f3f4f6", borderTopColor: C.coral, borderRadius: "50%",
+      border: "3px solid #f3f4f6", borderTopColor: C.primary, borderRadius: "50%",
       animation: "spin 0.8s linear infinite",
     }} />
     <style>{`@keyframes spin{to{transform:rotate(360deg)}}`}</style>
@@ -163,10 +172,9 @@ export const PrimaryButton: React.FC<React.ButtonHTMLAttributes<HTMLButtonElemen
       padding: "8px 16px",
       borderRadius: 8,
       border: "none",
-      background: props.disabled ? "#98a2b3" : C.coral,
-      color: "#fff",
-      fontSize: 14,
-      fontWeight: 500,
+      background: props.disabled ? C.faint : C.primary,
+      borderRadius: 10,
+      fontWeight: 600,
       cursor: props.disabled ? "not-allowed" : "pointer",
       ...style,
     }}

@@ -1,10 +1,18 @@
 import React from "react";
+import { Calendar } from "lucide-react";
+import { C } from "../../shared/utils/employee";
 import { LeaveManagement } from "../../shared/components/LeaveManagement";
+import { PageHero, PerformancePage } from "./ownerUi";
 
-// Owner leave management – same data and actions as the Manager view,
-// rendered inside the Owner dashboard layout.
 export const OwnerLeave: React.FC = () => (
-  <LeaveManagement accent="#4FD1C5" canReview title="Leave Management" subtitle="Home › Leave" />
+  <PerformancePage maxWidth={1400}>
+    <PageHero
+      icon={<Calendar size={24} color="#fff" />}
+      title="Leave Management"
+      subtitle="Review requests and keep leave balances aligned across the organisation."
+    />
+    <LeaveManagement accent={C.primary} canReview hideTitle />
+  </PerformancePage>
 );
 
 export default OwnerLeave;

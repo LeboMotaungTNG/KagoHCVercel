@@ -18,7 +18,11 @@ import {
   Calendar, TrendingUp, History, ShieldCheck, ChevronRight,
 } from "lucide-react";
 import SharedLayout from "./SharedLayout";
-import { C, R, SHADOW, FONT_NUM } from "../../shared/utils/employee";
+import {
+  C, R, SHADOW, FONT_NUM,
+} from "../../shared/utils/employee";
+import { PageHero } from "./src/components/PerformanceUI";
+import { DocumentPreviewModal } from "../../shared/components/DocumentPreviewModal";
 import {
   CATEGORY_META, CATEGORY_ORDER,
   type DocCategory, type OrgDocument, type PayslipMeta,
@@ -42,20 +46,6 @@ const getCurrentUserName = (): string => {
   } catch { return "Employee"; }
 };
 
-const openInNewTab = (doc: { title: string; mimeType: string; dataUrl: string }) => {
-  const w = window.open("", "_blank", "noopener,noreferrer");
-  if (!w) return;
-  if (doc.mimeType.startsWith("image/")) {
-    w.document.write(
-      `<title>${doc.title}</title>` +
-      `<body style="margin:0;background:#111;display:flex;align-items:center;justify-content:center;min-height:100vh">` +
-      `<img src="${doc.dataUrl}" style="max-width:100%;max-height:100vh"/></body>`,
-    );
-  } else {
-    w.location.href = doc.dataUrl;
-  }
-};
-
 /** Next 25th of the month — mirrors typical SA monthly payroll. */
 const nextPaydayInfo = (): { label: string; daysUntil: number } => {
   const now = new Date();
@@ -76,6 +66,7 @@ const EmployeeDocumentsPage: React.FC = () => {
   const [employeeName, setEmployeeName] = useState<string>(getCurrentUserName());
   const [query, setQuery] = useState("");
   const [filter, setFilter] = useState<DocCategory | "All">("All");
+  const [previewDoc, setPreviewDoc] = useState<OrgDocument | null>(null);
 
   useEffect(() => {
     const loadData = async () => {
@@ -247,7 +238,12 @@ const EmployeeDocumentsPage: React.FC = () => {
           />
         ) : (
           grouped.map(group => (
-            <CategoryGroup key={group.category} category={group.category} items={group.items} />
+            <CategoryGroup
+              key={group.category}
+              category={group.category}
+              items={group.items}
+              onPreview={setPreviewDoc}
+            />
           ))
         )}
 
@@ -255,6 +251,7 @@ const EmployeeDocumentsPage: React.FC = () => {
           KagoHC · Documents stay yours, always available.
         </p>
       </div>
+      <DocumentPreviewModal doc={previewDoc} onClose={() => setPreviewDoc(null)} />
     </SharedLayout>
   );
 };
@@ -264,44 +261,14 @@ const EmployeeDocumentsPage: React.FC = () => {
  * ────────────────────────────────────────────────────────────────── */
 
 const PageHeader: React.FC<{ docCount: number; categoryCount: number; lastUpdate?: string }> = ({
-  docCount, categoryCount, lastUpdate,
+  docCount, categoryCount,
 }) => (
-  <header style={{ marginBottom: 22 }}>
-    <div style={{
-      display: "inline-flex", alignItems: "center", gap: 6,
-      fontSize: 11, fontWeight: 800, letterSpacing: 1.4,
-      color: C.coralDk, textTransform: "uppercase",
-      background: C.coralBg, padding: "5px 10px", borderRadius: 999,
-    }}>
-      Human Resources
-    </div>
-    <h1 style={{ margin: "12px 0 6px", fontSize: 34, fontWeight: 800, color: C.ink, letterSpacing: -0.8, lineHeight: 1.05 }}>
-      My Documents
-    </h1>
-    <p style={{ margin: 0, color: C.muted, fontSize: 14.5, maxWidth: 640 }}>
-      Everything HR has shared with you — your latest payslip, employment conditions, policies and more.
-    </p>
-
-    <div style={{
-      marginTop: 14, display: "flex", flexWrap: "wrap", gap: 18,
-      color: C.muted, fontSize: 12.5, fontWeight: 600,
-    }}>
-      <span style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
-        <span style={{ width: 6, height: 6, borderRadius: "50%", background: C.coral }} />
-        {docCount} document{docCount === 1 ? "" : "s"}
-      </span>
-      <span style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
-        <span style={{ width: 6, height: 6, borderRadius: "50%", background: C.blue }} />
-        {categoryCount} categor{categoryCount === 1 ? "y" : "ies"}
-      </span>
-      {lastUpdate && (
-        <span style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
-          <span style={{ width: 6, height: 6, borderRadius: "50%", background: C.green }} />
-          Updated {formatDate(lastUpdate)}
-        </span>
-      )}
-    </div>
-  </header>
+  <PageHero
+    icon={<Inbox size={24} color="#fff" />}
+    title="My Documents"
+    subtitle="Everything HR has shared with you — your latest payslip, employment conditions, policies and more."
+    badge={{ value: docCount, label: categoryCount === 1 ? "category" : "categories" }}
+  />
 );
 
 /* ─────────────────────────────────────────────────────────────────────
@@ -316,9 +283,9 @@ const PayslipHero: React.FC<{ payslip: PayslipMeta; employeeName: string }> = ({
     <section
       style={{
         position: "relative", overflow: "hidden",
-        background: `linear-gradient(135deg, #1a2036 0%, #2b3560 55%, #3a3b7a 100%)`,
+        background: `linear-gradient(135deg, ${C.primaryDark} 0%, ${C.primary} 55%, ${C.primaryLight} 130%)`,
         borderRadius: R.hero, padding: 28,
-        boxShadow: "0 20px 44px rgba(26,32,54,0.35)",
+        boxShadow: SHADOW,
         color: "#fff",
         minHeight: 300,
         display: "flex", flexDirection: "column",
@@ -578,8 +545,12 @@ const InsightCard: React.FC<{
  * Category group + document card
  * ────────────────────────────────────────────────────────────────── */
 
-const CategoryGroup: React.FC<{ category: DocCategory; items: OrgDocument[] }> = ({
-  category, items,
+const CategoryGroup: React.FC<{
+  category: DocCategory;
+  items: OrgDocument[];
+  onPreview: (doc: OrgDocument) => void;
+}> = ({
+  category, items, onPreview,
 }) => {
   const meta = CATEGORY_META[category];
   const Icon = meta.icon;
@@ -610,13 +581,13 @@ const CategoryGroup: React.FC<{ category: DocCategory; items: OrgDocument[] }> =
         </span>
       </div>
       <div className="kg-doc-list">
-        {items.map(d => <DocCard key={d.id} doc={d} />)}
+        {items.map(d => <DocCard key={d.id} doc={d} onPreview={() => onPreview(d)} />)}
       </div>
     </section>
   );
 };
 
-const DocCard: React.FC<{ doc: OrgDocument }> = ({ doc }) => {
+const DocCard: React.FC<{ doc: OrgDocument; onPreview: () => void }> = ({ doc, onPreview }) => {
   const meta = CATEGORY_META[doc.category];
   const Icon = meta.icon;
   return (
@@ -688,7 +659,7 @@ const DocCard: React.FC<{ doc: OrgDocument }> = ({ doc }) => {
       }}>
         <button
           type="button"
-          onClick={() => openInNewTab(doc)}
+          onClick={onPreview}
           style={{
             display: "inline-flex", alignItems: "center", gap: 6,
             padding: "8px 14px", borderRadius: 999,
@@ -700,7 +671,7 @@ const DocCard: React.FC<{ doc: OrgDocument }> = ({ doc }) => {
           onMouseEnter={e => (e.currentTarget.style.background = "#0f1523")}
           onMouseLeave={e => (e.currentTarget.style.background = C.ink)}
         >
-          <Eye size={13} /> Open
+          <Eye size={13} /> Quick look
         </button>
         <button
           type="button"

@@ -6,6 +6,7 @@ import {
   StatTiles, overtimeStatusPill, useOvertimeRequests,
 } from "../../shared/components/overtimeUi";
 import type { OvertimeRequest } from "../../shared/utils/organizationSettings";
+import { PerformancePage } from "./managerUi";
 
 export const TeamOvertimeContent: React.FC = () => {
   const { requests, loading, message } = useOvertimeRequests();
@@ -27,7 +28,7 @@ export const TeamOvertimeContent: React.FC = () => {
   const pending = requests.filter((row) => row.status === "pending").length;
 
   return (
-    <div style={{ maxWidth: 1200, margin: "0 auto" }}>
+    <PerformancePage maxWidth={1200}>
       <PageHeader
         title="Team Overtime"
         subtitle="Hours, status, and history for your team's extra-time requests"
@@ -97,7 +98,7 @@ export const TeamOvertimeContent: React.FC = () => {
           </div>
         )}
       </div>
-    </div>
+    </PerformancePage>
   );
 };
 

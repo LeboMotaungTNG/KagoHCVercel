@@ -5,6 +5,8 @@ import { useNavigate } from "react-router-dom";
 import SharedLayout from "./SharedLayout";
 import EditPayrollModal from './components/EditPayrollModal';
 import { C } from "../../shared/utils/employee";
+import { DollarSign } from "lucide-react";
+import { FilterTabs, PageHero, PerformancePage } from "./managerUi";
 
 type PayrollStatus = "on_payroll" | "not_on_payroll" | "active" | "inactive";
 
@@ -411,9 +413,10 @@ Net Pay: ${formatCurrency(employee.netSalary || employee.basicSalary * 0.81)}
   ) => (
     <div
       style={{
-        borderRadius: 16,
-        border: "1px solid #e4e7ec",
-        background: "#fff",
+        borderRadius: 22,
+        border: `1px solid ${C.line}`,
+        borderTop: `3px solid ${accent || C.primary}`,
+        background: C.surface,
         padding: 20,
       }}
     >
@@ -428,14 +431,12 @@ Net Pay: ${formatCurrency(employee.netSalary || employee.basicSalary * 0.81)}
   }
 
   return (
-    <div style={{ maxWidth: 1280, margin: "0 auto" }}>
-      {/* Page header */}
-      <div style={{ marginBottom: 24 }}>
-        <h2 style={{ fontSize: 24, fontWeight: 700, color: "#1d2939", margin: 0 }}>Payroll Management</h2>
-        <p style={{ margin: "4px 0 0", fontSize: 14, color: "#667085" }}>
-          Home &rsaquo; Payroll Management
-        </p>
-      </div>
+    <PerformancePage maxWidth={1280}>
+      <PageHero
+        icon={<DollarSign size={24} color="#fff" />}
+        title="Payroll Management"
+        subtitle="Who is on payroll, estimated costs, and run processing."
+      />
 
       {/* Summary cards */}
       <div
@@ -463,29 +464,17 @@ Net Pay: ${formatCurrency(employee.netSalary || employee.basicSalary * 0.81)}
       </div>
 
       {/* Tabs */}
-      <div style={{ borderBottom: "1px solid #e4e7ec", marginBottom: 16 }}>
-        {(["employees", "payroll", "benefits", "reports"] as const).map((tab) => (
-          <button
-            key={tab}
-            onClick={() => setActiveTab(tab)}
-            style={{
-              padding: "12px 18px",
-              background: "none",
-              border: "none",
-              borderBottom: activeTab === tab ? `2px solid ${C.coral}` : "2px solid transparent",
-              fontSize: 14,
-              fontWeight: 500,
-              color: activeTab === tab ? C.coral : "#667085",
-              cursor: "pointer",
-              marginRight: 8,
-            }}
-          >
-            {tab === "employees" && "Employees"}
-            {tab === "payroll" && "Payroll Run"}
-            {tab === "benefits" && "Benefits"}
-            {tab === "reports" && "Reports & History"}
-          </button>
-        ))}
+      <div className="mb-4">
+        <FilterTabs
+          tabs={[
+            { key: "employees", label: "Employees" },
+            { key: "payroll", label: "Payroll Run" },
+            { key: "benefits", label: "Benefits" },
+            { key: "reports", label: "Reports & History" },
+          ]}
+          value={activeTab}
+          onChange={setActiveTab}
+        />
       </div>
 
       {/* Tab content */}
@@ -2610,7 +2599,7 @@ Net Pay: ${formatCurrency(employee.netSalary || employee.basicSalary * 0.81)}
         }}
         onSave={handleSavePayroll}
       />
-    </div>
+    </PerformancePage>
   );
 };
 

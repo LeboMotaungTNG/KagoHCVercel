@@ -23,6 +23,7 @@ import {
   loadOrgDocumentsOwner, uploadDocument, deleteDocument,
 } from "../../shared/utils/documentsLibrary";
 import { C } from "../../shared/utils/employee";
+import { DocumentPreviewModal } from "../../shared/components/DocumentPreviewModal";
 
 /* ─────────────────────────────────────────────────────────────────────
  * Local design tokens — mirror OrganizationSettingsPage.tsx so the tab
@@ -30,9 +31,9 @@ import { C } from "../../shared/utils/employee";
  * ────────────────────────────────────────────────────────────────── */
 const BRAND = C.primary;
 const BRAND_DK = C.primaryDark;
-const INK = "#1A202C";
-const MUTED = "#718096";
-const LINE = "#E2E8F0";
+const INK = C.ink;
+const MUTED = C.muted;
+const LINE = C.line;
 
 const card: React.CSSProperties = {
   backgroundColor: "white", borderRadius: 12, border: `1px solid ${LINE}`,
@@ -266,6 +267,7 @@ const DocumentsLibraryTab: React.FC = () => {
     open: false, initial: emptyEditor,
   });
   const [toast, setToast] = useState<string | null>(null);
+  const [previewDoc, setPreviewDoc] = useState<OrgDocument | null>(null);
 
   const persist = (next: OrgDocument[], msg?: string) => {
     setDocs(next);
@@ -386,13 +388,7 @@ const DocumentsLibraryTab: React.FC = () => {
   };
 
   const handleView = (doc: OrgDocument) => {
-    const w = window.open("", "_blank", "noopener,noreferrer");
-    if (!w) return;
-    if (doc.mimeType.startsWith("image/")) {
-      w.document.write(`<title>${doc.title}</title><body style="margin:0;background:#111;display:flex;align-items:center;justify-content:center;min-height:100vh"><img src="${doc.dataUrl}" style="max-width:100%;max-height:100vh"/></body>`);
-    } else {
-      w.location.href = doc.dataUrl;
-    }
+    setPreviewDoc(doc);
   };
 
   /* ────────────── UI ────────────── */
@@ -509,6 +505,7 @@ const DocumentsLibraryTab: React.FC = () => {
         onClose={() => setEditor({ open: false, initial: emptyEditor })}
         onSave={handleSave}
       />
+      <DocumentPreviewModal doc={previewDoc} onClose={() => setPreviewDoc(null)} />
     </div>
   );
 };
@@ -606,7 +603,7 @@ const DocumentCard: React.FC<{
           {doc.fileName} · {formatBytes(doc.size)}
         </span>
         <div style={{ display: "flex", gap: 6 }}>
-          <IconBtn title="View"    onClick={onView}><FaEye size={12} /></IconBtn>
+          <IconBtn title="Quick look" onClick={onView}><FaEye size={12} /></IconBtn>
           <IconBtn title="Download" onClick={onDownload}><FaDownload size={12} /></IconBtn>
           <IconBtn title="Edit"    onClick={onEdit}><FaPencilAlt size={11} /></IconBtn>
           <IconBtn title="Delete"  onClick={onDelete} danger><FaTrash size={11} /></IconBtn>

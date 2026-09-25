@@ -1,50 +1,24 @@
 import React, { useState, useEffect } from "react";
-import { Container, Card, CardBody, Spinner } from "reactstrap";
+import { Spinner } from "reactstrap";
 import DataTable from "react-data-table-component";
 import { AiFillEye, AiOutlineSearch, AiOutlineUser, AiOutlineClose } from "react-icons/ai";
 import SharedLayout from "./SharedLayout";
 import PhoneInput from "../../shared/components/PhoneInput";
+import { Users } from "lucide-react";
 import { C } from "../../shared/utils/employee";
 import { fetchDepartmentOptions } from "../../shared/utils/manageEmployees";
 import { loadCachedPositions, positionsForDepartment, type OrgPosition } from "../../shared/utils/onboarding";
+import { PageHero, PerformancePage, SectionCard, ownerSearch, ownerInput, ownerTableStyles, perfBtnHero } from "./ownerUi";
 
 const API_URL = import.meta.env.VITE_API_URL || "https://employee-evaluation-kago-e63baae4d822.herokuapp.com/api/v1";
 
 // ─── Styles ───────────────────────────────────────────────────────────────────
 
-const employeeTblTitle = {
-  width: "100%", display: "flex", padding: 5,
-  justifyContent: "center", alignItems: "center",
-  fontSize: 16, fontWeight: "bolder" as const,
-};
-
-const employeeTbl = {
-  borderRadius: 10, padding: 5,
-  borderWidth: 2, borderStyle: "solid", borderColor: "#D9D9D9",
-  boxShadow: "0px 4px 8px rgba(0, 0, 0, 0.1)",
-};
-
-// ─── Sub-components ───────────────────────────────────────────────────────────
-
-const SearchInput = ({ Title, search, setSearch, radius }: any) => (
-  <div style={{ width: 300, height: "3em", display: "flex", alignItems: "center", background: "#ffffff", paddingTop: ".58rem", paddingBottom: ".5rem", paddingLeft: "1rem", paddingRight: "1rem", marginRight: 32, border: "solid", borderWidth: 0.1, borderRadius: radius }}>
-    <AiOutlineSearch size={24} />
-    <input type="text" placeholder={Title} value={search} onChange={(e) => setSearch(e.target.value)} style={{ border: "none", marginLeft: 8, paddingRight: 24, outline: "none", width: "100%" }} />
+const SearchInput = ({ Title, search, setSearch }: any) => (
+  <div style={ownerSearch}>
+    <AiOutlineSearch size={18} color={C.muted} />
+    <input type="text" placeholder={Title} value={search} onChange={(e) => setSearch(e.target.value)} style={ownerInput} />
   </div>
-);
-
-const ButtonBtn = ({ Title, BackgroundColor, ColorText, BorderColor, borderRadius, handleOnclick, pending, type }: any) => (
-  <button
-    className="btn"
-    style={{ fontWeight: "600", color: ColorText, borderColor: BorderColor, borderWidth: "2px", borderStyle: "solid", borderRadius, backgroundColor: BackgroundColor }}
-    type={type}
-    onClick={handleOnclick}
-    disabled={pending}
-  >
-    <div className="d-flex justify-content-center align-items-center">
-      {!pending ? <span>{Title}</span> : <><Spinner size="sm" /> <span> Loading</span></>}
-    </div>
-  </button>
 );
 
 // ─── Add Employee Modal ───────────────────────────────────────────────────────
@@ -398,54 +372,45 @@ export const EmployeesPage = () => {
 
   return (
     <React.Fragment>
-      <Container fluid={true}>
-        <div className="mt-3 mb-5 w-100">
-
-          {fetchError && (
-            <div style={{ padding: "12px 16px", background: "#fef2f2", border: "1px solid #fecaca", borderRadius: 8, marginBottom: 16, fontSize: 14, color: "#b42318" }}>
-              {fetchError}
-            </div>
-          )}
-
-          <div className="w-100 mb-3 d-flex justify-content-between">
-            <SearchInput Title="Search" search={search} setSearch={setSearch} radius={20} />
-            <div style={{ fontSize: 18, fontWeight: "bolder" }}>
-              <ButtonBtn
-                Title="Add Employee"
-                type="button"
-                BackgroundColor={C.primary}
-                ColorText="white"
-                BorderColor={C.primary}
-                borderRadius={20}
-                handleOnclick={() => setShowAddModal(true)}
-                pending={false}
-              />
-            </div>
+      <PerformancePage maxWidth={1200}>
+        <PageHero
+          icon={<Users size={24} color="#fff" />}
+          title="Employees"
+          subtitle="Search the directory and add people to the organisation."
+          actions={
+            <button type="button" style={perfBtnHero} onClick={() => setShowAddModal(true)}>
+              Add Employee
+            </button>
+          }
+        />
+        {fetchError && (
+          <div style={{ padding: "12px 16px", background: "#fef2f2", border: "1px solid #fecaca", borderRadius: 8, marginBottom: 16, fontSize: 14, color: "#b42318" }}>
+            {fetchError}
           </div>
-
-          <Card style={employeeTbl}>
-            <CardBody>
-              <div style={employeeTblTitle}>Employees</div>
-              {loadingData ? (
-                <div className="d-flex justify-content-center align-items-center py-5">
-                  <Spinner color="primary" /> <span className="ms-2">Loading employees...</span>
-                </div>
-              ) : (
-                <DataTable
-                  fixedHeader
-                  fixedHeaderScrollHeight="300px"
-                  columns={columns}
-                  responsive
-                  data={filteredEmployees}
-                  pagination
-                  highlightOnHover
-                  noDataComponent={<div style={{ padding: 32, color: "#667085" }}>No employees found.</div>}
-                />
-              )}
-            </CardBody>
-          </Card>
-        </div>
-      </Container>
+        )}
+        <SectionCard>
+          <div className="w-100 mb-3 d-flex justify-content-between align-items-center flex-wrap gap-2">
+            <SearchInput Title="Search employees" search={search} setSearch={setSearch} />
+          </div>
+          {loadingData ? (
+            <div className="d-flex justify-content-center align-items-center py-5">
+              <Spinner color="primary" /> <span className="ms-2">Loading employees...</span>
+            </div>
+          ) : (
+            <DataTable
+              customStyles={ownerTableStyles}
+              fixedHeader
+              fixedHeaderScrollHeight="400px"
+              columns={columns}
+              responsive
+              data={filteredEmployees}
+              pagination
+              highlightOnHover
+              noDataComponent={<div style={{ padding: 32, color: C.muted }}>No employees found.</div>}
+            />
+          )}
+        </SectionCard>
+      </PerformancePage>
 
       {showAddModal && (
         <AddEmployeeModal

@@ -1,5 +1,6 @@
 import React from "react";
-import { TrendingUp, Users, Building2, Award } from "lucide-react";
+import { TrendingUp, Users, Award, Building2 } from "lucide-react";
+import { C } from "../../shared/utils/employee";
 
 export const ModernAnalyticsSection = ({ orgAnalytics }: any) => {
   const insights = [
@@ -28,22 +29,22 @@ export const ModernAnalyticsSection = ({ orgAnalytics }: any) => {
       label: "Average Performance",
       value: "78%",
       icon: <TrendingUp size={16} />,
-      color: "#48BB78",
-      bgColor: "#F0FFF4"
+      color: C.ok,
+      bgColor: C.okBg
     },
     {
       label: "Active Reviews",
       value: "12",
       icon: <Award size={16} />,
-      color: "#3182CE",
-      bgColor: "#EBF8FF"
+      color: C.primary,
+      bgColor: C.primaryBg
     },
     {
       label: "Completion Rate",
       value: "94%",
       icon: <Users size={16} />,
-      color: "#805AD5",
-      bgColor: "#FAF5FF"
+      color: C.purple,
+      bgColor: C.purpleBg
     }
   ];
 
