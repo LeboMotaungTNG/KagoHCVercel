@@ -20,6 +20,11 @@ interface Manager {
   department: string;
 }
 
+const PROMOTED_ROLE_KEYS = new Set([
+  'manager', 'line_manager', 'payroll_officer', 'hr', 'hr_manager',
+  'admin', 'team_lead', 'senior_manager', 'director',
+]);
+
 const ManagersPage: React.FC = () => {
   const [managers, setManagers] = useState<Manager[]>([]);
   const [isPromoteModalOpen, setIsPromoteModalOpen] = useState(false);
@@ -39,16 +44,21 @@ const ManagersPage: React.FC = () => {
       const token = localStorage.getItem('token');
       const API_URL = import.meta.env.VITE_API_URL || 'https://employee-evaluation-kago-e63baae4d822.herokuapp.com/api/v1';
 
-      const response = await fetch(`${API_URL}/employees?isManager=true`, {
-        headers: { 'Authorization': `Bearer ${token}` }
-      });
-
-      if (!response.ok) {
+      const [allEmployeesResponse, managersResponse] = await Promise.all([
+        fetch(`${API_URL}/employees`, { headers: { 'Authorization': `Bearer ${token}` } }),
+        fetch(`${API_URL}/employees?isManager=true`, { headers: { 'Authorization': `Bearer ${token}` } }),
+      ]);
+      if (!allEmployeesResponse.ok && !managersResponse.ok) {
         throw new Error('Failed to fetch managers');
       }
-
-      const data = await response.json();
-      setManagers(data.data.filter((emp: any) => emp.isManager));
+      const [allEmployeesData, managersData] = await Promise.all([
+        allEmployeesResponse.json(),
+        managersResponse.json(),
+      ]);
+      const readRows = (data: any): any[] => data?.success && Array.isArray(data.data) ? data.data : Array.isArray(data) ? data : [];
+      const rows = [...readRows(allEmployeesData), ...readRows(managersData)];
+      const uniqueRows = Array.from(new Map(rows.map((row) => [row?._id || row?.id, row])).values());
+      setManagers(uniqueRows.filter((emp: any) => emp.isManager === true || PROMOTED_ROLE_KEYS.has(emp.role) || PROMOTED_ROLE_KEYS.has(emp.managerLevel)));
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to load managers');
       console.error('Fetch error:', err);

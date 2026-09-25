@@ -13,6 +13,11 @@ import { Users } from "lucide-react";
 
 const API_URL = import.meta.env.VITE_API_URL || "https://employee-evaluation-kago-e63baae4d822.herokuapp.com/api/v1";
 
+const PROMOTED_ROLE_KEYS = new Set([
+  "manager", "line_manager", "payroll_officer", "hr", "hr_manager",
+  "admin", "team_lead", "senior_manager", "director",
+]);
+
 // ─── Styles ───────────────────────────────────────────────────────────────────
 const SearchInput = ({ Title, search, setSearch }: any) => (
   <div style={ownerSearch}>
@@ -165,10 +170,15 @@ function PromoteToManagerModal({ onClose, onSuccess }: { onClose: () => void; on
           )}
 
           <div>
-            <label style={labelStyle}>Manager Level</label>
+            <label style={labelStyle}>Role *</label>
             <select style={inputStyle} value={managerLevel} onChange={(e) => setManagerLevel(e.target.value)}>
-              <option value="team_lead">Team Lead</option>
               <option value="manager">Manager</option>
+              <option value="line_manager">Line Manager</option>
+              <option value="payroll_officer">Payroll Officer</option>
+              <option value="hr">HR</option>
+              <option value="hr_manager">HR Manager</option>
+              <option value="admin">Administrator</option>
+              <option value="team_lead">Team Lead</option>
               <option value="senior_manager">Senior Manager</option>
               <option value="director">Director</option>
             </select>
@@ -362,25 +372,28 @@ export const ManagersPage = () => {
   const [viewManager, setViewManager] = useState<any | null>(null);
   const [demoteManager, setDemoteManager] = useState<any | null>(null);
 
-  // Fetch managers (users with isManager = true)
+  // Fetch all employees so every promoted role can appear in this directory.
   const fetchManagers = async () => {
     setLoadingData(true);
     setFetchError("");
     try {
       const token = localStorage.getItem("token");
-      const response = await fetch(`${API_URL}/employees?isManager=true`, {
-        headers: { "Authorization": `Bearer ${token}`, "Content-Type": "application/json" },
-      });
-      const data = await response.json();
-      
-      let rows: any[] = [];
-      if (data.success && Array.isArray(data.data)) {
-        rows = data.data;
-      } else if (Array.isArray(data)) {
-        rows = data;
-      }
-      
-      setManagers(rows);
+      const [allEmployeesResponse, managersResponse] = await Promise.all([
+        fetch(`${API_URL}/employees`, {
+          headers: { "Authorization": `Bearer ${token}`, "Content-Type": "application/json" },
+        }),
+        fetch(`${API_URL}/employees?isManager=true`, {
+          headers: { "Authorization": `Bearer ${token}`, "Content-Type": "application/json" },
+        }),
+      ]);
+      const [allEmployeesData, managersData] = await Promise.all([
+        allEmployeesResponse.json(),
+        managersResponse.json(),
+      ]);
+      const readRows = (data: any): any[] => data?.success && Array.isArray(data.data) ? data.data : Array.isArray(data) ? data : [];
+      const rows = [...readRows(allEmployeesData), ...readRows(managersData)];
+      const uniqueRows = Array.from(new Map(rows.map((row) => [row?._id || row?.id, row])).values());
+      setManagers(uniqueRows.filter((row) => row?.isManager === true || PROMOTED_ROLE_KEYS.has(row?.role) || PROMOTED_ROLE_KEYS.has(row?.managerLevel)));
     } catch (err) {
       console.error(err);
       setFetchError("Failed to load managers. Please try again.");
@@ -415,20 +428,31 @@ export const ManagersPage = () => {
     {
       name: <span className="font-weight-bold fs-13">Manager Level</span>,
       cell: (row: any) => {
-        const level = row?.managerLevel || "manager";
+        const level = row?.managerLevel || row?.role || "manager";
         const colors: Record<string, string> = {
           team_lead: "#8b5cf6",
           manager: C.primary,
+          line_manager: "#14b8a6",
+          payroll_officer: "#0891b2",
+          hr: "#ec4899",
+          hr_manager: "#db2777",
+          admin: "#6366f1",
           senior_manager: "#3b82f6",
           director: "#f59e0b",
         };
         const labels: Record<string, string> = {
           team_lead: "Team Lead",
           manager: "Manager",
+          line_manager: "Line Manager",
+          payroll_officer: "Payroll Officer",
+          hr: "HR",
+          hr_manager: "HR Manager",
+          admin: "Administrator",
           senior_manager: "Senior Manager",
           director: "Director",
         };
-        return <span style={{ background: `${colors[level]}20`, color: colors[level], padding: "4px 10px", borderRadius: 20, fontSize: 12, fontWeight: 600 }}>{labels[level] || "Manager"}</span>;
+        const color = colors[level] || "#64748b";
+        return <span style={{ background: `${color}20`, color, padding: "4px 10px", borderRadius: 20, fontSize: 12, fontWeight: 600 }}>{labels[level] || level}</span>;
       },
     },
     {

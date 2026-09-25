@@ -192,10 +192,10 @@ const PromoteToManagerModal: React.FC<PromoteToManagerModalProps> = ({
           )}
         </div>
 
-        {/* Manager Level Selection */}
+        {/* Role Selection */}
         <div style={{ marginBottom: '16px' }}>
           <label style={{ display: 'block', marginBottom: '8px', fontWeight: '500', fontSize: '14px' }}>
-            Manager Level *
+            Role *
           </label>
           <select
             value={managerLevel}
@@ -210,8 +210,13 @@ const PromoteToManagerModal: React.FC<PromoteToManagerModalProps> = ({
               fontFamily: 'inherit'
             }}
           >
-            <option value="team_lead">Team Lead</option>
             <option value="manager">Manager</option>
+            <option value="line_manager">Line Manager</option>
+            <option value="payroll_officer">Payroll Officer</option>
+            <option value="hr">HR</option>
+            <option value="hr_manager">HR Manager</option>
+            <option value="admin">Administrator</option>
+            <option value="team_lead">Team Lead</option>
             <option value="senior_manager">Senior Manager</option>
             <option value="director">Director</option>
           </select>
