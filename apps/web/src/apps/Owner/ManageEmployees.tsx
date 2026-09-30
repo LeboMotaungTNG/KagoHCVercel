@@ -23,7 +23,9 @@ import {
   createEmployeeWithOnboarding,
   extractEmployeeDocument,
   fetchDepartmentOptions,
-  saveQueueDraft,
+  saveOnboardingDraft,
+  loadOnboardingDraft,
+  clearOnboardingDraft,
   toQueueItem,
   queueItemFromTableRow,
   type Employee,
@@ -1122,17 +1124,19 @@ function TableModeRow({ data, index, departments, positions, onChange, onRemove 
 // ─── Main Content ─────────────────────────────────────────────────────────────
 function ManageEmployeesContent() {
   const navigate = useNavigate();
-  const [mode, setMode] = useState<Mode>("form");
-  const [activeTab, setActiveTab] = useState<FormTab>(1);
-  const [form, setForm] = useState<Employee>(defaultForm());
-  const [queue, setQueue] = useState<QueueItem[]>([]);
-  const [tableRows, setTableRows] = useState<Partial<TableRowData>[]>([]);
-  const [bulkDept, setBulkDept] = useState("");
-  const [bulkDate, setBulkDate] = useState("");
-  const [bulkType, setBulkType] = useState("");
+  const restoredDraft = React.useMemo(() => loadOnboardingDraft(), []);
+  const [mode, setMode] = useState<Mode>(restoredDraft?.mode || "form");
+  const [activeTab, setActiveTab] = useState<FormTab>(restoredDraft?.activeTab || 1);
+  const [form, setForm] = useState<Employee>(restoredDraft?.form || defaultForm());
+  const [queue, setQueue] = useState<QueueItem[]>(restoredDraft?.queue || []);
+  const [tableRows, setTableRows] = useState<Partial<TableRowData>[]>(restoredDraft?.tableRows || []);
+  const [bulkDept, setBulkDept] = useState(restoredDraft?.bulkDept || "");
+  const [bulkDate, setBulkDate] = useState(restoredDraft?.bulkDate || "");
+  const [bulkType, setBulkType] = useState(restoredDraft?.bulkType || "");
   const [toast, setToast] = useState<{ msg: string; type: "success"|"error" } | null>(null);
   const [uploading, setUploading] = useState(false);
   const [processing, setProcessing] = useState(false);
+  const persistReady = React.useRef(false);
 
   // Departments now come from the backend (Owner ▸ Onboarding ▸ Structure)
   // instead of a hardcoded list — they're seeded per-tenant and can be
@@ -1155,9 +1159,6 @@ function ManageEmployeesContent() {
         if (opts.length > 0) {
           setDepartments(opts.map(o => o.name));
         }
-        // If the fetch succeeds but returns nothing (owner hasn't set up
-        // Structure yet), keep the fallback list rather than leaving the
-        // dropdown empty — better a generic starting point than nothing.
       })
       .catch(err => {
         console.warn("Could not load departments, using fallback list:", err);
@@ -1172,6 +1173,24 @@ function ManageEmployeesContent() {
     setToast({ msg, type });
     setTimeout(() => setToast(null), 4000);
   };
+
+  useEffect(() => {
+    persistReady.current = true;
+    if (restoredDraft) {
+      showToast("Resumed your in-progress employee. Structure changes are loaded into the lists.");
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  useEffect(() => {
+    if (!persistReady.current) return;
+    const timer = window.setTimeout(() => {
+      saveOnboardingDraft({
+        form, queue, tableRows, mode, activeTab, bulkDept, bulkDate, bulkType,
+      });
+    }, 350);
+    return () => window.clearTimeout(timer);
+  }, [form, queue, tableRows, mode, activeTab, bulkDept, bulkDate, bulkType]);
 
   const clearForm = () => { setForm(defaultForm()); setActiveTab(1); };
 
@@ -1208,13 +1227,30 @@ function ManageEmployeesContent() {
     );
     setQueue([]);
     clearForm();
+    setTableRows([]);
+    clearOnboardingDraft();
     setProcessing(false);
   };
 
   const saveDraft = () => {
-    if (queue.length === 0) { alert("No employees in queue"); return; }
-    saveQueueDraft(queue);
-    showToast("Draft saved locally.");
+    saveOnboardingDraft({
+      form, queue, tableRows, mode, activeTab, bulkDept, bulkDate, bulkType,
+    });
+    showToast("Draft saved. You can leave this page and continue later.");
+  };
+
+  const discardDraft = () => {
+    if (!window.confirm("Discard the in-progress employee and queue?")) return;
+    clearOnboardingDraft();
+    setForm(defaultForm());
+    setActiveTab(1);
+    setQueue([]);
+    setTableRows([]);
+    setBulkDept("");
+    setBulkDate("");
+    setBulkType("");
+    setMode("form");
+    showToast("Draft discarded.");
   };
 
   const tabs: { label: string; icon: React.ReactNode }[] = [
@@ -1302,6 +1338,7 @@ function ManageEmployeesContent() {
           actions={
             <>
               <button type="button" className="me-btn" onClick={saveDraft} style={perfBtnHero}><Ic.Save /> Save Draft</button>
+              <button type="button" className="me-btn" onClick={discardDraft} style={perfBtnHero}><Ic.Trash /> Discard Draft</button>
               <button type="button" className="me-btn" onClick={() => window.history.back()} aria-label="Close" title="Close" style={perfBtnHero}><Ic.X /></button>
             </>
           }

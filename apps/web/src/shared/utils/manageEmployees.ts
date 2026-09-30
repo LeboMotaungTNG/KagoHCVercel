@@ -579,27 +579,102 @@ export async function fetchAllEmployees(token: string): Promise<EmployeeSummary[
 }
 
 /* ─────────────────────────────────────────────────────────────────────────
- * Local draft persistence
+ * Local draft persistence — survives navigating away to add structure
  * ────────────────────────────────────────────────────────────────────── */
 
 const DRAFT_KEY = "employeeDraft";
 
+export interface OnboardingDraft {
+  form: Employee;
+  queue: QueueItem[];
+  tableRows: Partial<TableRowData>[];
+  mode: Mode;
+  activeTab: FormTab;
+  bulkDept: string;
+  bulkDate: string;
+  bulkType: string;
+  timestamp: string;
+}
+
+/** @deprecated Use OnboardingDraft — kept for older localStorage payloads. */
 export interface QueueDraft {
   queue: QueueItem[];
   timestamp: string;
 }
 
-export const saveQueueDraft = (queue: QueueItem[]): void => {
+const isFormTab = (v: unknown): v is FormTab =>
+  v === 1 || v === 2 || v === 3 || v === 4 || v === 5 || v === 6;
+
+const isMode = (v: unknown): v is Mode =>
+  v === "form" || v === "table" || v === "upload";
+
+const hasDraftContent = (draft: OnboardingDraft): boolean => {
+  const f = draft.form || ({} as Employee);
+  const filled = [
+    f.first_name, f.surname, f.email, f.cell_number, f.id_number,
+    f.department, f.position, f.phys_street, f.phys_city,
+  ].some(v => String(v || "").trim());
+  return filled || draft.queue.length > 0 || draft.tableRows.length > 0;
+};
+
+export const loadOnboardingDraft = (): OnboardingDraft | null => {
   try {
-    localStorage.setItem(DRAFT_KEY, JSON.stringify({ queue, timestamp: new Date().toISOString() }));
-  } catch (err) { console.warn("Failed to save queue draft:", err); }
+    const raw = localStorage.getItem(DRAFT_KEY);
+    if (!raw) return null;
+    const parsed = JSON.parse(raw) as Partial<OnboardingDraft> & QueueDraft;
+    const form = parsed.form ? { ...defaultForm(), ...parsed.form } : defaultForm();
+    const draft: OnboardingDraft = {
+      form,
+      queue: Array.isArray(parsed.queue) ? parsed.queue : [],
+      tableRows: Array.isArray(parsed.tableRows) ? parsed.tableRows : [],
+      mode: isMode(parsed.mode) ? parsed.mode : "form",
+      activeTab: isFormTab(parsed.activeTab) ? parsed.activeTab : 1,
+      bulkDept: parsed.bulkDept || "",
+      bulkDate: parsed.bulkDate || "",
+      bulkType: parsed.bulkType || "",
+      timestamp: parsed.timestamp || new Date().toISOString(),
+    };
+    return hasDraftContent(draft) ? draft : null;
+  } catch {
+    return null;
+  }
+};
+
+export const saveOnboardingDraft = (draft: Omit<OnboardingDraft, "timestamp">): void => {
+  try {
+    const payload: OnboardingDraft = { ...draft, timestamp: new Date().toISOString() };
+    if (!hasDraftContent(payload)) {
+      localStorage.removeItem(DRAFT_KEY);
+      return;
+    }
+    localStorage.setItem(DRAFT_KEY, JSON.stringify(payload));
+  } catch (err) {
+    console.warn("Failed to save onboarding draft:", err);
+  }
+};
+
+export const clearOnboardingDraft = (): void => {
+  try { localStorage.removeItem(DRAFT_KEY); }
+  catch (err) { console.warn("Failed to clear onboarding draft:", err); }
+};
+
+export const saveQueueDraft = (queue: QueueItem[]): void => {
+  const existing = loadOnboardingDraft();
+  saveOnboardingDraft({
+    form: existing?.form || defaultForm(),
+    queue,
+    tableRows: existing?.tableRows || [],
+    mode: existing?.mode || "form",
+    activeTab: existing?.activeTab || 1,
+    bulkDept: existing?.bulkDept || "",
+    bulkDate: existing?.bulkDate || "",
+    bulkType: existing?.bulkType || "",
+  });
 };
 
 export const loadQueueDraft = (): QueueDraft | null => {
-  try {
-    const raw = localStorage.getItem(DRAFT_KEY);
-    return raw ? (JSON.parse(raw) as QueueDraft) : null;
-  } catch { return null; }
+  const draft = loadOnboardingDraft();
+  return draft ? { queue: draft.queue, timestamp: draft.timestamp } : null;
 };
 
 /** Build a QueueItem from a (potentially sparse) bulk-table row. */
