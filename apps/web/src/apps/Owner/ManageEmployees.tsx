@@ -14,6 +14,7 @@ import {
   generateRandomEmployeeCode,
   validateSAIdNumber,
   validateEmployee,
+  validateOnboardingTab,
   extractDobFromId,
   calcAge,
   calcETI,
@@ -49,7 +50,7 @@ import { PageHero, PerformancePage, perfBtnHero } from "./ownerUi";
 const Ic = {
   User: () => <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>,
   Mail: () => <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/></svg>,
-  Phone: () => <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07A19.5 19.5 0 0 1 4.11 11a2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72c.127.96.362 1.903.7 2.81a2 2 0 0 1-.45 2.11L8 10a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45c.907.339 1.85.574 2.81.7A2 2 0 0 1 22 16.92z"/></svg>,
+  Phone: () => <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"/></svg>,
   IdCard: () => <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="1" y="4" width="22" height="16" rx="2" ry="2"/><line x1="1" y1="10" x2="23" y2="10"/></svg>,
   MapPin: () => <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg>,
   Briefcase: () => <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="2" y="7" width="20" height="14" rx="2" ry="2"/><path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16"/></svg>,
@@ -91,33 +92,32 @@ const Ic = {
 // ─── Field components ──────────────────────────────────────────────────────────
 const S = {
   inputWrap: { position: "relative" as const },
-  iconLeft: { position: "absolute" as const, left: 12, top: "50%", transform: "translateY(-50%)", color: "#98a2b3", display: "flex" as const, alignItems: "center" as const, pointerEvents: "none" as const },
+  iconLeft: { position: "absolute" as const, left: 10, top: "50%", transform: "translateY(-50%)", color: "#98a2b3", display: "flex" as const, alignItems: "center" as const, pointerEvents: "none" as const },
   input: (hasIcon = true): React.CSSProperties => ({
-    width: "100%", padding: hasIcon ? "10px 12px 10px 38px" : "10px 13px",
-    border: "1px solid #e4e7ec", borderRadius: 10, fontSize: 13.5, outline: "none",
+    width: "100%", padding: hasIcon ? "7px 10px 7px 34px" : "7px 11px",
+    border: "1px solid #e4e7ec", borderRadius: 8, fontSize: 13, outline: "none",
     color: BRAND.ink, background: "#fff", boxSizing: "border-box",
     transition: "border-color .15s ease, box-shadow .15s ease, background .15s ease",
   }),
   select: (hasIcon = true): React.CSSProperties => ({
-    width: "100%", padding: hasIcon ? "10px 32px 10px 38px" : "10px 32px 10px 13px",
-    border: "1px solid #e4e7ec", borderRadius: 10, fontSize: 13.5, outline: "none",
+    width: "100%", padding: hasIcon ? "7px 28px 7px 34px" : "7px 28px 7px 11px",
+    border: "1px solid #e4e7ec", borderRadius: 8, fontSize: 13, outline: "none",
     color: BRAND.ink, background: "#fff", boxSizing: "border-box",
     appearance: "none" as const,
     backgroundImage: "url(\"data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='14' height='14' viewBox='0 0 24 24' fill='none' stroke='%23667085' stroke-width='2.5'><polyline points='6 9 12 15 18 9'/></svg>\")",
-    backgroundRepeat: "no-repeat", backgroundPosition: "right 12px center",
+    backgroundRepeat: "no-repeat", backgroundPosition: "right 10px center",
     transition: "border-color .15s ease, box-shadow .15s ease",
   }),
-  label: { display: "block" as const, marginBottom: 6, color: BRAND.text, fontWeight: 600 as const, fontSize: 12.5, letterSpacing: 0.1 },
-  fieldGroup: { marginBottom: 14 },
-  row2: { display: "grid" as const, gridTemplateColumns: "1fr 1fr", gap: 14, marginBottom: 14 },
-  row3: { display: "grid" as const, gridTemplateColumns: "1fr 1fr 1fr", gap: 14, marginBottom: 14 },
-  // Soft banner-style section title — also styles its inline leading svg as a chip
+  label: { display: "block" as const, marginBottom: 4, color: BRAND.text, fontWeight: 600 as const, fontSize: 11.5, letterSpacing: 0.1 },
+  fieldGroup: { marginBottom: 10 },
+  row2: { display: "grid" as const, gridTemplateColumns: "1fr 1fr", gap: 10, marginBottom: 10 },
+  row3: { display: "grid" as const, gridTemplateColumns: "1fr 1fr 1fr", gap: 10, marginBottom: 10 },
   sectionTitle: {
-    display: "flex" as const, alignItems: "center" as const, gap: 10,
-    fontSize: 13.5, fontWeight: 700 as const, color: BRAND.primaryDeep,
-    margin: "4px 0 16px",
-    padding: "10px 14px",
-    borderRadius: 10,
+    display: "flex" as const, alignItems: "center" as const, gap: 8,
+    fontSize: 12.5, fontWeight: 700 as const, color: BRAND.primaryDeep,
+    margin: "2px 0 10px",
+    padding: "7px 10px",
+    borderRadius: 8,
     background: `linear-gradient(90deg, ${BRAND.tint100} 0%, ${BRAND.tint50} 100%)`,
     border: `1px solid ${BRAND.tint200}`,
     borderLeft: `3px solid ${BRAND.primary}`,
@@ -131,12 +131,12 @@ const S = {
     background: type === "info" ? BRAND.tint50 : type === "warn" ? "#fffaeb" : "#ecfdf3",
     border: `1px solid ${type === "info" ? BRAND.tint200 : type === "warn" ? "#fedf89" : "#abefc6"}`,
     color: type === "info" ? BRAND.primaryDeep : type === "warn" ? "#92400e" : "#166534",
-    padding: "10px 14px", borderRadius: 8, fontSize: 12, marginBottom: 16,
+    padding: "8px 12px", borderRadius: 8, fontSize: 12, marginBottom: 10,
     display: "flex" as const, gap: 8, alignItems: "flex-start" as const,
   }),
   btn: (variant: "primary"|"secondary"|"danger"|"success" = "primary"): React.CSSProperties => ({
-    display: "inline-flex", alignItems: "center", gap: 6, padding: "9px 16px",
-    borderRadius: 8, fontSize: 13, fontWeight: 600, cursor: "pointer", border: "none",
+    display: "inline-flex", alignItems: "center", gap: 6, padding: "7px 12px",
+    borderRadius: 8, fontSize: 12.5, fontWeight: 600, cursor: "pointer", border: "none",
     background: variant === "primary" ? BRAND.primary
               : variant === "secondary" ? "#fff"
               : variant === "danger" ? BRAND.danger
@@ -261,7 +261,7 @@ function Tab1Personal({ f, upd }: { f: Employee; upd: (k: keyof Employee, v: any
         <FI label="Employee Code" required icon={<Ic.Hash />}>
           <div style={{ display: "flex", gap: 6 }}>
             <input value={f.employee_code} onChange={e => upd("employee_code", e.target.value)}
-              style={{ ...S.input(false), flex: 1 }} />
+              style={{ ...S.input(true), flex: 1 }} />
             <button type="button" onClick={() => upd("employee_code", generateRandomEmployeeCode())}
               style={{ ...S.btn("secondary"), padding: "8px 10px" }}><Ic.RefreshCw /></button>
           </div>
@@ -997,7 +997,7 @@ function QueueCard({ item, index, onRemove }: { item: QueueItem; index: number; 
   return (
     <div className="me-queue-card" style={{
       background: "#fff", border: `1px solid ${BRAND.border}`, borderRadius: 12,
-      marginBottom: 10, overflow: "hidden",
+      marginBottom: 0, overflow: "hidden",
       boxShadow: "0 1px 2px rgba(16,24,40,0.04)",
     }}>
       <div style={{
@@ -1137,6 +1137,7 @@ function ManageEmployeesContent() {
   const [uploading, setUploading] = useState(false);
   const [processing, setProcessing] = useState(false);
   const persistReady = React.useRef(false);
+  const [tabErrors, setTabErrors] = useState<string[]>([]);
 
   // Departments now come from the backend (Owner ▸ Onboarding ▸ Structure)
   // instead of a hardcoded list — they're seeded per-tenant and can be
@@ -1192,7 +1193,27 @@ function ManageEmployeesContent() {
     return () => window.clearTimeout(timer);
   }, [form, queue, tableRows, mode, activeTab, bulkDept, bulkDate, bulkType]);
 
-  const clearForm = () => { setForm(defaultForm()); setActiveTab(1); };
+  const goToTab = (next: FormTab) => {
+    if (next === activeTab) return;
+    if (next < activeTab) {
+      setTabErrors([]);
+      setActiveTab(next);
+      return;
+    }
+    for (let t = activeTab; t < next; t++) {
+      const result = validateOnboardingTab(t as FormTab, form);
+      if (!result.valid) {
+        setTabErrors(result.errors);
+        setActiveTab(t as FormTab);
+        showToast("Complete the required fields before continuing.", "error");
+        return;
+      }
+    }
+    setTabErrors([]);
+    setActiveTab(next);
+  };
+
+  const clearForm = () => { setForm(defaultForm()); setActiveTab(1); setTabErrors([]); };
 
   const addToQueue = (continueAdding = false) => {
     const result = validateEmployee(form);
@@ -1279,11 +1300,11 @@ function ManageEmployeesContent() {
   const siblingCardTitle: React.CSSProperties = {
     width: "100%", display: "flex", padding: 5,
     justifyContent: "center", alignItems: "center",
-    fontSize: 16, fontWeight: 800, color: BRAND.ink,
+    fontSize: 15, fontWeight: 800, color: BRAND.ink,
   };
 
   return (
-    <PerformancePage maxWidth={1280}>
+    <PerformancePage maxWidth={1080}>
       {/* Scoped CSS for interactive states that cannot be expressed inline */}
       <style>{`
         .me-page input:not([type=checkbox]):not([type=radio]):focus,
@@ -1387,8 +1408,8 @@ function ManageEmployeesContent() {
           </div>
         </div>
 
-      {/* Main Grid */}
-      <div style={{ display: "grid", gridTemplateColumns: "1fr 340px", gap: 16 }}>
+      {/* Form, then queue underneath so the form can use the full width */}
+      <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
         {/* Left Panel — sibling-style bordered Card with centered title */}
         <div style={{ ...siblingCard, padding: 0, overflow: "hidden", display: "flex", flexDirection: "column" }}>
           <div style={{ ...siblingCardTitle, padding: "14px 5px 6px" }}>
@@ -1409,7 +1430,7 @@ function ManageEmployeesContent() {
           {mode === "form" && (
             <>
               {/* Numbered stepper */}
-              <div style={{ padding: "18px 24px 8px", background: "#fff" }}>
+              <div style={{ padding: "12px 18px 6px", background: "#fff" }}>
                 <div className="me-scroll" style={{ overflowX: "auto", paddingBottom: 4 }}>
                   <div style={{ display: "flex", alignItems: "center", gap: 4, minWidth: "max-content" }}>
                     {tabs.map((tab, i) => {
@@ -1418,17 +1439,17 @@ function ManageEmployeesContent() {
                       const completed = tabNum < activeTab;
                       return (
                         <React.Fragment key={i}>
-                          <button type="button" className="me-step" onClick={() => setActiveTab(tabNum)} style={{
+                          <button type="button" className="me-step" onClick={() => goToTab(tabNum)} style={{
                             display: "flex", alignItems: "center", gap: 10,
-                            padding: "8px 14px 8px 8px", border: "none", borderRadius: 999,
+                            padding: "6px 10px 6px 6px", border: "none", borderRadius: 999,
                             background: active ? BRAND.tint100 : "transparent",
                             cursor: "pointer", whiteSpace: "nowrap",
                             color: active ? BRAND.primaryDeep : completed ? BRAND.ink : BRAND.textMuted,
                           }}>
                             <span className="me-step-num" style={{
-                              width: 28, height: 28, borderRadius: "50%", flexShrink: 0,
+                              width: 24, height: 24, borderRadius: "50%", flexShrink: 0,
                               display: "flex", alignItems: "center", justifyContent: "center",
-                              fontSize: 12, fontWeight: 800,
+                              fontSize: 11, fontWeight: 800,
                               background: active
                                 ? `linear-gradient(135deg, ${BRAND.primary} 0%, ${BRAND.primaryDark} 100%)`
                                 : completed ? BRAND.success : "#fff",
@@ -1439,7 +1460,7 @@ function ManageEmployeesContent() {
                             }}>
                               {completed ? <Ic.Check /> : tabNum}
                             </span>
-                            <span style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 12.5, fontWeight: active ? 700 : 600 }}>
+                            <span style={{ display: "flex", alignItems: "center", gap: 5, fontSize: 12, fontWeight: active ? 700 : 600 }}>
                               <span style={{ opacity: 0.85 }}>{tab.icon}</span>
                               <span>{tab.label}</span>
                             </span>
@@ -1471,9 +1492,19 @@ function ManageEmployeesContent() {
 
               {/* Tab Content */}
               <div key={activeTab} className="me-scroll me-fade" style={{
-                padding: "20px 28px 28px", overflowY: "auto",
-                maxHeight: "calc(100vh - 420px)",
+                padding: "14px 20px 16px",
               }}>
+                {tabErrors.length > 0 && (
+                  <div style={{ ...S.notice("warn"), display: "flex", alignItems: "flex-start", gap: 10 }}>
+                    <span style={{ flexShrink: 0, marginTop: 1 }}><Ic.AlertCircle /></span>
+                    <div>
+                      <div style={{ fontWeight: 700, marginBottom: 6 }}>Complete these required fields before continuing</div>
+                      <ul style={{ margin: 0, paddingLeft: 18, fontSize: 12.5 }}>
+                        {tabErrors.map(err => <li key={err}>{err}</li>)}
+                      </ul>
+                    </div>
+                  </div>
+                )}
                 {activeTab === 1 && <Tab1Personal f={form} upd={upd} />}
                 {activeTab === 2 && <Tab2Contact f={form} upd={upd} />}
                 {activeTab === 3 && <Tab3Employment f={form} upd={upd} departments={departments} departmentsLoading={departmentsLoading} positions={positions} />}
@@ -1484,14 +1515,14 @@ function ManageEmployeesContent() {
 
               {/* Tab Footer */}
               <div style={{
-                padding: "14px 24px",
+                padding: "10px 18px",
                 borderTop: `1px solid ${BRAND.border}`,
                 background: `linear-gradient(180deg, ${BRAND.tint50} 0%, #ffffff 100%)`,
                 display: "flex", gap: 10, justifyContent: "space-between", flexWrap: "wrap",
               }}>
                 <div style={{ display: "flex", gap: 8 }}>
-                  {activeTab > 1 && <button type="button" className="me-btn" onClick={() => setActiveTab(prev => (prev - 1) as FormTab)} style={S.btn("secondary")}><Ic.ChevronLeft /> Back</button>}
-                  {activeTab < 6 && <button type="button" className="me-btn" onClick={() => setActiveTab(prev => (prev + 1) as FormTab)} style={S.btn("primary")}>Next <Ic.ChevronRight /></button>}
+                  {activeTab > 1 && <button type="button" className="me-btn" onClick={() => goToTab((activeTab - 1) as FormTab)} style={S.btn("secondary")}><Ic.ChevronLeft /> Back</button>}
+                  {activeTab < 6 && <button type="button" className="me-btn" onClick={() => goToTab((activeTab + 1) as FormTab)} style={S.btn("primary")}>Next <Ic.ChevronRight /></button>}
                 </div>
                 <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
                   <button type="button" className="me-btn" onClick={clearForm} style={S.btn("secondary")}><Ic.X /> Clear</button>
@@ -1654,11 +1685,10 @@ function ManageEmployeesContent() {
           )}
         </div>
 
-        {/* Right Panel – Queue (sibling-style bordered Card with centered title) */}
+        {/* Queue — full width under the form */}
         <div style={{
           ...siblingCard, padding: 0,
           display: "flex", flexDirection: "column",
-          position: "sticky", top: 20, maxHeight: "calc(100vh - 44px)",
           overflow: "hidden",
         }}>
           <div style={{ ...siblingCardTitle, padding: "14px 5px 10px", gap: 10 }}>
@@ -1700,9 +1730,9 @@ function ManageEmployeesContent() {
             )}
           </div>
 
-          <div className="me-scroll" style={{ flex: 1, overflowY: "auto", padding: "12px 16px" }}>
+          <div className="me-scroll" style={{ padding: "12px 16px" }}>
             {queue.length === 0 ? (
-              <div style={{ textAlign: "center", padding: "48px 16px" }}>
+              <div style={{ textAlign: "center", padding: "32px 16px" }}>
                 <div style={{
                   width: 64, height: 64, margin: "0 auto 14px",
                   borderRadius: "50%",
@@ -1714,14 +1744,20 @@ function ManageEmployeesContent() {
                 <div style={{ fontWeight: 700, color: BRAND.ink, fontSize: 14, marginBottom: 4 }}>
                   Your queue is empty
                 </div>
-                <div style={{ fontSize: 12, color: BRAND.textMuted, maxWidth: 220, margin: "0 auto" }}>
+                <div style={{ fontSize: 12, color: BRAND.textMuted, maxWidth: 420, margin: "0 auto" }}>
                   Add employees using <strong>Form</strong>, <strong>Table</strong>, or <strong>Upload</strong> mode to begin onboarding.
                 </div>
               </div>
             ) : (
-              queue.map((item, i) => (
-                <QueueCard key={item.tempId} item={item} index={i} onRemove={() => setQueue(prev => prev.filter(q => q.tempId !== item.tempId))} />
-              ))
+              <div style={{
+                display: "grid",
+                gridTemplateColumns: "repeat(auto-fill, minmax(280px, 1fr))",
+                gap: 12,
+              }}>
+                {queue.map((item, i) => (
+                  <QueueCard key={item.tempId} item={item} index={i} onRemove={() => setQueue(prev => prev.filter(q => q.tempId !== item.tempId))} />
+                ))}
+              </div>
             )}
           </div>
 
@@ -1729,7 +1765,7 @@ function ManageEmployeesContent() {
             padding: "14px 16px",
             borderTop: `1px solid ${BRAND.border}`,
             background: `linear-gradient(180deg, ${BRAND.tint50} 0%, #ffffff 100%)`,
-            display: "flex", flexDirection: "column", gap: 8,
+            display: "flex", flexDirection: "row", justifyContent: "flex-end", flexWrap: "wrap", gap: 8,
           }}>
             {queue.length > 0 && (
               <button type="button" className="me-btn" onClick={() => { if (window.confirm("Clear all employees from queue?")) setQueue([]); }} style={S.btn("secondary")}><Ic.Trash /> Clear All</button>
