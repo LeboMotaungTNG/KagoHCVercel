@@ -431,6 +431,81 @@ export function validateEmployee(data: Partial<Employee>): ValidationResult {
   return { valid: errors.length === 0, errors };
 }
 
+const isBlank = (v?: string | number | boolean | null) => !String(v ?? "").trim();
+
+/** Required fields for a single onboarding tab — used before Next / skip-ahead. */
+export function validateOnboardingTab(tab: FormTab, data: Partial<Employee>): ValidationResult {
+  const errors: string[] = [];
+
+  if (tab === 1) {
+    if (isBlank(data.employee_code)) errors.push("Employee code is required");
+    if (isBlank(data.first_name)) errors.push("First name is required");
+    if (isBlank(data.surname)) errors.push("Surname is required");
+    if (isBlank(data.date_of_birth)) errors.push("Date of birth is required");
+    if (data.identification_type === "RSA ID Number") {
+      if (isBlank(data.id_number)) errors.push("RSA ID Number is required");
+      else if (!validateSAIdNumber(data.id_number || "")) errors.push("Invalid SA ID number");
+    } else if (data.identification_type === "Passport Number") {
+      if (isBlank(data.passport_number)) errors.push("Passport number is required");
+      if (isBlank(data.passport_country)) errors.push("Passport country is required");
+    } else if (data.identification_type === "Asylum Seeker Permit") {
+      if (isBlank(data.asylum_permit_number)) errors.push("Permit number is required");
+      if (isBlank(data.asylum_country)) errors.push("Country of origin is required");
+      if (isBlank(data.asylum_expiry)) errors.push("Permit expiry is required");
+    } else if (data.identification_type === "Refugee Permit") {
+      if (isBlank(data.refugee_permit_number)) errors.push("Permit number is required");
+      if (isBlank(data.refugee_country)) errors.push("Country of origin is required");
+      if (isBlank(data.refugee_expiry)) errors.push("Permit expiry is required");
+    }
+  }
+
+  if (tab === 2) {
+    if (isBlank(data.phys_street)) errors.push("Street address is required");
+    if (isBlank(data.phys_city)) errors.push("City is required");
+    if (isBlank(data.phys_province)) errors.push("Province is required");
+    if (isBlank(data.phys_postal)) errors.push("Postal code is required");
+    if (isBlank(data.cell_number)) errors.push("Cell number is required");
+    if (isBlank(data.email)) errors.push("Email is required");
+    else if (!validateEmail(data.email || "")) errors.push("Enter a valid email address");
+    if (isBlank(data.emergency_name)) errors.push("Emergency contact person is required");
+    if (isBlank(data.emergency_rel)) errors.push("Emergency contact relationship is required");
+    if (isBlank(data.emergency_phone1)) errors.push("Emergency contact phone is required");
+  }
+
+  if (tab === 3) {
+    if (isBlank(data.department)) errors.push("Department is required");
+    if (isBlank(data.position)) errors.push("Position is required");
+    if (isBlank(data.start_date)) errors.push("Start date is required");
+    if (data.employment_type === "Contract") {
+      if (isBlank(data.contract_start)) errors.push("Contract start date is required");
+      if (isBlank(data.contract_end)) errors.push("Contract end date is required");
+    }
+    if (data.employment_type && uifRequired(data.employment_type) && !data.uif_exemption && isBlank(data.uif_number)) {
+      errors.push("UIF number is required");
+    }
+  }
+
+  if (tab === 4) {
+    if (isBlank(data.annual_salary)) errors.push("Annual salary is required");
+    if (data.payment_method === "Bank Transfer") {
+      if (isBlank(data.bank_name)) errors.push("Bank name is required");
+      if (isBlank(data.bank_branch_code)) errors.push("Branch code is required");
+      if (isBlank(data.bank_account_holder)) errors.push("Account holder name is required");
+      if (isBlank(data.bank_account_number)) errors.push("Account number is required");
+      if (data.bank_account_number !== data.bank_account_confirm) {
+        errors.push("Account numbers do not match");
+      }
+    }
+    if (data.create_account) {
+      if (isBlank(data.password)) errors.push("Password is required");
+      else if ((data.password || "").length < 6) errors.push("Password must be at least 6 characters");
+      if (data.password !== data.confirm_password) errors.push("Passwords do not match");
+    }
+  }
+
+  return { valid: errors.length === 0, errors };
+}
+
 /* ─────────────────────────────────────────────────────────────────────────
  * Backend API
  * ────────────────────────────────────────────────────────────────────── */
