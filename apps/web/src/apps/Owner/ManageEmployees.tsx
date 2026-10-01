@@ -29,6 +29,8 @@ import {
   clearOnboardingDraft,
   toQueueItem,
   queueItemFromTableRow,
+  EMPLOYMENT_TYPES,
+  PAYMENT_METHODS,
   type Employee,
   type Allowance,
   type Deduction,
@@ -81,6 +83,8 @@ const Ic = {
   Layers: () => <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polygon points="12 2 2 7 12 12 22 7 12 2"/><polyline points="2 17 12 22 22 17"/><polyline points="2 12 12 17 22 12"/></svg>,
   Book: () => <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/></svg>,
   Hash: () => <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><line x1="4" y1="9" x2="20" y2="9"/><line x1="4" y1="15" x2="20" y2="15"/><line x1="10" y1="3" x2="8" y2="21"/><line x1="16" y1="3" x2="14" y2="21"/></svg>,
+  Eye: () => <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7-10-7-10-7z"/><circle cx="12" cy="12" r="3"/></svg>,
+  EyeOff: () => <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M17.94 17.94A10.94 10.94 0 0 1 12 19c-6.5 0-10-7-10-7a21.8 21.8 0 0 1 5.06-5.94"/><path d="M9.9 4.24A10.94 10.94 0 0 1 12 5c6.5 0 10 7 10 7a21.8 21.8 0 0 1-2.16 3.19"/><path d="M14.12 14.12a3 3 0 1 1-4.24-4.24"/><line x1="1" y1="1" x2="23" y2="23"/></svg>,
   CreditCard: () => <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="1" y="4" width="22" height="16" rx="2" ry="2"/><line x1="1" y1="10" x2="23" y2="10"/></svg>,
   Activity: () => <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>,
   CheckCircle: () => <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>,
@@ -180,6 +184,37 @@ function TextInput({ icon, value, onChange, placeholder, type = "text", maxLengt
       <input type={type} value={value} onChange={e => onChange(e.target.value)}
         placeholder={placeholder} maxLength={maxLength} readOnly={readOnly}
         style={S.input(!!icon)} />
+    </div>
+  );
+}
+
+function PasswordInput({ value, onChange, placeholder }: {
+  value: string; onChange: (v: string) => void; placeholder?: string;
+}) {
+  const [visible, setVisible] = useState(false);
+  return (
+    <div style={S.inputWrap}>
+      <input
+        type={visible ? "text" : "password"}
+        value={value}
+        onChange={e => onChange(e.target.value)}
+        placeholder={placeholder}
+        autoComplete="new-password"
+        style={{ ...S.input(true), paddingRight: 38 }}
+      />
+      <button
+        type="button"
+        onClick={() => setVisible(v => !v)}
+        aria-label={visible ? "Hide password" : "Show password"}
+        title={visible ? "Hide password" : "Show password"}
+        style={{
+          position: "absolute", right: 8, top: "50%", transform: "translateY(-50%)",
+          background: "none", border: "none", padding: 4, cursor: "pointer",
+          color: "#667085", display: "flex", alignItems: "center",
+        }}
+      >
+        {visible ? <Ic.EyeOff /> : <Ic.Eye />}
+      </button>
     </div>
   );
 }
@@ -388,28 +423,6 @@ function Tab2Contact({ f, upd }: { f: Employee; upd: (k: keyof Employee, v: any)
         </>
       )}
 
-      <div style={S.sectionTitle}><Ic.Briefcase /> Work Address</div>
-      <div style={{ marginBottom: 12 }}>
-        <Checkbox checked={f.work_same_as_phys} onChange={v => upd("work_same_as_phys", v)} label="Same as physical address" />
-        <Checkbox checked={f.work_same_as_company} onChange={v => upd("work_same_as_company", v)} label="Same as company address" />
-      </div>
-      {!f.work_same_as_phys && !f.work_same_as_company && (
-        <>
-          <div style={S.row3}>
-            <FI label="Unit"><TextInput value={f.work_unit} onChange={v => upd("work_unit", v)} /></FI>
-            <FI label="Complex"><TextInput value={f.work_complex} onChange={v => upd("work_complex", v)} /></FI>
-            <FI label="Building"><TextInput value={f.work_building} onChange={v => upd("work_building", v)} /></FI>
-          </div>
-          <FI label="Street / Farm Name" icon={<Ic.MapPin />}><TextInput value={f.work_street} onChange={v => upd("work_street", v)} /></FI>
-          <div style={S.row3}>
-            <FI label="City"><TextInput value={f.work_city} onChange={v => upd("work_city", v)} /></FI>
-            <FI label="Province"><SelectInput value={f.work_province} onChange={v => upd("work_province", v)}><option value="">Select</option>{provinces.map(p => <option key={p}>{p}</option>)}</SelectInput></FI>
-            <FI label="Postal Code"><TextInput value={f.work_postal} onChange={v => upd("work_postal", v)} maxLength={4} /></FI>
-          </div>
-          <FI label="Office Location Name"><TextInput value={f.work_office_name} onChange={v => upd("work_office_name", v)} placeholder="Johannesburg Head Office" /></FI>
-        </>
-      )}
-
       <div style={S.sectionTitle}><Ic.Phone /> Communication Details</div>
       <div style={S.row2}>
         <FI label="Home Number" icon={<Ic.Phone />}><TextInput value={f.home_number} onChange={v => upd("home_number", v)} placeholder="0111234567" /></FI>
@@ -434,15 +447,10 @@ function Tab2Contact({ f, upd }: { f: Employee; upd: (k: keyof Employee, v: any)
         <FI label="Relationship" required><SelectInput value={f.emergency_rel} onChange={v => upd("emergency_rel", v)}><option value="">Select</option>{["Spouse","Parent","Sibling","Friend","Other"].map(r => <option key={r}>{r}</option>)}</SelectInput></FI>
       </div>
       <div style={S.row2}>
-        <FI label="Primary Phone" required icon={<Ic.Phone />}><TextInput type="tel" value={f.emergency_phone1} onChange={v => upd("emergency_phone1", v)} /></FI>
-        <FI label="Secondary Phone" icon={<Ic.Phone />}><TextInput type="tel" value={f.emergency_phone2} onChange={v => upd("emergency_phone2", v)} /></FI>
+        <FI label="Cell Number" required icon={<Ic.Phone />}><TextInput type="tel" value={f.emergency_phone1} onChange={v => upd("emergency_phone1", v)} /></FI>
+        <FI label="Alternative Cell" icon={<Ic.Phone />}><TextInput type="tel" value={f.emergency_phone2} onChange={v => upd("emergency_phone2", v)} /></FI>
       </div>
       <FI label="Emergency Email" icon={<Ic.Mail />}><TextInput type="email" value={f.emergency_email} onChange={v => upd("emergency_email", v)} /></FI>
-      <FI label="Medical Conditions / Alerts" icon={<Ic.Activity />}>
-        <textarea value={f.emergency_medical} onChange={e => upd("emergency_medical", e.target.value)}
-          placeholder="Any medical information first responders should know..."
-          style={{ ...S.input(true), height: 72, resize: "vertical" as const }} />
-      </FI>
     </div>
   );
 }
@@ -498,7 +506,7 @@ function Tab3Employment({ f, upd, departments, departmentsLoading, positions }: 
       <div style={S.sectionTitle}><Ic.Clock /> Employment Type</div>
       <FI label="Employment Type" required>
         <RadioGroup value={f.employment_type} onChange={v => upd("employment_type", v as EmploymentType)}
-          options={["Full Time","Part Time","Contract","Intern","Temporary","Casual","Probation"]} horizontal />
+          options={[...EMPLOYMENT_TYPES]} horizontal />
       </FI>
 
       {/* Benefits notice */}
@@ -663,10 +671,6 @@ function Tab3Employment({ f, upd, departments, departmentsLoading, positions }: 
         <FI label="SDL Number"><TextInput value={f.sdl_number} onChange={v => upd("sdl_number", v)} /></FI>
         <FI label="SDL Contribution"><SelectInput value={f.sdl_contribution} onChange={v => upd("sdl_contribution", v)}><option>1%</option><option>Exempt</option></SelectInput></FI>
       </div>
-      <div style={{ display: "flex", gap: 16 }}>
-        <Checkbox checked={f.sdl_learnership} onChange={v => upd("sdl_learnership", v)} label="Learnership Agreement" />
-        <Checkbox checked={f.sdl_apprenticeship} onChange={v => upd("sdl_apprenticeship", v)} label="Apprenticeship" />
-      </div>
 
       {/* OID */}
       <div style={S.sectionTitle}><Ic.Activity /> OID (Occupational Injuries & Diseases)</div>
@@ -700,7 +704,7 @@ function Tab4Payment({ f, upd }: { f: Employee; upd: (k: keyof Employee, v: any)
       <div style={S.row2}>
         <FI label="Payment Method" required>
           <RadioGroup value={f.payment_method} onChange={v => upd("payment_method", v as PaymentMethod)}
-            options={["Bank Transfer","Cash","Cheque"]} horizontal />
+            options={[...PAYMENT_METHODS]} horizontal />
         </FI>
         <FI label="Payment Frequency"><SelectInput value={f.payment_frequency} onChange={v => upd("payment_frequency", v)}>{["Weekly","Bi-weekly","Semi-monthly","Monthly"].map(x => <option key={x}>{x}</option>)}</SelectInput></FI>
       </div>
@@ -799,8 +803,8 @@ function Tab4Payment({ f, upd }: { f: Employee; upd: (k: keyof Employee, v: any)
 
       <div style={S.sectionTitle}><Ic.Lock /> Account Setup</div>
       <div style={S.row2}>
-        <FI label="Password" icon={<Ic.Lock />}><TextInput type="password" value={f.password} onChange={v => upd("password", v)} placeholder="Min. 6 characters" /></FI>
-        <FI label="Confirm Password" icon={<Ic.Lock />}><TextInput type="password" value={f.confirm_password} onChange={v => upd("confirm_password", v)} placeholder="Re-enter password" /></FI>
+        <FI label="Password" icon={<Ic.Lock />}><PasswordInput value={f.password} onChange={v => upd("password", v)} placeholder="Min. 6 characters" /></FI>
+        <FI label="Confirm Password" icon={<Ic.Lock />}><PasswordInput value={f.confirm_password} onChange={v => upd("confirm_password", v)} placeholder="Re-enter password" /></FI>
       </div>
       <div style={{ display: "flex", gap: 16 }}>
         <Checkbox checked={f.create_account} onChange={v => upd("create_account", v)} label="Create system account" sub="Employee can log in with their email and password" />
@@ -1104,14 +1108,14 @@ function TableModeRow({ data, index, departments, positions, onChange, onRemove 
       </td>
       <td style={{ padding: "5px 7px" }}>
         <select style={{ ...sel, minWidth: 110 }} value={data.employment_type || ""} onChange={e => onChange("employment_type", e.target.value)}>
-          <option value="">Type</option>{(["Full Time","Part Time","Contract","Intern","Temporary","Casual","Probation"] as EmploymentType[]).map(t => <option key={t}>{t}</option>)}
+          <option value="">Type</option>{EMPLOYMENT_TYPES.map(t => <option key={t}>{t}</option>)}
         </select>
       </td>
       <td style={{ padding: "5px 7px" }}><input style={{ ...inp, minWidth: 120 }} type="date" value={data.start_date || ""} onChange={e => onChange("start_date", e.target.value)} /></td>
       <td style={{ padding: "5px 7px" }}><input style={{ ...inp, minWidth: 100 }} type="number" placeholder="Annual salary" value={data.annual_salary || ""} onChange={e => onChange("annual_salary", e.target.value)} /></td>
       <td style={{ padding: "5px 7px" }}>
         <select style={{ ...sel, minWidth: 100 }} value={data.payment_method || "Bank Transfer"} onChange={e => onChange("payment_method", e.target.value)}>
-          {["Bank Transfer","Cash","Cheque"].map(m => <option key={m}>{m}</option>)}
+          {PAYMENT_METHODS.map(m => <option key={m}>{m}</option>)}
         </select>
       </td>
       <td style={{ padding: "6px 8px", textAlign: "center" }}>
@@ -1559,7 +1563,7 @@ function ManageEmployeesContent() {
                       <option value="">Department</option>{departments.map(d => <option key={d}>{d}</option>)}
                     </select>
                     <select value={bulkType} onChange={e => setBulkType(e.target.value)} style={{ padding: "6px 10px", border: "1px solid #d0d5dd", borderRadius: 6, fontSize: 12, background: "#fff" }}>
-                      <option value="">Employment Type</option>{(["Full Time","Part Time","Contract","Intern","Temporary","Casual","Probation"] as EmploymentType[]).map(t => <option key={t}>{t}</option>)}
+                      <option value="">Employment Type</option>{EMPLOYMENT_TYPES.map(t => <option key={t}>{t}</option>)}
                     </select>
                     <input type="date" value={bulkDate} onChange={e => setBulkDate(e.target.value)} style={{ padding: "6px 10px", border: "1px solid #d0d5dd", borderRadius: 6, fontSize: 12 }} />
                     <button type="button" onClick={() => {
@@ -1722,7 +1726,7 @@ function ManageEmployeesContent() {
             </div>
             {queue.length > 0 && (
               <div style={{ marginTop: 10, display: "flex", gap: 8, flexWrap: "wrap" }}>
-                {(["Full Time","Part Time","Contract","Intern"] as EmploymentType[]).map(t => {
+                {(["Full Time","Part Time","Contract","Intern","Volunteer"] as EmploymentType[]).map(t => {
                   const count = queue.filter(q => q.employment_type === t).length;
                   return count > 0 ? <span key={t} style={{ background: "rgba(255,255,255,0.25)", padding: "2px 8px", borderRadius: 10, fontSize: 10, fontWeight: 600 }}>{count} {t}</span> : null;
                 })}
