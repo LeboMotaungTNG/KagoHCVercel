@@ -95,13 +95,20 @@ export const ZAF_BANKS = [
 
 export type EmploymentType =
   | "Full Time" | "Part Time" | "Contract" | "Intern"
-  | "Temporary" | "Casual" | "Probation";
+  | "Temporary" | "Casual" | "Probation" | "Volunteer";
+
+export const EMPLOYMENT_TYPES: EmploymentType[] = [
+  "Full Time", "Part Time", "Contract", "Intern",
+  "Temporary", "Casual", "Probation", "Volunteer",
+];
 
 export type IdentificationType =
   | "RSA ID Number" | "Passport Number"
   | "Asylum Seeker Permit" | "Refugee Permit";
 
-export type PaymentMethod = "Bank Transfer" | "Cash" | "Cheque";
+export type PaymentMethod = "Bank Transfer" | "Cash";
+
+export const PAYMENT_METHODS: PaymentMethod[] = ["Bank Transfer", "Cash"];
 export type Mode = "form" | "table" | "upload";
 export type FormTab = 1 | 2 | 3 | 4 | 5 | 6;
 
@@ -324,6 +331,7 @@ export function benefitsForType(et: EmploymentType): BenefitMatrix {
     "Temporary": { medical: false, retirement: false, leave: true,  uif: true,  bonus: false },
     "Casual":    { medical: false, retirement: false, leave: false, uif: false, bonus: false },
     "Probation": { medical: true,  retirement: true,  leave: true,  uif: true,  bonus: false },
+    "Volunteer": { medical: false, retirement: false, leave: false, uif: false, bonus: false },
   };
   return map[et];
 }
@@ -469,7 +477,7 @@ export function validateOnboardingTab(tab: FormTab, data: Partial<Employee>): Va
     else if (!validateEmail(data.email || "")) errors.push("Enter a valid email address");
     if (isBlank(data.emergency_name)) errors.push("Emergency contact person is required");
     if (isBlank(data.emergency_rel)) errors.push("Emergency contact relationship is required");
-    if (isBlank(data.emergency_phone1)) errors.push("Emergency contact phone is required");
+    if (isBlank(data.emergency_phone1)) errors.push("Emergency cell number is required");
   }
 
   if (tab === 3) {
