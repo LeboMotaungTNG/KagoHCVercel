@@ -19,6 +19,7 @@ import {
   avatarBg, getInitials,
 } from "../../shared/utils/employee";
 import { PageHero } from "../employee/src/components/PerformanceUI";
+import { isManagerReviewStatus, leaveApiMessage } from "../../shared/utils/LeaveUtils";
 
 const token = () => localStorage.getItem("token") || "";
 
@@ -270,11 +271,12 @@ const PendingLeaveCard: React.FC<{
   onApprove: (id: string) => void;
   onReject: (id: string) => void;
 }> = ({ requests, loading, onApprove, onReject }) => {
-  const pending = requests.filter(r => (r.status ?? "pending") === "pending");
+  const pending = requests.filter(r => isManagerReviewStatus(r.status ?? "pending_manager"));
 
-  const getName  = (r: LeaveReq) => r.employee_name ?? r.employeeName ?? r.full_name ?? "Employee";
-  const getType  = (r: LeaveReq) => r.type ?? r.leaveType ?? r.leave_type ?? "Leave";
+  const getName  = (r: LeaveReq) => r.full_name ?? r.employee_name ?? r.employeeName ?? "Employee";
+  const getType  = (r: LeaveReq) => r.leave_type ?? r.type ?? r.leaveType ?? "Leave";
   const getStart = (r: LeaveReq) => r.start_date ?? r.startDate ?? "—";
+  const getDays  = (r: LeaveReq) => r.days ?? (r as any).total_days ?? (r as any).totalDays ?? "?";
 
   return (
     <Card>
@@ -309,7 +311,7 @@ const PendingLeaveCard: React.FC<{
                   <div style={{ minWidth: 0 }}>
                     <div style={{ fontSize: 14, fontWeight: 700, color: C.ink, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{getName(r)}</div>
                     <div style={{ fontSize: 12, color: C.muted, marginTop: 2 }}>
-                      {getType(r)} · from {getStart(r)} · {r.days ?? "?"} day{r.days !== 1 ? "s" : ""}
+                      {getType(r)} · from {getStart(r)} · {getDays(r)} day{getDays(r) !== 1 ? "s" : ""}
                     </div>
                   </div>
                 </div>
@@ -320,7 +322,7 @@ const PendingLeaveCard: React.FC<{
                     onMouseEnter={e => (e.currentTarget.style.filter = "brightness(0.93)")}
                     onMouseLeave={e => (e.currentTarget.style.filter = "")}
                   >
-                    <Check size={13} />Approve
+                    <Check size={13} />Send to HR
                   </button>
                   <button
                     onClick={() => onReject(r.id)}
@@ -520,18 +522,26 @@ const ManagerDashboard: React.FC = () => {
 
   const handleLeaveAction = useCallback(async (id: string, action: "approved" | "rejected", reason?: string) => {
     try {
-      console.log('handleLeaveAction', { id, action, reason });
       const headers: Record<string, string> = { Authorization: `Bearer ${token()}`, "Content-Type": "application/json" };
       const url = action === "approved"
         ? `${API_URL}/leave/${id}/approve`
         : `${API_URL}/leave/${id}/reject`;
-      const options: any = { method: "PATCH", headers };
-      if (action === "rejected") options.body = JSON.stringify({ reason });
+      let rejectReason = reason;
+      if (action === "rejected" && !rejectReason?.trim()) {
+        rejectReason = window.prompt("Rejection reason (required):") || "";
+        if (!rejectReason.trim()) return;
+      }
+      const options: RequestInit = {
+        method: "PATCH",
+        headers,
+        body: action === "rejected" ? JSON.stringify({ reason: rejectReason }) : undefined,
+      };
 
       const res = await fetch(url, options);
-      if (!res.ok) throw new Error(`Server error ${res.status}`);
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok || data.success === false) throw new Error(leaveApiMessage(data, `Server error ${res.status}`));
 
-      setLeaveRequests(prev => prev.map(r => r.id === id ? { ...r, status: action } : r));
+      setLeaveRequests(prev => prev.filter(r => r.id !== id));
       setCounts(prev => ({ ...prev, pendingLeave: Math.max(0, prev.pendingLeave - 1) }));
     } catch (err) { console.error(err); }
   }, []);
@@ -577,17 +587,17 @@ const ManagerDashboard: React.FC = () => {
 
     const normalize = (arr: any[]) => arr.map((item: any) => ({ ...item, id: item._id || item.id || String(item.leave_id) }));
 
-    fetch(`${API_URL}/leave/requests`, { headers })
+    fetch(`${API_URL}/leave?limit=100&page=1`, { headers })
       .then(r => r.json()).then(d => {
         const items = normalize(extract(d));
-        console.log('Loaded leave ids:', items.map((i: any) => i.id));
         setLeaveRequests(items as LeaveReq[]);
+        setCounts(prev => ({ ...prev, pendingLeave: items.filter((i: any) => isManagerReviewStatus(i.status ?? "pending_manager")).length }));
       })
       .catch(() =>
-        fetch(`${API_URL}/leave`, { headers }).then(r => r.json()).then(d => {
+        fetch(`${API_URL}/leave/requests?limit=100&page=1`, { headers }).then(r => r.json()).then(d => {
           const items = normalize(extract(d));
-          console.log('Loaded leave ids (fallback):', items.map((i: any) => i.id));
           setLeaveRequests(items as LeaveReq[]);
+          setCounts(prev => ({ ...prev, pendingLeave: items.filter((i: any) => isManagerReviewStatus(i.status ?? "pending_manager")).length }));
         })
       )
       .finally(() => setLeaveLoading(false));
@@ -638,7 +648,7 @@ const ManagerDashboard: React.FC = () => {
         <div className="mgr-kpi">
           <StatTile label="Total Employees" value={loading ? "…" : counts.employees}    sub="In your team"          icon={<Users size={20} />}    iconBg={C.blueBg}   iconColor={C.blue}   onClick={() => navigate("/manager/employees")}     />
           <StatTile label="Present Today"   value={loading ? "…" : counts.presentToday} sub={`${presentPct}% rate`} icon={<Clock size={20} />}    iconBg={C.greenBg}  iconColor={C.green}  delta={{ up: presentPct >= 75, text: `${presentPct}%` }} onClick={() => navigate("/manager/attendance")}    />
-          <StatTile label="Pending Leave"   value={loading ? "…" : counts.pendingLeave} sub="Awaiting approval"     icon={<Calendar size={20} />} iconBg={C.warnBg}   iconColor={C.amber}  onClick={() => navigate("/manager/leave-requests")} />
+          <StatTile label="Pending Leave"   value={loading ? "…" : counts.pendingLeave} sub="Awaiting manager review"     icon={<Calendar size={20} />} iconBg={C.warnBg}   iconColor={C.amber}  onClick={() => navigate("/manager/leave-requests")} />
           <StatTile label="On Payroll"      value={loading ? "…" : counts.onPayroll}    sub="Active employees"      icon={<Target size={20} />}   iconBg={C.purpleBg} iconColor={C.purple} onClick={() => navigate("/manager/payroll")}       />
         </div>
 

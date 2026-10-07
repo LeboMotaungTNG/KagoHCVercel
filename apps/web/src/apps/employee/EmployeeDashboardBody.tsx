@@ -19,6 +19,7 @@ import {
   sortLeaveBalances, buildTeammateRoster,
   useLiveTick,
 } from "../../shared/utils/employee";
+import { STATUS_LABELS } from "../../shared/utils/LeaveUtils";
 import BreakControls from "../../shared/components/BreakControls";
 import { useBreakSession, fmtBreakShort, totalBreakMs } from "../../shared/utils/breaks";
 import { PageHero } from "./src/components/PerformanceUI";
@@ -550,7 +551,10 @@ const TimeOffCard: React.FC<{
   const statusStyles: Record<LeaveStatus, { bg: string; color: string }> = {
     approved: { bg: "#ecfdf3", color: "#027a48" },
     pending: { bg: "#fffaeb", color: "#b54708" },
+    pending_manager: { bg: "#fffaeb", color: "#b54708" },
+    pending_hr: { bg: "#eff6ff", color: "#1d4ed8" },
     rejected: { bg: "#fef2f2", color: "#b42318" },
+    cancelled: { bg: "#f2f4f7", color: "#344054" },
   };
 
   const sortedBalances = useMemo(() => sortLeaveBalances(balances), [balances]);
@@ -653,7 +657,7 @@ const TimeOffCard: React.FC<{
         ) : (
           <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
             {recent.slice(0, 3).map(l => {
-              const s = statusStyles[l.status];
+              const s = statusStyles[l.status] || statusStyles.pending;
               return (
                 <div
                   key={l.id}
@@ -673,7 +677,7 @@ const TimeOffCard: React.FC<{
                     </div>
                   </div>
                   <StatusPill bg={s.bg} color={s.color}>
-                    {l.status.charAt(0).toUpperCase() + l.status.slice(1)}
+                    {STATUS_LABELS[l.status] || l.status}
                   </StatusPill>
                 </div>
               );

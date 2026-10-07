@@ -9,9 +9,9 @@ export const OwnerLeave: React.FC = () => (
     <PageHero
       icon={<Calendar size={24} color="#fff" />}
       title="Leave Management"
-      subtitle="Review requests and keep leave balances aligned across the organisation."
+      subtitle="Final HR review for requests already approved by a manager."
     />
-    <LeaveManagement accent={C.primary} canReview hideTitle />
+    <LeaveManagement accent={C.primary} canReview reviewStage="hr" hideTitle />
   </PerformancePage>
 );
 

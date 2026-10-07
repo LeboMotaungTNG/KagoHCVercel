@@ -15,10 +15,17 @@ import {
   type LeaveRequest,
   type Filters,
   type Stats,
+  type LeaveReviewStage,
   filterLeaves,
   paginateLeaves,
   computeStats,
   hasActiveFilters,
+  STATUS_LABELS,
+  canReviewLeave,
+  leaveReviewStageForRole,
+  leaveApiMessage,
+  unwrapLeaveRows,
+  mapLeaveRequest,
 } from "../utils/LeaveUtils";
 
 const API_URL = import.meta.env.VITE_API_URL || "https://employee-evaluation-kago-e63baae4d822.herokuapp.com/api/v1";
@@ -67,7 +74,7 @@ function AlertBanner({ message, type, onClose }: { message: string; type: AlertT
 // ─── Leave Details Modal ──────────────────────────────────────────────────────
 
 function LeaveDetailsModal({
-  leave, onClose, onApprove, onReject, approving, getLabel,
+  leave, onClose, onApprove, onReject, approving, getLabel, canAct, approveLabel,
 }: {
   leave: LeaveRequest;
   onClose: () => void;
@@ -75,6 +82,8 @@ function LeaveDetailsModal({
   onReject: (leave: LeaveRequest) => void;
   approving: boolean;
   getLabel: (t: string) => string;
+  canAct: boolean;
+  approveLabel: string;
 }) {
   useEffect(() => {
     document.body.style.overflow = "hidden";
@@ -139,31 +148,35 @@ function LeaveDetailsModal({
             <div style={{ display: "flex", flexDirection: "column", gap: 8, fontSize: 13 }}>
               <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
                 <span style={{ color: "#667085" }}>Status</span>
-                <Badge style={STATUS_STYLES[leave.status]}>{leave.status}</Badge>
+                <Badge style={STATUS_STYLES[leave.status]}>{STATUS_LABELS[leave.status]}</Badge>
               </div>
               <div style={{ display: "flex", justifyContent: "space-between" }}>
                 <span style={{ color: "#667085" }}>Submitted</span>
                 <span style={{ fontWeight: 500, color: "#1d2939" }}>{formatDateTime(leave.submitted_at)}</span>
               </div>
-              {leave.status !== "pending" && (
-                <>
-                  <div style={{ borderTop: "1px solid #f2f4f7", paddingTop: 8, display: "flex", justifyContent: "space-between" }}>
-                    <span style={{ color: "#667085" }}>Reviewed by</span>
-                    <span style={{ fontWeight: 500, color: "#1d2939" }}>{leave.reviewer_name || "Administrator"}</span>
-                  </div>
-                  {leave.reviewed_at && (
-                    <div style={{ display: "flex", justifyContent: "space-between" }}>
-                      <span style={{ color: "#667085" }}>Reviewed at</span>
-                      <span style={{ fontWeight: 500, color: "#1d2939" }}>{formatDateTime(leave.reviewed_at)}</span>
-                    </div>
-                  )}
-                  {leave.rejection_reason && (
-                    <div>
-                      <p style={{ margin: "0 0 2px", fontSize: 11, color: "#98a2b3", textTransform: "uppercase", letterSpacing: .3 }}>Rejection reason</p>
-                      <p style={{ margin: 0, fontSize: 13, color: "#1d2939" }}>{leave.rejection_reason}</p>
-                    </div>
-                  )}
-                </>
+              <div style={{ display: "flex", justifyContent: "space-between" }}>
+                <span style={{ color: "#667085" }}>Manager</span>
+                <span style={{ fontWeight: 500, color: "#1d2939" }}>
+                  {leave.managerApprovedAt ? formatDateTime(leave.managerApprovedAt) : leave.status === "pending_hr" || leave.status === "approved" ? "Approved" : "Awaiting"}
+                </span>
+              </div>
+              <div style={{ display: "flex", justifyContent: "space-between" }}>
+                <span style={{ color: "#667085" }}>HR</span>
+                <span style={{ fontWeight: 500, color: "#1d2939" }}>
+                  {leave.hrApprovedAt ? formatDateTime(leave.hrApprovedAt) : leave.status === "approved" ? "Approved" : leave.status === "pending_hr" ? "Awaiting" : "Not started"}
+                </span>
+              </div>
+              {leave.reviewer_name && (
+                <div style={{ borderTop: "1px solid #f2f4f7", paddingTop: 8, display: "flex", justifyContent: "space-between" }}>
+                  <span style={{ color: "#667085" }}>Last reviewed by</span>
+                  <span style={{ fontWeight: 500, color: "#1d2939" }}>{leave.reviewer_name}</span>
+                </div>
+              )}
+              {(leave.rejection_reason || leave.managerRejectionReason || leave.hrRejectionReason) && (
+                <div>
+                  <p style={{ margin: "0 0 2px", fontSize: 11, color: "#98a2b3", textTransform: "uppercase", letterSpacing: .3 }}>Rejection reason</p>
+                  <p style={{ margin: 0, fontSize: 13, color: "#1d2939" }}>{leave.hrRejectionReason || leave.managerRejectionReason || leave.rejection_reason}</p>
+                </div>
               )}
             </div>
           </Section>
@@ -171,14 +184,14 @@ function LeaveDetailsModal({
 
         <div style={{ padding: "12px 16px", borderTop: "1px solid #f2f4f7", display: "flex", justifyContent: "flex-end", gap: 8, flexShrink: 0 }}>
           <button onClick={onClose} style={{ padding: "7px 14px", borderRadius: 8, border: "1px solid #d0d5dd", background: "#fff", fontSize: 13, fontWeight: 500, color: "#344054", cursor: "pointer" }}>Close</button>
-          {leave.status === "pending" && (
+          {canAct && (
             <>
               <button
                 onClick={() => onApprove(leave)}
                 disabled={approving}
                 style={{ padding: "7px 14px", borderRadius: 8, border: "none", background: "#10b981", fontSize: 13, fontWeight: 500, color: "#fff", cursor: approving ? "not-allowed" : "pointer", opacity: approving ? 0.6 : 1 }}
               >
-                {approving ? "Approving…" : "Approve"}
+                {approving ? "Approving…" : approveLabel}
               </button>
               <button onClick={() => onReject(leave)} style={{ padding: "7px 14px", borderRadius: 8, border: "none", background: "#ef4444", fontSize: 13, fontWeight: 500, color: "#fff", cursor: "pointer" }}>Reject</button>
             </>
@@ -237,7 +250,7 @@ function RejectModal({ onClose, onConfirm, loading }: { onClose: () => void; onC
 
 function StatCards({ stats }: { stats: Stats }) {
   const cards = [
-    { label: "Pending Requests", value: stats.pending,  color: "#b54708", icon: <Ic.Calendar /> },
+    { label: "Awaiting you", value: stats.pending,  color: "#b54708", icon: <Ic.Calendar /> },
     { label: "Approved",         value: stats.approved, color: "#027a48", icon: <Ic.Check />   },
     { label: "Denied",           value: stats.rejected, color: "#b42318", icon: <Ic.X />       },
     { label: "Total Requests",   value: stats.total,    color: "#1d4ed8", icon: <Ic.Table />   },
@@ -285,20 +298,31 @@ export interface LeaveManagementProps {
   accent?: string;
   /** Whether the current user may approve/reject (managers/owner/admin/hr). */
   canReview?: boolean;
+  /** Manager stage sends to HR; HR/owner stage is final approval. */
+  reviewStage?: LeaveReviewStage;
   title?: string;
   subtitle?: string;
   hideTitle?: boolean;
 }
 
-export function LeaveManagement({ accent = C.primary, canReview = true, title = "Leave Requests Management", subtitle = "Home › Leave Requests", hideTitle = false }: LeaveManagementProps) {
+export function LeaveManagement({ accent = C.primary, canReview = true, reviewStage, title = "Leave Requests Management", subtitle = "Home › Leave Requests", hideTitle = false }: LeaveManagementProps) {
   const navigate = useNavigate();
+  const [stage, setStage] = useState<LeaveReviewStage>(reviewStage || "manager");
+  const [role, setRole] = useState("");
 
   useEffect(() => {
     const token   = localStorage.getItem("token");
     const userStr = localStorage.getItem("user");
     if (!token || !userStr) { navigate("/"); return; }
-    try { JSON.parse(userStr); } catch { navigate("/"); }
-  }, [navigate]);
+    try {
+      const user = JSON.parse(userStr);
+      setRole(String(user?.role || "").toLowerCase());
+      if (!reviewStage) setStage(leaveReviewStageForRole(user?.role));
+    } catch { navigate("/"); }
+  }, [navigate, reviewStage]);
+
+  const approveLabel = stage === "manager" ? "Send to HR" : "Approve";
+  const canCancel = role === "owner" || role === "admin";
 
   const card: React.CSSProperties = { background: "#fff", borderRadius: 16, border: "1px solid #e4e7ec" };
 
@@ -337,23 +361,11 @@ export function LeaveManagement({ accent = C.primary, canReview = true, title = 
     try {
       if (!silent) setLoading(true);
       const token = localStorage.getItem("token");
-      const response = await fetch(`${API_URL}/leave`, {
+      const response = await fetch(`${API_URL}/leave?limit=100&page=1`, {
         headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
       });
       const data = await response.json();
-      const rows: LeaveRequest[] =
-        Array.isArray(data)            ? data :
-        Array.isArray(data.data?.data) ? data.data.data :
-        Array.isArray(data.data)       ? data.data :
-        [];
-
-      const mappedRows = rows.map(row => ({
-        ...row,
-        submitted_at: row.submitted_at || (row as any).createdAt || new Date().toISOString(),
-        total_days: row.total_days || (row as any).daysRequested || (row as any).totalDays || 1,
-      }));
-
-      setLeaves(mappedRows);
+      setLeaves(unwrapLeaveRows(data).map(mapLeaveRequest));
     } catch (error) {
       console.error("Error fetching leave requests:", error);
       showAlert("Failed to load leave requests", "error");
@@ -414,10 +426,10 @@ export function LeaveManagement({ accent = C.primary, canReview = true, title = 
 
       if (response.ok && data.success !== false) {
         setSelectedLeave(null);
-        showAlert("Leave request approved successfully.", "success");
+        showAlert(leaveApiMessage(data, stage === "manager" ? "Sent to HR for review." : "Leave request approved."), "success");
         await fetchLeaves(true);
       } else {
-        showAlert(data.message || data.error?.message || "Failed to approve leave request.", "error");
+        showAlert(leaveApiMessage(data, "Failed to approve leave request."), "error");
       }
     } catch (error) {
       console.error("Error approving leave:", error);
@@ -450,7 +462,7 @@ export function LeaveManagement({ accent = C.primary, canReview = true, title = 
         showAlert("Leave request denied successfully.", "success");
         await fetchLeaves(true);
       } else {
-        showAlert(data.message || data.error?.message || "Failed to reject leave request.", "error");
+        showAlert(leaveApiMessage(data, "Failed to reject leave request."), "error");
       }
     } catch (error) {
       console.error("Error rejecting leave:", error);
@@ -479,7 +491,7 @@ export function LeaveManagement({ accent = C.primary, canReview = true, title = 
         showAlert("Leave request cancelled successfully.", "success");
         await fetchLeaves(true);
       } else {
-        showAlert(data.message || data.error?.message || "Failed to cancel leave request.", "error");
+        showAlert(leaveApiMessage(data, "Failed to cancel leave request."), "error");
       }
     } catch (error) {
       console.error("Error cancelling leave:", error);
@@ -527,8 +539,8 @@ export function LeaveManagement({ accent = C.primary, canReview = true, title = 
           <div style={{ display: "flex", flexWrap: "wrap", gap: 10 }}>
             <select defaultValue="" onChange={e => setFilter("status", e.target.value as LeaveStatus | "")} style={inputStyle}>
               <option value="">All Status</option>
-              {(["pending","approved","rejected","cancelled"] as LeaveStatus[]).map(s => (
-                <option key={s} value={s}>{s.charAt(0).toUpperCase() + s.slice(1)}</option>
+              {(["pending_manager","pending_hr","pending","approved","rejected","cancelled"] as LeaveStatus[]).map(s => (
+                <option key={s} value={s}>{STATUS_LABELS[s]}</option>
               ))}
             </select>
 
@@ -580,7 +592,7 @@ export function LeaveManagement({ accent = C.primary, canReview = true, title = 
 
               {!loading && paginated.map((leave, idx) => (
                 <tr
-                  key={leave.leave_id}
+                  key={leave._id || String(leave.leave_id)}
                   style={{ borderBottom: "1px solid #f9fafb", transition: "background .15s" }}
                   onMouseEnter={e => { e.currentTarget.style.background = "#f9fafb"; }}
                   onMouseLeave={e => { e.currentTarget.style.background = "#fff"; }}
@@ -609,7 +621,7 @@ export function LeaveManagement({ accent = C.primary, canReview = true, title = 
                     <div style={{ fontSize: 11, color: "#98a2b3" }}>day(s)</div>
                   </td>
                   <td style={{ padding: "12px 16px" }}>
-                    <Badge style={STATUS_STYLES[leave.status]}>{leave.status}</Badge>
+                    <Badge style={STATUS_STYLES[leave.status]}>{STATUS_LABELS[leave.status]}</Badge>
                   </td>
                   <td style={{ padding: "12px 16px" }}>
                     <div style={{ fontSize: 13, color: "#1d2939" }}>{leave.reason || "—"}</div>
@@ -621,12 +633,14 @@ export function LeaveManagement({ accent = C.primary, canReview = true, title = 
                   <td style={{ padding: "12px 16px" }}>
                     <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
                       <ActionBtn icon={<Ic.Eye/>}   label="View"    onClick={() => setSelectedLeave(leave)}/>
-                      {canReview && leave.status === "pending" && (
+                      {canReview && canReviewLeave(leave.status, stage) && (
                         <>
-                          <ActionBtn icon={<Ic.Check/>} label="Approve" color="#10b981" disabled={approving} onClick={() => approveLeave(leave)}/>
+                          <ActionBtn icon={<Ic.Check/>} label={approveLabel} color="#10b981" disabled={approving} onClick={() => approveLeave(leave)}/>
                           <ActionBtn icon={<Ic.X/>}     label="Reject"  color="#ef4444" onClick={() => openRejectModal(leave)}/>
-                          <ActionBtn icon={<Ic.Trash/>} label="Cancel"                  onClick={() => cancelLeave(leave)}/>
                         </>
+                      )}
+                      {canCancel && (
+                        <ActionBtn icon={<Ic.Trash/>} label="Cancel" onClick={() => cancelLeave(leave)}/>
                       )}
                     </div>
                   </td>
@@ -671,6 +685,8 @@ export function LeaveManagement({ accent = C.primary, canReview = true, title = 
           onReject={openRejectModal}
           approving={approving}
           getLabel={labelFor}
+          canAct={!!canReview && canReviewLeave(selectedLeave.status, stage)}
+          approveLabel={approveLabel}
         />
       )}
       {rejectTarget && (

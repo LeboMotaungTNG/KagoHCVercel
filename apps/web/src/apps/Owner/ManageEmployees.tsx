@@ -31,6 +31,8 @@ import {
   queueItemFromTableRow,
   EMPLOYMENT_TYPES,
   PAYMENT_METHODS,
+  isVolunteerType,
+  volunteerPayReset,
   type Employee,
   type Allowance,
   type Deduction,
@@ -73,7 +75,13 @@ const Ic = {
   RefreshCw: () => <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M23 4v6h-6"/><path d="M1 20v-6h6"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg>,
   Sliders: () => <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><line x1="4" y1="21" x2="4" y2="14"/><line x1="4" y1="10" x2="4" y2="3"/><line x1="12" y1="21" x2="12" y2="12"/><line x1="12" y1="8" x2="12" y2="3"/><line x1="20" y1="21" x2="20" y2="16"/><line x1="20" y1="12" x2="20" y2="3"/><line x1="1" y1="14" x2="7" y2="14"/><line x1="9" y1="8" x2="15" y2="8"/><line x1="17" y1="16" x2="23" y2="16"/></svg>,
   AlertCircle: () => <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>,
-  Info: () => <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>,
+  Info: () => (
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ width: 16, height: 16, flexShrink: 0, display: "block" }}>
+      <circle cx="12" cy="12" r="10" />
+      <line x1="12" y1="16" x2="12" y2="12" />
+      <circle cx="12" cy="8" r="1" fill="currentColor" stroke="none" />
+    </svg>
+  ),
   Lock: () => <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>,
   Users: () => <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>,
   ArrowRight: () => <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg>,
@@ -429,17 +437,14 @@ function Tab2Contact({ f, upd }: { f: Employee; upd: (k: keyof Employee, v: any)
         <FI label="Work Number" icon={<Ic.Phone />}><TextInput value={f.work_number} onChange={v => upd("work_number", v)} placeholder="0111234567" /></FI>
       </div>
       <div style={S.row2}>
-        <FI label="Cell Number" required icon={<Ic.Phone />}><TextInput type="tel" value={f.cell_number} onChange={v => upd("cell_number", v)} /></FI>
-        <FI label="Alternative Cell" icon={<Ic.Phone />}><TextInput value={f.alt_cell} onChange={v => upd("alt_cell", v)} placeholder="0831234567" /></FI>
+        <FI label="Mobile phone" required icon={<Ic.Phone />}><TextInput type="tel" value={f.cell_number} onChange={v => upd("cell_number", v)} /></FI>
+        <FI label="Alternative mobile phone" icon={<Ic.Phone />}><TextInput value={f.alt_cell} onChange={v => upd("alt_cell", v)} placeholder="0831234567" /></FI>
       </div>
       <div style={S.row2}>
         <FI label="Email Address" required icon={<Ic.Mail />}><TextInput type="email" value={f.email} onChange={v => upd("email", v)} placeholder="john@company.com" /></FI>
         <FI label="Alternative Email" icon={<Ic.Mail />}><TextInput type="email" value={f.alt_email} onChange={v => upd("alt_email", v)} placeholder="personal@gmail.com" /></FI>
       </div>
-      <div style={S.row2}>
-        <FI label="Fax Number" icon={<Ic.Phone />}><TextInput value={f.fax_number} onChange={v => upd("fax_number", v)} placeholder="0111234567" /></FI>
-        <FI label="Preferred Contact Method"><SelectInput value={f.preferred_contact} onChange={v => upd("preferred_contact", v)}>{["Email","Phone","SMS","WhatsApp"].map(c => <option key={c}>{c}</option>)}</SelectInput></FI>
-      </div>
+      <FI label="Preferred Contact Method"><SelectInput value={f.preferred_contact} onChange={v => upd("preferred_contact", v)}>{["Email","Phone","SMS","WhatsApp"].map(c => <option key={c}>{c}</option>)}</SelectInput></FI>
 
       <div style={S.sectionTitle}><Ic.Shield /> Emergency Contact</div>
       <div style={S.row2}>
@@ -447,16 +452,17 @@ function Tab2Contact({ f, upd }: { f: Employee; upd: (k: keyof Employee, v: any)
         <FI label="Relationship" required><SelectInput value={f.emergency_rel} onChange={v => upd("emergency_rel", v)}><option value="">Select</option>{["Spouse","Parent","Sibling","Friend","Other"].map(r => <option key={r}>{r}</option>)}</SelectInput></FI>
       </div>
       <div style={S.row2}>
-        <FI label="Cell Number" required icon={<Ic.Phone />}><TextInput type="tel" value={f.emergency_phone1} onChange={v => upd("emergency_phone1", v)} /></FI>
-        <FI label="Alternative Cell" icon={<Ic.Phone />}><TextInput type="tel" value={f.emergency_phone2} onChange={v => upd("emergency_phone2", v)} /></FI>
+        <FI label="Mobile phone" required icon={<Ic.Phone />}><TextInput type="tel" value={f.emergency_phone1} onChange={v => upd("emergency_phone1", v)} /></FI>
+        <FI label="Alternative mobile phone" icon={<Ic.Phone />}><TextInput type="tel" value={f.emergency_phone2} onChange={v => upd("emergency_phone2", v)} /></FI>
       </div>
       <FI label="Emergency Email" icon={<Ic.Mail />}><TextInput type="email" value={f.emergency_email} onChange={v => upd("emergency_email", v)} /></FI>
     </div>
   );
 }
 
-function Tab3Employment({ f, upd, departments, departmentsLoading, positions }: {
+function Tab3Employment({ f, upd, patch, departments, departmentsLoading, positions }: {
   f: Employee; upd: (k: keyof Employee, v: any) => void;
+  patch: (p: Partial<Employee>) => void;
   departments: string[]; departmentsLoading: boolean;
   positions: OrgPosition[];
 }) {
@@ -505,9 +511,18 @@ function Tab3Employment({ f, upd, departments, departmentsLoading, positions }: 
 
       <div style={S.sectionTitle}><Ic.Clock /> Employment Type</div>
       <FI label="Employment Type" required>
-        <RadioGroup value={f.employment_type} onChange={v => upd("employment_type", v as EmploymentType)}
+        <RadioGroup value={f.employment_type} onChange={v => {
+          const type = v as EmploymentType;
+          patch({ employment_type: type, ...(isVolunteerType(type) ? volunteerPayReset() : {}) });
+        }}
           options={[...EMPLOYMENT_TYPES]} horizontal />
       </FI>
+
+      {isVolunteerType(f.employment_type) && (
+        <div style={S.notice("info")}><Ic.Info />
+          <div><strong>Volunteer:</strong> Unpaid. Bank details, salary, allowances, and deductions are not collected.</div>
+        </div>
+      )}
 
       {/* Benefits notice */}
       {f.employment_type === "Intern" && (
@@ -688,7 +703,7 @@ function Tab3Employment({ f, upd, departments, departmentsLoading, positions }: 
 }
 
 function Tab4Payment({ f, upd }: { f: Employee; upd: (k: keyof Employee, v: any) => void }) {
-  const monthly = f.annual_salary ? (parseFloat(f.annual_salary) / 12).toFixed(2) : "";
+  const isVolunteer = isVolunteerType(f.employment_type);
 
   const addAllowance = () => upd("allowances", [...f.allowances, { type: allowanceTypes[0], taxable: true, calcMethod: "fixed", amount: 0 }]);
   const removeAllowance = (i: number) => upd("allowances", f.allowances.filter((_, idx) => idx !== i));
@@ -700,6 +715,15 @@ function Tab4Payment({ f, upd }: { f: Employee; upd: (k: keyof Employee, v: any)
 
   return (
     <div>
+      {isVolunteer && (
+        <div style={S.notice("info")}>
+          <Ic.Info />
+          <div>Volunteers are unpaid and do not receive a stipend or salary. Bank details, payment method, and compensation are not collected.</div>
+        </div>
+      )}
+
+      {!isVolunteer && (
+      <>
       <div style={S.sectionTitle}><Ic.Dollar /> Payment Method</div>
       <div style={S.row2}>
         <FI label="Payment Method" required>
@@ -800,6 +824,8 @@ function Tab4Payment({ f, upd }: { f: Employee; upd: (k: keyof Employee, v: any)
         </div>
       ))}
       {f.deductions.length === 0 && <div style={{ color: "#98a2b3", fontSize: 12, marginBottom: 16 }}>No deductions added yet.</div>}
+      </>
+      )}
 
       <div style={S.sectionTitle}><Ic.Lock /> Account Setup</div>
       <div style={S.row2}>
@@ -820,6 +846,14 @@ function Tab5ETI({ f, upd }: { f: Employee; upd: (k: keyof Employee, v: any) => 
   const months = f.start_date ? Math.max(0, Math.floor((Date.now() - new Date(f.start_date).getTime()) / (1000 * 60 * 60 * 24 * 30))) : 0;
   const etiAmt = calcETI(wage, months);
   const ageEligible = age > 0 && age < 30;
+
+  if (isVolunteerType(f.employment_type)) {
+    return (
+      <div style={S.notice("info")}><Ic.Info />
+        <div>ETI does not apply to volunteers. They are unpaid and are not on payroll.</div>
+      </div>
+    );
+  }
 
   return (
     <div>
@@ -1040,7 +1074,7 @@ function QueueCard({ item, index, onRemove }: { item: QueueItem; index: number; 
           {age > 0 && <span style={S.badge(age < 30 ? "#f59e0b" : BRAND.textMuted)}>Age {age}{age < 30 ? " · ETI" : ""}</span>}
           {uifRequired(item.employment_type) && <span style={S.badge(BRAND.primary)}>UIF</span>}
           {benefits.medical && <span style={S.badge("#7c3aed")}>Medical</span>}
-          <span style={S.badge(BRAND.textMuted)}>{item.payment_method}</span>
+          <span style={S.badge(BRAND.textMuted)}>{isVolunteerType(item.employment_type) ? "Unpaid" : item.payment_method}</span>
         </div>
         {item.start_date && (
           <div style={{ gridColumn: "1 / -1", marginTop: 4, color: BRAND.textFaint }}>
@@ -1107,14 +1141,20 @@ function TableModeRow({ data, index, departments, positions, onChange, onRemove 
         </select>
       </td>
       <td style={{ padding: "5px 7px" }}>
-        <select style={{ ...sel, minWidth: 110 }} value={data.employment_type || ""} onChange={e => onChange("employment_type", e.target.value)}>
+        <select style={{ ...sel, minWidth: 110 }} value={data.employment_type || ""} onChange={e => {
+          onChange("employment_type", e.target.value);
+          if (isVolunteerType(e.target.value)) {
+            onChange("annual_salary", "");
+            onChange("payment_method", "Cash");
+          }
+        }}>
           <option value="">Type</option>{EMPLOYMENT_TYPES.map(t => <option key={t}>{t}</option>)}
         </select>
       </td>
       <td style={{ padding: "5px 7px" }}><input style={{ ...inp, minWidth: 120 }} type="date" value={data.start_date || ""} onChange={e => onChange("start_date", e.target.value)} /></td>
-      <td style={{ padding: "5px 7px" }}><input style={{ ...inp, minWidth: 100 }} type="number" placeholder="Annual salary" value={data.annual_salary || ""} onChange={e => onChange("annual_salary", e.target.value)} /></td>
+      <td style={{ padding: "5px 7px" }}><input style={{ ...inp, minWidth: 100 }} type="number" placeholder={isVolunteerType(data.employment_type) ? "Unpaid" : "Annual salary"} value={isVolunteerType(data.employment_type) ? "" : (data.annual_salary || "")} disabled={isVolunteerType(data.employment_type)} onChange={e => onChange("annual_salary", e.target.value)} /></td>
       <td style={{ padding: "5px 7px" }}>
-        <select style={{ ...sel, minWidth: 100 }} value={data.payment_method || "Bank Transfer"} onChange={e => onChange("payment_method", e.target.value)}>
+        <select style={{ ...sel, minWidth: 100 }} value={isVolunteerType(data.employment_type) ? "Cash" : (data.payment_method || "Bank Transfer")} disabled={isVolunteerType(data.employment_type)} onChange={e => onChange("payment_method", e.target.value)}>
           {PAYMENT_METHODS.map(m => <option key={m}>{m}</option>)}
         </select>
       </td>
@@ -1173,6 +1213,7 @@ function ManageEmployeesContent() {
   }, []);
 
   const upd = useCallback((k: keyof Employee, v: any) => setForm(prev => ({ ...prev, [k]: v })), []);
+  const patchForm = useCallback((p: Partial<Employee>) => setForm(prev => ({ ...prev, ...p })), []);
 
   const showToast = (msg: string, type: "success"|"error" = "success") => {
     setToast({ msg, type });
@@ -1511,7 +1552,7 @@ function ManageEmployeesContent() {
                 )}
                 {activeTab === 1 && <Tab1Personal f={form} upd={upd} />}
                 {activeTab === 2 && <Tab2Contact f={form} upd={upd} />}
-                {activeTab === 3 && <Tab3Employment f={form} upd={upd} departments={departments} departmentsLoading={departmentsLoading} positions={positions} />}
+                {activeTab === 3 && <Tab3Employment f={form} upd={upd} patch={patchForm} departments={departments} departmentsLoading={departmentsLoading} positions={positions} />}
                 {activeTab === 4 && <Tab4Payment f={form} upd={upd} />}
                 {activeTab === 5 && <Tab5ETI f={form} upd={upd} />}
                 {activeTab === 6 && <Tab6Hours f={form} upd={upd} />}

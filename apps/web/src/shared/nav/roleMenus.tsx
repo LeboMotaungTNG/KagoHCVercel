@@ -20,7 +20,7 @@ import type { AppShellNav } from "./types";
 export function navForRole(role: string): AppShellNav {
   if (role === "owner") return ownerNav;
   if (role === "auditor") return auditorNav;
-  if (role === "manager" || role === "admin" || role === "hr") return managerNav;
+  if (role === "manager" || role === "admin" || role === "hr" || role === "hr_manager") return managerNav;
   if (role === "payroll_officer") return payrollOfficerNav;
   return employeeNav(role);
 }
@@ -37,6 +37,9 @@ const employeeNav = (role: string): AppShellNav => ({
           : []),
         { kind: "link", to: "/employee/attendance", label: "Attendance", icon: Clock },
         { kind: "link", to: "/employee/leave", label: "Leave", icon: Calendar },
+        ...(role === "line_manager"
+          ? [{ kind: "link" as const, to: "/manager/leave-requests", label: "Team Leave", icon: ClipboardList }]
+          : []),
       ],
     },
     {
@@ -193,6 +196,7 @@ const ownerNav: AppShellNav = {
       label: "Work",
       items: [
         { kind: "link", to: "/owner", label: "Dashboard", icon: Home, exact: true },
+        { kind: "link", to: "/owner/leave", label: "Leave Requests", icon: ClipboardList },
         { kind: "link", to: "/delegations", label: "Delegations", icon: ShieldCheck },
       ],
     },
