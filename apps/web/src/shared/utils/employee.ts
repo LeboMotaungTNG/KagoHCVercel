@@ -87,7 +87,7 @@ export interface TodayAttendance {
   clock_out: string | null;  // "HH:MM"
   work_hours: number | null;
 }
-export type LeaveStatus = "approved" | "pending" | "rejected";
+export type LeaveStatus = "approved" | "pending" | "pending_manager" | "pending_hr" | "rejected" | "cancelled";
 export interface LeaveRecord {
   id: string; type: string; start_date: string; end_date: string;
   status: LeaveStatus; days: number;
@@ -416,7 +416,7 @@ export function useEmployeeData() {
 
     // Backend leave endpoints are mounted at: /api/v1/leave
     // We keep parsing tolerant to wrapper shapes.
-    const d = await safeJson(`${API_URL}/leave`, { headers });
+    const d = await safeJson(`${API_URL}/leave/requests?limit=100&page=1`, { headers });
     const raw: any[] = unwrapArray(d);
 
 
@@ -428,8 +428,8 @@ export function useEmployeeData() {
         type:  l.leaveType || l.type || l.leave_type || "Leave",
         start_date: start,
         end_date:   end,
-        status: (l.status || "pending") as LeaveStatus,
-        days:   l.numberOfDays || l.days || daysBetween(start, end),
+        status: (l.status || "pending_manager") as LeaveStatus,
+        days:   l.total_days || l.totalDays || l.numberOfDays || l.days || daysBetween(start, end),
       };
     });
     setActiveLeave(mapped.find(l => l.status === "approved" && l.start_date <= today && l.end_date >= today) || null);

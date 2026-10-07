@@ -3,13 +3,13 @@ import {
   Palmtree, Stethoscope, Users, Baby, CalendarDays, ClipboardList,
 } from "lucide-react";
 import { C } from "../../../shared/utils/employee";
-import { LEAVE_TYPE_LABELS, STATUS_STYLES, formatDate, formatDateTime } from "../../../shared/utils/LeaveUtils";
-import type { LeaveStatus, LeaveType } from "../../../shared/utils/LeaveUtils";
+import { LEAVE_TYPE_LABELS, STATUS_LABELS, STATUS_STYLES, formatDate, formatDateTime } from "../../../shared/utils/LeaveUtils";
+import type { LeaveStatus } from "../../../shared/utils/LeaveUtils";
 
 export const getLeaveTypeLabel = (type: string): string => {
-  const key = type as LeaveType;
-  if (LEAVE_TYPE_LABELS[key]) return LEAVE_TYPE_LABELS[key];
-  return type.charAt(0).toUpperCase() + type.slice(1).replace(/_/g, " ") + " Leave";
+  if (LEAVE_TYPE_LABELS[type]) return LEAVE_TYPE_LABELS[type];
+  const pretty = type.charAt(0).toUpperCase() + type.slice(1).replace(/_/g, " ");
+  return /leave$/i.test(pretty) ? pretty : `${pretty} Leave`;
 };
 
 export const getLeaveTypeColor = (type: string): string => {
@@ -53,11 +53,10 @@ export const StatusPill: React.FC<{ status: string }> = ({ status }) => {
         borderRadius: 999,
         fontSize: 12,
         fontWeight: 700,
-        textTransform: "capitalize",
         ...style,
       }}
     >
-      {status}
+      {STATUS_LABELS[key] || status}
     </span>
   );
 };

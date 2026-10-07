@@ -8,6 +8,7 @@ import {
 } from "lucide-react";
 import { C as TOKENS } from "../../shared/utils/employee";
 import { PageHero } from "../employee/src/components/PerformanceUI";
+import { isHrReviewStatus } from "../../shared/utils/LeaveUtils";
 
 /* ─── Design tokens ──────────────────────────────────────────────────────── */
 const C = TOKENS;
@@ -217,8 +218,8 @@ const OrgGrowthCard: React.FC<{
 
       <p style={{ position: "relative", margin: "14px 0 0", fontSize: 13.5, lineHeight: 1.5, opacity: 0.9, flex: 1 }}>
         {pendingLeave > 0
-          ? `${pendingLeave} leave request${pendingLeave !== 1 ? "s" : ""} pending across the organisation.`
-          : "All leave requests are up to date organisation-wide."}
+          ? `${pendingLeave} leave request${pendingLeave !== 1 ? "s" : ""} awaiting HR review.`
+          : "No leave is waiting on HR review."}
       </p>
 
       <div style={{ position: "relative", marginTop: 16, paddingTop: 14, borderTop: "1px solid rgba(255,255,255,0.20)", display: "flex", alignItems: "center", gap: 12 }}>
@@ -363,30 +364,32 @@ const ManagersCard: React.FC<{ managers: ManagerEntry[]; loading: boolean }> = (
 /* ─── Org-wide pending leave (read-only for owner) ───────────────────────── */
 interface OrgLeave {
   id: string;
-  employee_name?: string; employeeName?: string;
-  type?: string; leaveType?: string;
+  employee_name?: string; employeeName?: string; full_name?: string;
+  type?: string; leaveType?: string; leave_type?: string;
   start_date?: string; startDate?: string;
-  days?: number; status?: string;
+  days?: number; total_days?: number; totalDays?: number;
+  status?: string;
   department?: string;
 }
 
 const OrgLeaveCard: React.FC<{ requests: OrgLeave[]; loading: boolean }> = ({ requests, loading }) => {
-  const pending  = requests.filter(r => (r.status ?? "pending") === "pending");
+  const pending  = requests.filter(r => !r.status || isHrReviewStatus(r.status) || r.status === "pending");
   const approved = requests.filter(r => r.status === "approved");
 
-  const getName  = (r: OrgLeave) => r.employee_name ?? r.employeeName ?? "Employee";
-  const getType  = (r: OrgLeave) => r.type ?? r.leaveType ?? "Leave";
+  const getName  = (r: OrgLeave) => r.full_name ?? r.employee_name ?? r.employeeName ?? "Employee";
+  const getType  = (r: OrgLeave) => r.leave_type ?? r.type ?? r.leaveType ?? "Leave";
   const getStart = (r: OrgLeave) => r.start_date ?? r.startDate ?? "—";
+  const getDays  = (r: OrgLeave) => r.total_days ?? r.totalDays ?? r.days ?? "?";
 
   return (
     <Card>
       <SectionHead
         title="Leave overview"
-        subtitle="Organisation-wide leave requests"
+        subtitle="Requests awaiting HR review"
         right={
           <div style={{ display: "flex", gap: 8 }}>
-            <StatusPill bg={C.warnBg} color={C.amber}>{pending.length} pending</StatusPill>
-            <StatusPill bg={C.okBg}   color={C.ok}>{approved.length} approved</StatusPill>
+            <StatusPill bg={C.warnBg} color={C.amber}>{pending.length} awaiting HR</StatusPill>
+            {approved.length > 0 && <StatusPill bg={C.okBg}   color={C.ok}>{approved.length} approved</StatusPill>}
           </div>
         }
       />
@@ -395,8 +398,8 @@ const OrgLeaveCard: React.FC<{ requests: OrgLeave[]; loading: boolean }> = ({ re
       ) : pending.length === 0 ? (
         <div style={{ padding: "24px 0", textAlign: "center" }}>
           <FileText size={34} color={C.faint} style={{ marginBottom: 10 }} />
-          <p style={{ margin: 0, fontSize: 14, fontWeight: 700, color: C.ink }}>No pending leave org-wide</p>
-          <p style={{ margin: "6px 0 0", fontSize: 13, color: C.muted }}>All leave has been reviewed by managers.</p>
+          <p style={{ margin: 0, fontSize: 14, fontWeight: 700, color: C.ink }}>No leave awaiting HR</p>
+          <p style={{ margin: "6px 0 0", fontSize: 13, color: C.muted }}>Manager-approved requests will appear here.</p>
         </div>
       ) : (
         <div style={{ display: "flex", flexDirection: "column", gap: 10, maxHeight: 320, overflowY: "auto" }}>
@@ -410,11 +413,11 @@ const OrgLeaveCard: React.FC<{ requests: OrgLeave[]; loading: boolean }> = ({ re
               <div style={{ flex: 1, minWidth: 0 }}>
                 <div style={{ fontSize: 13.5, fontWeight: 700, color: C.ink, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{getName(r)}</div>
                 <div style={{ fontSize: 12, color: C.muted, marginTop: 2 }}>
-                  {getType(r)} · from {getStart(r)} · {r.days ?? "?"} days
+                  {getType(r)} · from {getStart(r)} · {getDays(r)} days
                   {r.department ? ` · ${r.department}` : ""}
                 </div>
               </div>
-              <StatusPill bg={C.warnBg} color={C.amber}>Pending</StatusPill>
+              <StatusPill bg={C.warnBg} color={C.amber}>Awaiting HR</StatusPill>
             </div>
           ))}
           {pending.length > 6 && (
@@ -723,10 +726,18 @@ export const OwnerOverview: React.FC = () => {
     const extract = (d: any): OrgLeave[] =>
       Array.isArray(d?.data?.data) ? d.data.data : Array.isArray(d?.data) ? d.data : Array.isArray(d) ? d : [];
 
-    fetch(`${API_URL}/leave/requests`, { headers })
-      .then(r => r.json()).then(d => setLeaveList(extract(d)))
+    fetch(`${API_URL}/leave?limit=100&page=1`, { headers })
+      .then(r => r.json()).then(d => {
+        const items = extract(d).map((item: any) => ({ ...item, id: item._id || item.id || String(item.leave_id) }));
+        setLeaveList(items);
+        setCounts(prev => ({ ...prev, pendingLeave: items.length }));
+      })
       .catch(() =>
-        fetch(`${API_URL}/leave`, { headers }).then(r => r.json()).then(d => setLeaveList(extract(d)))
+        fetch(`${API_URL}/leave/requests?limit=100&page=1`, { headers }).then(r => r.json()).then(d => {
+          const items = extract(d).map((item: any) => ({ ...item, id: item._id || item.id || String(item.leave_id) }));
+          setLeaveList(items);
+          setCounts(prev => ({ ...prev, pendingLeave: items.length }));
+        })
       )
       .finally(() => setLeaveLoading(false));
   }, []);
@@ -768,7 +779,7 @@ export const OwnerOverview: React.FC = () => {
         <div className="own-kpi">
           <StatTile label="Total Employees" value={loading ? "…" : counts.employees}    sub="Across all teams"      icon={<Users size={20} />}       iconBg={C.accentBg} iconColor={C.accent} onClick={() => navigate("/owner/employees")}     />
           <StatTile label="Managers"        value={loading ? "…" : counts.managers}     sub="Active team leads"     icon={<Star size={20} />}        iconBg={C.blueBg}   iconColor={C.blue}   onClick={() => navigate("/owner/managers")}      />
-          <StatTile label="Pending Leave"   value={loading ? "…" : counts.pendingLeave} sub="Awaiting review"       icon={<Calendar size={20} />}    iconBg={C.warnBg}   iconColor={C.amber}  delta={{ up: counts.pendingLeave === 0, text: counts.pendingLeave === 0 ? "clear" : String(counts.pendingLeave) }} />
+          <StatTile label="Pending Leave"   value={loading ? "…" : counts.pendingLeave} sub="Awaiting HR review"       icon={<Calendar size={20} />}    iconBg={C.warnBg}   iconColor={C.amber}  delta={{ up: counts.pendingLeave === 0, text: counts.pendingLeave === 0 ? "clear" : String(counts.pendingLeave) }} onClick={() => navigate("/owner/leave")} />
           <StatTile label="On Payroll"      value={loading ? "…" : counts.onPayroll}    sub={`${counts.employees > 0 ? Math.round((counts.onPayroll/counts.employees)*100) : 0}% coverage`} icon={<Target size={20} />} iconBg={C.tealBg} iconColor={C.teal} onClick={() => navigate("/owner/subscriptions")} />
         </div>
 

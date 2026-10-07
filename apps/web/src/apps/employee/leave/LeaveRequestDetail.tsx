@@ -103,25 +103,26 @@ const LeaveRequestDetail: React.FC<Props> = ({ request, onClose }) => {
             <InfoCell label="Reason" value={request.reason} full />
           </div>
 
-          {request.status !== "pending" && (request.reviewer_name || request.reviewed_at || request.rejection_reason) && (
+          {(request.managerApprovedAt || request.hrApprovedAt || request.reviewer_name || request.rejection_reason || request.managerRejectionReason || request.hrRejectionReason) && (
             <div style={{
               padding: "14px 16px", borderRadius: 12,
               border: `1px solid ${C.line}`, background: C.surfaceAlt,
             }}>
-              <p style={{ ...labelStyle, marginBottom: 10 }}>Review</p>
+              <p style={{ ...labelStyle, marginBottom: 10 }}>Approval progress</p>
+              <p style={{ margin: "0 0 6px", fontSize: 13, color: C.ink }}>
+                Manager: {request.managerApprovedAt ? `Approved ${formatDateTime(request.managerApprovedAt)}` : request.status === "pending_hr" || request.status === "approved" ? "Approved" : "Awaiting review"}
+              </p>
+              <p style={{ margin: "0 0 6px", fontSize: 13, color: C.ink }}>
+                HR: {request.hrApprovedAt ? `Approved ${formatDateTime(request.hrApprovedAt)}` : request.status === "approved" ? "Approved" : request.status === "pending_hr" ? "Awaiting review" : "Not started"}
+              </p>
               {request.reviewer_name && (
                 <p style={{ margin: "0 0 6px", fontSize: 13, color: C.ink }}>
-                  Reviewed by <strong>{request.reviewer_name}</strong>
+                  Last reviewed by <strong>{request.reviewer_name}</strong>
                 </p>
               )}
-              {request.reviewed_at && (
-                <p style={{ margin: "0 0 6px", fontSize: 13, color: C.muted }}>
-                  {formatDateTime(request.reviewed_at)}
-                </p>
-              )}
-              {request.rejection_reason && (
+              {(request.rejection_reason || request.managerRejectionReason || request.hrRejectionReason) && (
                 <p style={{ margin: "8px 0 0", fontSize: 13, color: C.bad, lineHeight: 1.45 }}>
-                  {request.rejection_reason}
+                  {request.hrRejectionReason || request.managerRejectionReason || request.rejection_reason}
                 </p>
               )}
             </div>

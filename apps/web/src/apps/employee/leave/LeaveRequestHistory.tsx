@@ -2,13 +2,15 @@ import React, { useMemo, useState } from "react";
 import { ChevronRight, ClipboardList, Inbox } from "lucide-react";
 import type { LeaveRequest, StatusFilter } from "./types";
 import { C, SHADOW } from "./leaveStyles";
+import { isInProgressLeave } from "../../../shared/utils/LeaveUtils";
 import {
   formatDate, getLeaveTypeLabel, LeaveTypeIcon, Section, StatusPill,
 } from "./leaveUiHelpers";
 
 const FILTERS: { id: StatusFilter; label: string }[] = [
   { id: "all", label: "All" },
-  { id: "pending", label: "Pending" },
+  { id: "pending", label: "In progress" },
+  { id: "pending_hr", label: "Awaiting HR" },
   { id: "approved", label: "Approved" },
   { id: "rejected", label: "Rejected" },
   { id: "cancelled", label: "Cancelled" },
@@ -27,12 +29,14 @@ const LeaveRequestHistory: React.FC<Props> = ({ requests, onSelect }) => {
       (a, b) => new Date(b.submitted_at).getTime() - new Date(a.submitted_at).getTime(),
     );
     if (filter === "all") return sorted;
+    if (filter === "pending") return sorted.filter(r => isInProgressLeave(r.status));
     return sorted.filter(r => r.status === filter);
   }, [requests, filter]);
 
   const counts = useMemo(() => ({
     all: requests.length,
-    pending: requests.filter(r => r.status === "pending").length,
+    pending: requests.filter(r => isInProgressLeave(r.status)).length,
+    pending_hr: requests.filter(r => r.status === "pending_hr").length,
     approved: requests.filter(r => r.status === "approved").length,
     rejected: requests.filter(r => r.status === "rejected").length,
     cancelled: requests.filter(r => r.status === "cancelled").length,

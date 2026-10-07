@@ -11,6 +11,12 @@ import { statChip, numStyle, heroStyle } from "./leaveStyles";
 import { PageHero } from "../src/components/PerformanceUI";
 import { Toast } from "./leaveUiHelpers";
 import type { LeaveBalanceMap, LeaveFormData, LeavePolicy, LeaveRequest } from "./types";
+import {
+  isInProgressLeave,
+  leaveApiMessage,
+  mapLeaveRequest,
+  unwrapLeaveRows,
+} from "../../../shared/utils/LeaveUtils";
 
 const API_URL = import.meta.env.VITE_API_URL || "https://employee-evaluation-kago-e63baae4d822.herokuapp.com/api/v1";
 
@@ -27,14 +33,13 @@ const PageSkeleton: React.FC = () => (
 );
 
 const EmployeeLeavePage: React.FC = () => {
-  const [user, setUser] = useState<any>(null);
   const [employee, setEmployee] = useState<any>(null);
   const [leaveRequests, setLeaveRequests] = useState<LeaveRequest[]>([]);
   const [availableLeaveTypes, setAvailableLeaveTypes] = useState<LeavePolicy[]>([]);
   const [leaveBalance, setLeaveBalance] = useState<LeaveBalanceMap>({});
 
   const [formData, setFormData] = useState<LeaveFormData>({
-    leaveType: "annual",
+    leaveType: "",
     startDate: "",
     endDate: "",
     days: 1,
@@ -108,6 +113,9 @@ const EmployeeLeavePage: React.FC = () => {
         });
 
         setAvailableLeaveTypes(leaveTypes);
+        if (leaveTypes[0]?.type) {
+          setFormData(prev => prev.leaveType ? prev : { ...prev, leaveType: leaveTypes[0].type });
+        }
 
         const newBalance: LeaveBalanceMap = {};
         leaveTypes.forEach(type => {
@@ -129,25 +137,7 @@ const EmployeeLeavePage: React.FC = () => {
       });
       const data = await response.json();
 
-      let requests: any[] = [];
-      const payload = data?.data;
-      if (Array.isArray(payload?.data)) requests = payload.data;
-      else if (Array.isArray(payload)) requests = payload;
-      else if (Array.isArray(data)) requests = data;
-
-      return requests.map((req: any) => ({
-        _id: req._id,
-        leave_type: req.leave_type || req.leaveType || "annual",
-        start_date: req.start_date || req.startDate,
-        end_date: req.end_date || req.endDate,
-        total_days: req.total_days || req.totalDays || 1,
-        reason: req.reason || "",
-        status: req.status || "pending",
-        submitted_at: req.submitted_at || req.createdAt || new Date().toISOString(),
-        reviewer_name: req.reviewer_name,
-        reviewed_at: req.reviewed_at,
-        rejection_reason: req.rejection_reason,
-      }));
+      return unwrapLeaveRows(data).map(mapLeaveRequest);
     } catch (error) {
       console.error("Error fetching leave requests:", error);
       return [];
@@ -188,7 +178,6 @@ const EmployeeLeavePage: React.FC = () => {
         }
 
         const userData = JSON.parse(userStr);
-        setUser(userData);
 
         const leaveTypesData = await fetchAvailableLeaveTypes(token);
         let foundEmployee: any = null;
@@ -234,7 +223,7 @@ const EmployeeLeavePage: React.FC = () => {
               updatedBalance[type.type] = { used: 0, total: type.total || 0, remaining: type.total || 0 };
             });
             requests.forEach((request: LeaveRequest) => {
-              if (request.status === "approved" || request.status === "pending") {
+              if (request.status === "approved" || isInProgressLeave(request.status)) {
                 const type = request.leave_type;
                 if (updatedBalance[type]) {
                   updatedBalance[type].used += request.total_days;
@@ -268,7 +257,7 @@ const EmployeeLeavePage: React.FC = () => {
   }, [message]);
 
   const stats = useMemo(() => {
-    const pending = leaveRequests.filter(r => r.status === "pending").length;
+    const pending = leaveRequests.filter(r => isInProgressLeave(r.status)).length;
     const approved = leaveRequests.filter(r => r.status === "approved").length;
     const daysRemaining = Object.values(leaveBalance).reduce((sum, b) => sum + (b?.remaining ?? 0), 0);
     return { pending, approved, daysRemaining };
@@ -300,8 +289,18 @@ const EmployeeLeavePage: React.FC = () => {
         return;
       }
 
+      if (!formData.leaveType) {
+        setMessage({ text: "Please select a leave type", type: "error" });
+        return;
+      }
+
       if (!formData.startDate || !formData.endDate) {
         setMessage({ text: "Please select start and end dates", type: "error" });
+        return;
+      }
+
+      if (!formData.reason.trim()) {
+        setMessage({ text: "Please add a reason for this request", type: "error" });
         return;
       }
 
@@ -315,24 +314,25 @@ const EmployeeLeavePage: React.FC = () => {
           leave_type: formData.leaveType,
           start_date: formData.startDate,
           end_date: formData.endDate,
-          daysRequested: formData.days,
+          total_days: formData.days,
           reason: formData.reason,
-          employee_id: employee._id,
-          full_name: `${user?.firstName || ""} ${user?.lastName || ""}`.trim(),
-          employee_code: employee.employeeId,
-          department: employee.department?.name || "Department",
-          position: employee.position || "Employee",
         }),
       });
 
       const data = await response.json();
 
-      if (data.success) {
-        setMessage({ text: "Leave request submitted successfully!", type: "success" });
-        setFormData({ leaveType: "annual", startDate: "", endDate: "", days: 1, reason: "" });
+      if (response.ok && data.success !== false) {
+        setMessage({ text: "Leave request submitted. Your manager will review it first.", type: "success" });
+        setFormData({
+          leaveType: availableLeaveTypes[0]?.type || "",
+          startDate: "",
+          endDate: "",
+          days: 1,
+          reason: "",
+        });
         await fetchLeaveRequests(employee._id, token);
       } else {
-        setMessage({ text: data.error?.message || "Failed to submit request", type: "error" });
+        setMessage({ text: leaveApiMessage(data, "Failed to submit request"), type: "error" });
       }
     } catch (error) {
       console.error("Error submitting leave request:", error);

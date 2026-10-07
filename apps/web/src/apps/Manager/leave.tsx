@@ -11,9 +11,9 @@ const LeavePage: React.FC = () => (
       <PageHero
         icon={<Calendar size={24} color="#fff" />}
         title="Leave Requests"
-        subtitle="Review, approve, and keep team leave on track."
+        subtitle="Approve team requests to send them to HR."
       />
-      <LeaveManagement accent={C.primary} canReview hideTitle />
+      <LeaveManagement accent={C.primary} canReview reviewStage="manager" hideTitle />
     </PerformancePage>
   </SharedLayout>
 );

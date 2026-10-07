@@ -43,6 +43,7 @@ import MyOvertimePage from "./apps/employee/MyOvertimePage";
 // "user" is the legacy role the backend currently issues for regular staff;
 // it is treated as a synonym of "employee" everywhere on the frontend.
 const ManagerArea  = ["manager", "admin", "hr"] as const;
+const LeaveReviewArea = ["manager", "admin", "hr", "line_manager"] as const;
 const OwnerArea    = ["owner"] as const;
 const EmployeeArea = ["employee", "user", "manager", "line_manager", "payroll_officer", "admin", "hr", "owner"] as const;
 const PayrollOfficerArea = ["payroll_officer"] as const;
@@ -82,7 +83,7 @@ const App: React.FC = () => (
       <Route path="/manager/manage-employees" element={<Guard roles={ManagerArea}><ManageEmployees /></Guard>} />
       <Route path="/manager/employees"        element={<Guard roles={ManagerArea}><EmployeesPage /></Guard>} />
       <Route path="/manager/attendance"       element={<Guard roles={ManagerArea}><AttendancePage /></Guard>} />
-      <Route path="/manager/leave-requests"   element={<Guard roles={ManagerArea}><LeavePage /></Guard>} />
+      <Route path="/manager/leave-requests"   element={<Guard roles={LeaveReviewArea}><LeavePage /></Guard>} />
       <Route path="/manager/payroll"          element={<Guard roles={ManagerArea}><Payroll /></Guard>} />
       <Route path="/manager/overtime-approvals" element={<Guard roles={ManagerArea}><OvertimeApprovalsPage /></Guard>} />
       <Route path="/manager/team-overtime"      element={<Guard roles={ManagerArea}><TeamOvertimePage /></Guard>} />

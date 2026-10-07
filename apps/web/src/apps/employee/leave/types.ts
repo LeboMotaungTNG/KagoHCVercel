@@ -1,15 +1,23 @@
+import type { LeaveStatus } from "../../../shared/utils/LeaveUtils";
+
 export interface LeaveRequest {
   _id: string;
+  leave_id?: number;
   leave_type: string;
   start_date: string;
   end_date: string;
   total_days: number;
   reason: string;
-  status: "pending" | "approved" | "rejected" | "cancelled";
+  status: LeaveStatus;
   submitted_at: string;
   reviewer_name?: string;
   reviewed_at?: string;
   rejection_reason?: string;
+  managerApprovedAt?: string;
+  managerRejectionReason?: string;
+  hrApprovedAt?: string;
+  hrRejectionReason?: string;
+  attachment_path?: string;
 }
 
 export interface LeavePolicy {
@@ -37,4 +45,4 @@ export interface LeaveFormData {
   reason: string;
 }
 
-export type StatusFilter = "all" | "pending" | "approved" | "rejected" | "cancelled";
+export type StatusFilter = "all" | "pending" | "pending_hr" | "approved" | "rejected" | "cancelled";

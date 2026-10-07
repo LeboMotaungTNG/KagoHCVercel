@@ -102,6 +102,8 @@ export const EMPLOYMENT_TYPES: EmploymentType[] = [
   "Temporary", "Casual", "Probation", "Volunteer",
 ];
 
+export const isVolunteerType = (type?: string) => type === "Volunteer";
+
 export type IdentificationType =
   | "RSA ID Number" | "Passport Number"
   | "Asylum Seeker Permit" | "Refugee Permit";
@@ -225,6 +227,25 @@ export interface Employee {
 }
 
 export interface QueueItem extends Employee { tempId: string; }
+
+/** Clears salary, bank, and payroll fields — volunteers are unpaid. */
+export const volunteerPayReset = (): Partial<Employee> => ({
+  payment_method: "Cash",
+  payment_frequency: "Monthly",
+  payment_day: "Friday",
+  payment_currency: "ZAR",
+  bank_name: "",
+  bank_branch: "",
+  bank_branch_code: "",
+  bank_account_holder: "",
+  bank_account_number: "",
+  bank_account_confirm: "",
+  bank_swift: "",
+  annual_salary: "",
+  monthly_salary: "",
+  allowances: [],
+  deductions: [],
+});
 
 export interface ValidationResult { valid: boolean; errors: string[]; }
 
@@ -410,7 +431,7 @@ export function validateEmployee(data: Partial<Employee>): ValidationResult {
   if (!data.surname) errors.push("Surname is required");
   if (!data.email) errors.push("Email is required");
   else if (!validateEmail(data.email)) errors.push("Valid email is required");
-  if (!data.cell_number) errors.push("Cell number is required");
+  if (!data.cell_number) errors.push("Mobile phone is required");
 
   if (data.identification_type === "RSA ID Number") {
     if (!data.id_number) errors.push("RSA ID Number is required");
@@ -427,7 +448,7 @@ export function validateEmployee(data: Partial<Employee>): ValidationResult {
   if (!data.position) errors.push("Position is required");
   if (!data.start_date) errors.push("Start date is required");
 
-  if (data.payment_method === "Bank Transfer") {
+  if (data.employment_type !== "Volunteer" && data.payment_method === "Bank Transfer") {
     if (!data.bank_name) errors.push("Bank name is required");
     if (!data.bank_account_number) errors.push("Account number is required");
     if (data.bank_account_number !== data.bank_account_confirm) errors.push("Account numbers do not match");
@@ -472,12 +493,12 @@ export function validateOnboardingTab(tab: FormTab, data: Partial<Employee>): Va
     if (isBlank(data.phys_city)) errors.push("City is required");
     if (isBlank(data.phys_province)) errors.push("Province is required");
     if (isBlank(data.phys_postal)) errors.push("Postal code is required");
-    if (isBlank(data.cell_number)) errors.push("Cell number is required");
+    if (isBlank(data.cell_number)) errors.push("Mobile phone is required");
     if (isBlank(data.email)) errors.push("Email is required");
     else if (!validateEmail(data.email || "")) errors.push("Enter a valid email address");
     if (isBlank(data.emergency_name)) errors.push("Emergency contact person is required");
     if (isBlank(data.emergency_rel)) errors.push("Emergency contact relationship is required");
-    if (isBlank(data.emergency_phone1)) errors.push("Emergency cell number is required");
+    if (isBlank(data.emergency_phone1)) errors.push("Emergency mobile phone is required");
   }
 
   if (tab === 3) {
@@ -494,8 +515,9 @@ export function validateOnboardingTab(tab: FormTab, data: Partial<Employee>): Va
   }
 
   if (tab === 4) {
-    if (isBlank(data.annual_salary)) errors.push("Annual salary is required");
-    if (data.payment_method === "Bank Transfer") {
+    const isVolunteer = data.employment_type === "Volunteer";
+    if (!isVolunteer && isBlank(data.annual_salary)) errors.push("Annual salary is required");
+    if (!isVolunteer && data.payment_method === "Bank Transfer") {
       if (isBlank(data.bank_name)) errors.push("Bank name is required");
       if (isBlank(data.bank_branch_code)) errors.push("Branch code is required");
       if (isBlank(data.bank_account_holder)) errors.push("Account holder name is required");
@@ -783,9 +805,14 @@ export const queueItemFromTableRow = (row: Partial<TableRowData>): QueueItem => 
     position: row.position || "",
     employment_type: (row.employment_type || "Full Time") as EmploymentType,
     start_date: row.start_date || "",
-    annual_salary: row.annual_salary || "",
-    monthly_salary: row.annual_salary ? (parseFloat(row.annual_salary) / 12).toFixed(2) : "",
-    payment_method: (row.payment_method || "Bank Transfer") as PaymentMethod,
+    annual_salary: isVolunteerType(row.employment_type) ? "" : (row.annual_salary || ""),
+    monthly_salary: isVolunteerType(row.employment_type) || !row.annual_salary
+      ? ""
+      : (parseFloat(row.annual_salary) / 12).toFixed(2),
+    payment_method: isVolunteerType(row.employment_type)
+      ? "Cash"
+      : ((row.payment_method || "Bank Transfer") as PaymentMethod),
+    ...(isVolunteerType(row.employment_type) ? volunteerPayReset() : {}),
     password: `Temp${Math.random().toString(36).substring(2, 10)}!`,
     employee_code: generateRandomEmployeeCode(),
     tempId: Date.now().toString() + Math.random().toString(36).substring(2, 11),
