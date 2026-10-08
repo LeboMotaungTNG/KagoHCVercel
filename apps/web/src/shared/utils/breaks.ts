@@ -67,7 +67,20 @@ function storageKey(date: string, employeeId: string): string {
   return `kagohc.breaks.${date}.${employeeId}`;
 }
 
-const API_BASE_URL = "http://localhost:3000/api/v1";
+declare global {
+  interface ImportMetaEnv {
+    readonly VITE_API_URL?: string;
+  }
+
+  interface ImportMeta {
+    readonly env: ImportMetaEnv;
+  }
+}
+
+const API_BASE_URL = (
+  import.meta.env.VITE_API_URL
+  || "https://employee-evaluation-kago-e63baae4d822.herokuapp.com/api/v1"
+).replace(/\/+$/, "");
 
 function authHeaders(): HeadersInit {
   const tokenKeys = ["token", "accessToken", "authToken", "jwt", "auth"];
