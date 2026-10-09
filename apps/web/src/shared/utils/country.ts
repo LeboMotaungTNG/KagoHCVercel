@@ -31,7 +31,7 @@ export const COUNTRY_PROFILES: CountryProfile[] = [
   { name: "Mozambique",                   iso2: "MZ", dialCode: "258", trunkPrefix: "",  nsnLengths: [9],     placeholder: "82 123 4567",   placeholderLocal: "82 123 4567",   flag: "🇲🇿" },
   { name: "Namibia",                      iso2: "NA", dialCode: "264", trunkPrefix: "0", nsnLengths: [9],     placeholder: "081 234 5678",  placeholderLocal: "81 234 5678",   flag: "🇳🇦" },
   { name: "Seychelles",                   iso2: "SC", dialCode: "248", trunkPrefix: "",  nsnLengths: [7],     placeholder: "251 2345",      placeholderLocal: "251 2345",      flag: "🇸🇨" },
-  { name: "South Africa",                 iso2: "ZA", dialCode: "27",  trunkPrefix: "0", nsnLengths: [9],     placeholder: "082 123 4567",  placeholderLocal: "82 123 4567",   flag: "🇿🇦" },
+  { name: "South Africa",                 iso2: "ZA", dialCode: "27",  trunkPrefix: "0", nsnLengths: [9],     placeholder: "82 123 4567",   placeholderLocal: "82 123 4567",   flag: "🇿🇦" },
   { name: "Tanzania",                     iso2: "TZ", dialCode: "255", trunkPrefix: "0", nsnLengths: [9],     placeholder: "071 234 5678",  placeholderLocal: "71 234 5678",   flag: "🇹🇿" },
   { name: "Zambia",                       iso2: "ZM", dialCode: "260", trunkPrefix: "0", nsnLengths: [9],     placeholder: "097 123 4567",  placeholderLocal: "97 123 4567",   flag: "🇿🇲" },
   { name: "Zimbabwe",                     iso2: "ZW", dialCode: "263", trunkPrefix: "0", nsnLengths: [9],     placeholder: "071 234 5678",  placeholderLocal: "71 234 5678",   flag: "🇿🇼" },
