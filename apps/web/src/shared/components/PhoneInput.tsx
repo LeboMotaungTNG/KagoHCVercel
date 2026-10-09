@@ -219,9 +219,9 @@ const PhoneInput: React.FC<PhoneInputProps> = ({
           {profile.trunkPrefix ? ` or starting with ${profile.trunkPrefix}` : ""})
         </div>
       )}
-      {!invalid && !displayValue && (
+      {!invalid && (
         <div style={{ marginTop: 4, fontSize: 11, color: MUTED }}>
-          {profile.name} · e.g. {profile.placeholder}
+          {profile.name} · e.g. +{profile.dialCode} {profile.placeholderLocal}
         </div>
       )}
     </div>

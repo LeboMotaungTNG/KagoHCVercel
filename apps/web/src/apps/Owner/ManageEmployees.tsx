@@ -164,10 +164,11 @@ const S = {
 };
 
 function FI({ icon, label, required, children }: { icon?: React.ReactNode; label: string; required?: boolean; children: React.ReactNode }) {
+  const phoneField = React.isValidElement(children) && children.type === PhoneInput;
   return (
     <div style={S.fieldGroup}>
       <label style={S.label}>{label} {required && <span style={{ color: "#f04438" }}>*</span>}</label>
-      {icon ? (
+      {icon && !phoneField ? (
         <div style={S.inputWrap}>
           <span style={S.iconLeft}>{icon}</span>
           {children}
@@ -438,7 +439,7 @@ function Tab2Contact({ f, upd }: { f: Employee; upd: (k: keyof Employee, v: any)
       </div>
       <div style={S.row2}>
         <FI label="Mobile phone" required icon={<Ic.Phone />}><TextInput type="tel" value={f.cell_number} onChange={v => upd("cell_number", v)} /></FI>
-        <FI label="Alternative mobile phone" icon={<Ic.Phone />}><TextInput value={f.alt_cell} onChange={v => upd("alt_cell", v)} placeholder="0831234567" /></FI>
+        <FI label="Alternative mobile phone" icon={<Ic.Phone />}><TextInput type="tel" value={f.alt_cell} onChange={v => upd("alt_cell", v)} /></FI>
       </div>
       <div style={S.row2}>
         <FI label="Email Address" required icon={<Ic.Mail />}><TextInput type="email" value={f.email} onChange={v => upd("email", v)} placeholder="john@company.com" /></FI>
