@@ -603,8 +603,26 @@ export async function extractEmployeeDocument(
       body,
     });
     const data = await res.json().catch(() => ({}));
-    if (data?.success && Array.isArray(data.employees)) {
-      return { ok: true, employees: data.employees };
+    const extractedEmployees = data?.data?.employees ?? data?.employees;
+    if (data?.success && Array.isArray(extractedEmployees)) {
+      const employees = extractedEmployees.map((employee: any) => {
+        const [firstName = "", ...lastNameParts] = String(employee.full_name || "").trim().split(/\s+/);
+        return {
+          ...employee,
+          first_name: employee.first_name || firstName,
+          surname: employee.surname || lastNameParts.join(" "),
+          cell_number: employee.cell_number || employee.phone || "",
+          id_number: employee.id_number || "",
+          passport_number: employee.passport_number || "",
+          phys_street: employee.phys_street || employee.address_street || "",
+          phys_city: employee.phys_city || employee.address_city || "",
+          phys_province: employee.phys_province || employee.address_province || "",
+          phys_postal: employee.phys_postal || employee.address_postal_code || "",
+          employment_type: employee.employment_type || "Full Time",
+          annual_salary: employee.annual_salary || employee.salary || "",
+        };
+      });
+      return { ok: true, employees };
     }
     return { ok: false, message: data?.message || "No employee data could be extracted." };
   } catch (err: any) {
