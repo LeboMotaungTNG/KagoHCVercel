@@ -1174,6 +1174,7 @@ function ManageEmployeesContent() {
   const [activeTab, setActiveTab] = useState<FormTab>(restoredDraft?.activeTab || 1);
   const [form, setForm] = useState<Employee>(restoredDraft?.form || defaultForm());
   const [queue, setQueue] = useState<QueueItem[]>(restoredDraft?.queue || []);
+  const queuePanelRef = React.useRef<HTMLDivElement>(null);
   const [tableRows, setTableRows] = useState<Partial<TableRowData>[]>(restoredDraft?.tableRows || []);
   const [bulkDept, setBulkDept] = useState(restoredDraft?.bulkDept || "");
   const [bulkDate, setBulkDate] = useState(restoredDraft?.bulkDate || "");
@@ -1219,6 +1220,35 @@ function ManageEmployeesContent() {
   const showToast = (msg: string, type: "success"|"error" = "success") => {
     setToast({ msg, type });
     setTimeout(() => setToast(null), 4000);
+  };
+
+  const handleDocumentUpload = async (file: File) => {
+    const token = localStorage.getItem("token");
+    if (!token) {
+      showToast("Session expired. Please login again.", "error");
+      return;
+    }
+
+    setUploading(true);
+    try {
+      const result = await extractEmployeeDocument(file, token);
+      if (!result.ok || !result.employees?.length) {
+        showToast(result.message || "No employee data could be extracted.", "error");
+        return;
+      }
+
+      const extracted: QueueItem[] = result.employees.map(emp =>
+        toQueueItem({ ...defaultForm(), ...emp, employee_code: generateRandomEmployeeCode() } as Employee),
+      );
+      setQueue(prev => [...prev, ...extracted]);
+      showToast(`${extracted.length} employee(s) added. Review them in the queue.`);
+      setMode("form");
+      requestAnimationFrame(() => queuePanelRef.current?.scrollIntoView({ behavior: "smooth", block: "center" }));
+    } catch (error) {
+      showToast(error instanceof Error ? error.message : "Unable to extract this document.", "error");
+    } finally {
+      setUploading(false);
+    }
   };
 
   useEffect(() => {
@@ -1686,7 +1716,7 @@ function ManageEmployeesContent() {
                   onDrop={e => {
                     e.preventDefault();
                     const file = e.dataTransfer.files[0];
-                    if (file) document.getElementById("fileInput")?.click();
+                    if (file) void handleDocumentUpload(file);
                   }}
                 >
                   <div style={{ color: "#98a2b3", marginBottom: 16 }}><Ic.Upload /></div>
@@ -1695,23 +1725,10 @@ function ManageEmployeesContent() {
                   </h4>
                   <p style={{ color: "#667085", fontSize: 13, marginBottom: 4 }}>Drag & drop or click to upload</p>
                   <p style={{ color: "#98a2b3", fontSize: 12, marginBottom: 20 }}>Supports: PDF, Excel (.xlsx, .xls), CSV, Word (.docx)</p>
-                  <input id="fileInput" type="file" accept=".pdf,.xlsx,.xls,.csv,.docx" onChange={async e => {
-                    const file = e.target.files?.[0]; if (!file) return;
-                    const token = localStorage.getItem("token");
-                    if (!token) { showToast("Session expired. Please login again.", "error"); return; }
-                    setUploading(true);
-                    const result = await extractEmployeeDocument(file, token);
-                    if (result.ok && result.employees?.length) {
-                      const extracted: QueueItem[] = result.employees.map(emp =>
-                        toQueueItem({ ...defaultForm(), ...emp, employee_code: generateRandomEmployeeCode() } as Employee),
-                      );
-                      setQueue(prev => [...prev, ...extracted]);
-                      showToast(`${extracted.length} employee(s) extracted and added to queue!`);
-                      setMode("form");
-                    } else {
-                      showToast(result.message || "Extraction API not available — use Form or Table mode instead.", "error");
-                    }
-                    setUploading(false);
+                  <input id="fileInput" type="file" accept=".pdf,.xlsx,.xls,.csv,.docx" onChange={e => {
+                    const file = e.target.files?.[0];
+                    if (file) void handleDocumentUpload(file);
+                    e.target.value = "";
                   }} style={{ display: "none" }} />
                   <button type="button" onClick={e => { e.stopPropagation(); document.getElementById("fileInput")?.click(); }} style={S.btn("primary")}><Ic.Upload /> Choose File</button>
                 </div>
@@ -1720,7 +1737,7 @@ function ManageEmployeesContent() {
                   <div style={{ fontWeight: 600, color: "#344054", fontSize: 13, marginBottom: 10 }}>Download Template</div>
                   <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 8 }}>
                     {[["Excel Template","xlsx","#12b76a"],["CSV Template","csv","#667085"],["PDF Guide","pdf","#f04438"]].map(([label, ext, color]) => (
-                      <button key={ext} type="button" style={{ padding: "10px 14px", border: `1px solid ${color}22`, borderRadius: 8, background: `${color}11`, color, fontSize: 12, cursor: "pointer", fontWeight: 500 }}>
+                      <button key={ext} type="button" onClick={ext === "csv" ? () => { window.location.href = "/templates/employee-onboarding-one-employee.csv"; } : undefined} style={{ padding: "10px 14px", border: `1px solid ${color}22`, borderRadius: 8, background: `${color}11`, color, fontSize: 12, cursor: "pointer", fontWeight: 500 }}>
                         ↓ {label}
                       </button>
                     ))}
@@ -1732,7 +1749,7 @@ function ManageEmployeesContent() {
         </div>
 
         {/* Queue — full width under the form */}
-        <div style={{
+        <div ref={queuePanelRef} style={{
           ...siblingCard, padding: 0,
           display: "flex", flexDirection: "column",
           overflow: "hidden",
