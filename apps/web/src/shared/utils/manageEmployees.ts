@@ -226,7 +226,10 @@ export interface Employee {
   full_name: string; phone: string;
 }
 
-export interface QueueItem extends Employee { tempId: string; }
+export interface QueueItem extends Employee {
+  tempId: string;
+  processingError?: string;
+}
 
 /** Clears salary, bank, and payroll fields — volunteers are unpaid. */
 export const volunteerPayReset = (): Partial<Employee> => ({
@@ -551,6 +554,8 @@ export interface CreateEmployeeResult {
   ok: boolean;
   data?: any;
   message?: string;
+  errors?: string[];
+  fieldErrors?: Record<string, string>;
 }
 
 /** POST /employees/create-with-onboarding — payload mirrors backend contract. */
@@ -559,11 +564,19 @@ export async function createEmployeeWithOnboarding(
   token: string,
 ): Promise<CreateEmployeeResult> {
   try {
+    const {
+      tempId: _tempId,
+      processingError: _processingError,
+      ...employeeForm
+    } = emp;
+    const hasEmergencyContact = !!(
+      emp.emergency_name || emp.emergency_rel || emp.emergency_phone1 || emp.emergency_email
+    );
     const res = await fetch(`${API_URL}/employees/create-with-onboarding`, {
       method: "POST",
       headers: authHeaders(token),
       body: JSON.stringify({
-        ...emp,
+        ...employeeForm,
         firstName: emp.first_name,
         lastName: emp.surname,
         email: emp.email,
@@ -573,8 +586,24 @@ export async function createEmployeeWithOnboarding(
         annual_salary: emp.annual_salary,
         phone: emp.cell_number,
         employment_type: emp.employment_type,
-        create_account: true,
-        password: emp.password || "Welcome123!",
+        dateOfBirth: emp.date_of_birth || undefined,
+        idNumber: emp.id_number || undefined,
+        passportNumber: emp.passport_number || undefined,
+        alternativePhone: emp.alt_cell || undefined,
+        salaryFrequency: "monthly",
+        bankName: emp.bank_name || undefined,
+        bankBranchCode: emp.bank_branch_code || undefined,
+        bankAccountNumber: emp.bank_account_number || undefined,
+        taxReference: emp.tax_number || undefined,
+        uifReference: emp.uif_number || undefined,
+        emergencyContact: hasEmergencyContact ? {
+          name: emp.emergency_name,
+          relationship: emp.emergency_rel,
+          phone: emp.emergency_phone1,
+          email: emp.emergency_email,
+        } : undefined,
+        create_account: emp.create_account,
+        password: emp.password || undefined,
         send_email: emp.send_email,
       }),
     });
@@ -583,6 +612,8 @@ export async function createEmployeeWithOnboarding(
       ok: res.ok && data?.success,
       data,
       message: data?.message,
+      errors: data?.errors,
+      fieldErrors: data?.fieldErrors,
     };
   } catch (err: any) {
     return { ok: false, message: err?.message || "Couldn't connect. Please check your internet and try again." };

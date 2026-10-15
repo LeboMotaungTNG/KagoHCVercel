@@ -12,6 +12,7 @@ import {
   Rocket,
   Settings,
   ShieldCheck,
+  UserCheck,
   TrendingUp,
   Users,
 } from "lucide-react";
@@ -145,6 +146,7 @@ const managerNav: AppShellNav = {
       items: [
         { kind: "link", to: "/manager/employees", label: "All Employees", icon: Users },
         { kind: "link", to: "/manager/profile", label: "Employee Profile", icon: Users },
+        { kind: "link", to: "/manager/profile-verifications", label: "Profile Verification", icon: UserCheck },
         { kind: "link", to: "/delegations", label: "Delegations", icon: ShieldCheck },
       ],
     },
@@ -204,6 +206,7 @@ const ownerNav: AppShellNav = {
       id: "people",
       label: "People",
       items: [
+        { kind: "link", to: "/manager/profile-verifications", label: "Profile Verification", icon: UserCheck },
         {
           kind: "group",
           id: "human-capital",

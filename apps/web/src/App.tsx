@@ -1,5 +1,5 @@
-import React from "react";
-import { Routes, Route, Navigate } from "react-router-dom";
+import React, { useEffect, useState } from "react";
+import { Routes, Route, Navigate, useLocation } from "react-router-dom";
 import { CountryProvider } from "./shared/contexts/CountryContext";
 import RequireAuth from "./shared/components/RequireAuth";
 import SessionProvider from "./shared/components/SessionProvider";
@@ -37,6 +37,8 @@ import OvertimeApprovalsPage from "./apps/Manager/OvertimeApprovalsPage";
 import TeamOvertimePage from "./apps/Manager/TeamOvertimePage";
 import OvertimeRequestPage from "./apps/employee/OvertimeRequestPage";
 import MyOvertimePage from "./apps/employee/MyOvertimePage";
+import HrProfileVerificationPage from "./apps/Manager/ProfileVerificationQueuePage";
+import { fetchProfileCompletion } from "./shared/utils/profileVerification";
 
 
 // Convenience aliases so the route table reads cleanly.
@@ -49,10 +51,39 @@ const EmployeeArea = ["employee", "user", "manager", "line_manager", "payroll_of
 const PayrollOfficerArea = ["payroll_officer"] as const;
 const PlatformArea = ["platform_admin"] as const;
 const AuditorArea = ["auditor"] as const;
+const VerificationHrArea = ["owner", "admin", "hr", "hr_manager"] as const;
 
 const Guard: React.FC<{ roles?: readonly string[]; children: React.ReactNode }> = ({ roles, children }) => (
   <RequireAuth requireRoles={roles as any}>{children}</RequireAuth>
 );
+
+const VerifiedEmployeeRoute: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+  const location = useLocation();
+  const [state, setState] = useState<"loading" | "allowed" | "redirect" | "error">("loading");
+  const [message, setMessage] = useState("");
+  useEffect(() => {
+    let active = true;
+    let role = "";
+    try { role = String(JSON.parse(localStorage.getItem("user") || "{}").role || "").toLowerCase(); } catch { /* RequireAuth redirects */ }
+    if (role !== "user" && role !== "employee") {
+      setState("allowed");
+      return;
+    }
+    fetchProfileCompletion(localStorage.getItem("token") || "")
+      .then(profile => { if (active) setState(profile.modulesUnlocked ? "allowed" : "redirect"); })
+      .catch(error => {
+        if (!active) return;
+        setMessage(error instanceof Error ? error.message : "Could not check profile status.");
+        setState("error");
+      });
+    return () => { active = false; };
+  }, [location.pathname]);
+
+  if (state === "loading") return <div style={{ padding: 28, textAlign: "center", color: "#667085" }}>Checking profile verification…</div>;
+  if (state === "redirect") return <Navigate to="/employee/profile" replace state={{ from: location.pathname }} />;
+  if (state === "error") return <div role="alert" style={{ maxWidth: 520, margin: "40px auto", padding: 18, border: "1px solid #fecdca", borderRadius: 10, color: "#b42318", background: "#fef3f2" }}>{message}<button type="button" onClick={() => window.location.reload()} style={{ display: "block", marginTop: 12 }}>Retry</button></div>;
+  return <>{children}</>;
+};
 
 const App: React.FC = () => (
   <CountryProvider>
@@ -80,6 +111,7 @@ const App: React.FC = () => (
       
       <Route path="/manager/profile"          element={<Guard roles={ManagerArea}><EmployeeProfile /></Guard>} />
       <Route path="/manager/profile/:id"      element={<Guard roles={ManagerArea}><EmployeeProfile /></Guard>} />
+      <Route path="/manager/profile-verifications" element={<Guard roles={VerificationHrArea}><HrProfileVerificationPage /></Guard>} />
       <Route path="/manager/manage-employees" element={<Guard roles={ManagerArea}><ManageEmployees /></Guard>} />
       <Route path="/manager/employees"        element={<Guard roles={ManagerArea}><EmployeesPage /></Guard>} />
       <Route path="/manager/attendance"       element={<Guard roles={ManagerArea}><AttendancePage /></Guard>} />
@@ -98,21 +130,21 @@ const App: React.FC = () => (
       <Route path="/owner/*" element={<Guard roles={OwnerArea}><OwnerDashboard /></Guard>} />
 
       {/* ── Employee self-service ─────────────────────────────────── */}
-      <Route path="/employee"             element={<Guard roles={EmployeeArea}><EmployeeDashboard /></Guard>} />
+      <Route path="/employee"             element={<Guard roles={EmployeeArea}><VerifiedEmployeeRoute><EmployeeDashboard /></VerifiedEmployeeRoute></Guard>} />
       <Route path="/employee/team"        element={<Guard roles={["manager", "line_manager"]}><DepartmentEmployeesPage /></Guard>} />
-      <Route path="/employee/leave"       element={<Guard roles={EmployeeArea}><EmployeeLeave /></Guard>} />
-      <Route path="/employee/attendance"  element={<Guard roles={EmployeeArea}><EmployeeAttendance /></Guard>} />
+      <Route path="/employee/leave"       element={<Guard roles={EmployeeArea}><VerifiedEmployeeRoute><EmployeeLeave /></VerifiedEmployeeRoute></Guard>} />
+      <Route path="/employee/attendance"  element={<Guard roles={EmployeeArea}><VerifiedEmployeeRoute><EmployeeAttendance /></VerifiedEmployeeRoute></Guard>} />
       <Route path="/employee/profile"     element={<Guard roles={EmployeeArea}><EmployeeProfilePage /></Guard>} />
-      <Route path="/employee/performance/*" element={<Guard roles={EmployeeArea}><EmployeePerformance /></Guard>} />
+      <Route path="/employee/performance/*" element={<Guard roles={EmployeeArea}><VerifiedEmployeeRoute><EmployeePerformance /></VerifiedEmployeeRoute></Guard>} />
       <Route path="/employee/reviews"       element={<Navigate to="/employee/performance/reviews" replace />} />
       <Route path="/employee/self-review"   element={<Navigate to="/employee/performance/self-review" replace />} />
-      <Route path="/employee/documents"   element={<Guard roles={EmployeeArea}><EmployeeDocumentsPage /></Guard>} />
+      <Route path="/employee/documents"   element={<Guard roles={EmployeeArea}><VerifiedEmployeeRoute><EmployeeDocumentsPage /></VerifiedEmployeeRoute></Guard>} />
       <Route path="/employee/settings"    element={<Guard roles={EmployeeArea}><EmployeeSettingsPage /></Guard>} />
       <Route path="/employee/payroll"     element={<Guard roles={PayrollOfficerArea}><PayrollOfficerPage /></Guard>} />
       <Route path="/employee/overtime-approvals" element={<Guard roles={PayrollOfficerArea}><PayrollOvertimeApprovalsPage /></Guard>} />
       <Route path="/employee/team-overtime"      element={<Guard roles={PayrollOfficerArea}><PayrollTeamOvertimePage /></Guard>} />
-      <Route path="/employee/overtime-request" element={<Guard roles={EmployeeArea}><OvertimeRequestPage /></Guard>} />
-      <Route path="/employee/my-overtime"      element={<Guard roles={EmployeeArea}><MyOvertimePage /></Guard>} />
+      <Route path="/employee/overtime-request" element={<Guard roles={EmployeeArea}><VerifiedEmployeeRoute><OvertimeRequestPage /></VerifiedEmployeeRoute></Guard>} />
+      <Route path="/employee/my-overtime"      element={<Guard roles={EmployeeArea}><VerifiedEmployeeRoute><MyOvertimePage /></VerifiedEmployeeRoute></Guard>} />
 
       {/* ── Catch-all → login ─────────────────────────────────────── */}
       <Route path="*" element={<Navigate to="/" replace />} />
