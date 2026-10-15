@@ -1067,6 +1067,11 @@ function QueueCard({ item, index, onRemove }: { item: QueueItem; index: number; 
         padding: "10px 14px", fontSize: 11.5, color: BRAND.textMuted,
         display: "grid", gridTemplateColumns: "1fr 1fr", gap: "4px 12px",
       }}>
+        {item.processingError && (
+          <div role="alert" style={{ gridColumn: "1 / -1", color: "#b42318", background: "#fef3f2", border: "1px solid #fecdca", borderRadius: 8, padding: "8px 10px", lineHeight: 1.45 }}>
+            {item.processingError}
+          </div>
+        )}
         <div><span style={{ color: BRAND.textFaint }}>Dept</span> · {item.department || "—"}</div>
         <div><span style={{ color: BRAND.textFaint }}>Position</span> · {item.position || "—"}</div>
         <div style={{ gridColumn: "1 / -1", display: "flex", gap: 6, flexWrap: "wrap", marginTop: 4 }}>
@@ -1306,25 +1311,38 @@ function ManageEmployeesContent() {
 
     setProcessing(true);
     let successCount = 0;
-    let failCount = 0;
+    const failedItems: QueueItem[] = [];
+    const generatedCredentials: string[] = [];
     for (const emp of queue) {
       const result = await createEmployeeWithOnboarding(emp, token);
       if (result.ok) {
         successCount++;
+        if (result.data?.generatedPassword) {
+          generatedCredentials.push(`${getFullName(emp)} (${emp.email}): ${result.data.generatedPassword}`);
+        }
       } else {
-        failCount++;
-        console.error(`Failed to create ${emp.email}: ${result.message || "unknown error"}`);
+        const details = result.message || result.errors?.join(" ") || "The server rejected this employee.";
+        failedItems.push({ ...emp, processingError: details });
+        console.error(`Failed to create ${emp.email}: ${details}`, result.fieldErrors);
       }
     }
 
-    showToast(
-      `${successCount} employee(s) added${failCount > 0 ? ` · ${failCount} failed` : ""}.`,
-      failCount > 0 ? "error" : "success",
-    );
-    setQueue([]);
-    clearForm();
-    setTableRows([]);
-    clearOnboardingDraft();
+    setQueue(failedItems);
+    if (failedItems.length === 0) {
+      showToast(`${successCount} employee(s) added successfully.`);
+      clearForm();
+      setTableRows([]);
+      clearOnboardingDraft();
+    } else {
+      const firstError = failedItems[0].processingError;
+      showToast(
+        `${successCount} employee(s) added; ${failedItems.length} remain in the queue. Correct the errors shown on each row and retry.${firstError ? ` ${firstError}` : ""}`,
+        "error",
+      );
+    }
+    if (generatedCredentials.length > 0) {
+      window.alert(`Welcome emails were not sent for these accounts. Share these temporary passwords securely:\n\n${generatedCredentials.join("\n")}`);
+    }
     setProcessing(false);
   };
 
