@@ -104,6 +104,7 @@ const AppSidebar: React.FC<{ role: string; onLogout: () => void }> = ({ role, on
       <li key={group.id}>
         <div
           className={`sb-group-toggle ${inGroup ? "sb-active" : ""}`}
+          title={group.label}
           style={{ ...sidebarItemStyle(inGroup), justifyContent: "space-between" }}
           onClick={() => toggleGroup(group.id)}
         >
@@ -150,9 +151,9 @@ const AppSidebar: React.FC<{ role: string; onLogout: () => void }> = ({ role, on
       <MobileSidebarChrome onLogout={onLogout} />
       <div className="h-100" style={{ overflowY: "auto", overflowX: "hidden" }}>
         <div id="sidebar-menu">
-          <div className="d-flex mb-4" style={{ padding: "0 20px" }}>
-            <div style={{ width: "70%", height: "70%" }}>
-              <img src={logoKago} alt="Kago HC" className="w-100 h-100" style={{ objectFit: "contain" }} />
+          <div className="d-flex mb-4 kago-sidebar-logo" style={{ padding: "0 20px" }}>
+            <div className="kago-sidebar-logo-mark">
+              <img src={logoKago} alt="Kago HC" style={{ width: "100%", height: "100%", objectFit: "contain", display: "block" }} />
             </div>
           </div>
           <ul className="metismenu list-unstyled mt-2" id="side-menu-item">
