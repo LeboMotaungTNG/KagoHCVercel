@@ -1,18 +1,14 @@
 import React, { useState, useEffect } from "react";
+import { useNavigate } from "react-router-dom";
 import { Spinner } from "reactstrap";
 import DataTable from "react-data-table-component";
-import { AiFillEye, AiOutlineSearch, AiOutlineUser, AiOutlineClose } from "react-icons/ai";
+import { AiFillEye, AiOutlineSearch, AiOutlineUser } from "react-icons/ai";
 import SharedLayout from "./SharedLayout";
-import PhoneInput from "../../shared/components/PhoneInput";
 import { Users } from "lucide-react";
 import { C } from "../../shared/utils/employee";
-import { fetchDepartmentOptions } from "../../shared/utils/manageEmployees";
-import { loadCachedPositions, positionsForDepartment, type OrgPosition } from "../../shared/utils/onboarding";
 import { PageHero, PerformancePage, SectionCard, ownerSearch, ownerInput, ownerTableStyles, perfBtnHero } from "./ownerUi";
 
 const API_URL = import.meta.env.VITE_API_URL || "https://employee-evaluation-kago-e63baae4d822.herokuapp.com/api/v1";
-
-// ─── Styles ───────────────────────────────────────────────────────────────────
 
 const SearchInput = ({ Title, search, setSearch }: any) => (
   <div style={ownerSearch}>
@@ -21,279 +17,20 @@ const SearchInput = ({ Title, search, setSearch }: any) => (
   </div>
 );
 
-// ─── Add Employee Modal ───────────────────────────────────────────────────────
-
-function AddEmployeeModal({ onClose, onSuccess }: { onClose: () => void; onSuccess: () => void }) {
-  const [form, setForm] = useState({
-    firstName: "", lastName: "", email: "", phone: "",
-    department: "", jobTitle: "", nationalId: "",
-    salary: "", bankAccount: "", password: "",
-    role: "user",
-  });
-  const [saving, setSaving] = useState(false);
-  const [error, setError]   = useState("");
-  const [departments, setDepartments] = useState<string[]>([]);
-  const [positions, setPositions] = useState<OrgPosition[]>([]);
-
-  useEffect(() => {
-    document.body.style.overflow = "hidden";
-    return () => { document.body.style.overflow = ""; };
-  }, []);
-
-  useEffect(() => {
-    const token = localStorage.getItem("token") || "";
-    setPositions(loadCachedPositions());
-    if (!token) return;
-    fetchDepartmentOptions(token)
-      .then(opts => setDepartments(opts.map(o => o.name)))
-      .catch(() => setDepartments([]));
-  }, []);
-
-  const setField = (field: string) => (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) =>
-    setForm(f => ({ ...f, [field]: e.target.value }));
-
-  const handleSubmit = async () => {
-    const required = ["firstName", "lastName", "email", "password", "department"];
-    const missing = required.filter(k => !(form as any)[k].trim());
-    if (missing.length) { setError("Please fill in all required fields (marked with *)."); return; }
-
-    setSaving(true);
-    setError("");
-    try {
-      const token = localStorage.getItem("token");
-      const response = await fetch(`${API_URL}/employees`, {
-        method: "POST",
-        headers: { "Authorization": `Bearer ${token}`, "Content-Type": "application/json" },
-        body: JSON.stringify({
-          firstName:   form.firstName.trim(),
-          lastName:    form.lastName.trim(),
-          email:       form.email.trim(),
-          phone:       form.phone.trim(),
-          department:  form.department.trim(),
-          position:    form.jobTitle.trim(),
-          nationalId:  form.nationalId.trim(),
-          salary:      form.salary ? Number(form.salary) : undefined,
-          bankAccount: form.bankAccount.trim(),
-          password:    form.password,
-          role:        form.role,
-          createAccount: true,
-        }),
-      });
-      const data = await response.json();
-      if (response.ok || data.success) {
-        onSuccess();
-        onClose();
-      } else {
-        setError(data.message || data.error?.message || "Failed to create employee.");
-      }
-    } catch (err) {
-      console.error(err);
-      setError("Couldn't connect. Please check your internet and try again.");
-    } finally {
-      setSaving(false);
-    }
-  };
-
-  const inputStyle: React.CSSProperties = {
-    width: "100%", height: 42, borderRadius: 8, border: "1px solid #d1d5db",
-    padding: "0 12px", fontSize: 14, color: "#344054", outline: "none", boxSizing: "border-box",
-  };
-  const labelStyle: React.CSSProperties = { fontSize: 13, fontWeight: 600, color: "#344054", marginBottom: 4, display: "block" };
-
-  return (
-    <div style={{ position: "fixed", inset: 0, zIndex: 9999, display: "flex", alignItems: "center", justifyContent: "center", padding: 24 }}>
-      <div onClick={onClose} style={{ position: "absolute", inset: 0, background: "rgba(0,0,0,0.55)", backdropFilter: "blur(6px)" }} />
-      <div onClick={e => e.stopPropagation()} style={{ position: "relative", width: "100%", maxWidth: 580, borderRadius: 16, background: "#fff", boxShadow: "0 25px 50px rgba(0,0,0,0.2)", display: "flex", flexDirection: "column", maxHeight: "90vh" }}>
-
-        {/* Header */}
-        <div style={{ padding: "18px 24px", borderBottom: "1px solid #f2f4f7", display: "flex", alignItems: "center", justifyContent: "space-between", flexShrink: 0 }}>
-          <div>
-            <h2 style={{ margin: 0, fontSize: 18, fontWeight: 700, color: "#1d2939" }}>Add Employee</h2>
-            <p style={{ margin: "2px 0 0", fontSize: 13, color: "#667085" }}>Create a new employee account</p>
-          </div>
-          <button onClick={onClose} style={{ background: "none", border: "none", cursor: "pointer", color: "#667085", padding: 4, display: "flex" }}>
-            <AiOutlineClose size={20} />
-          </button>
-        </div>
-
-        {/* Body */}
-        <div style={{ overflowY: "auto", padding: "20px 24px", display: "flex", flexDirection: "column", gap: 16 }}>
-          {error && (
-            <div style={{ padding: "10px 14px", background: "#fef2f2", border: "1px solid #fecaca", borderRadius: 8, fontSize: 13, color: "#b42318" }}>{error}</div>
-          )}
-
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}>
-            <div>
-              <label style={labelStyle}>First Name *</label>
-              <input style={inputStyle} placeholder="e.g. Alinah" value={form.firstName} onChange={setField("firstName")} />
-            </div>
-            <div>
-              <label style={labelStyle}>Last Name *</label>
-              <input style={inputStyle} placeholder="e.g. Molepo" value={form.lastName} onChange={setField("lastName")} />
-            </div>
-          </div>
-
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}>
-            <div>
-              <label style={labelStyle}>Email Address *</label>
-              <input style={inputStyle} type="email" placeholder="alinah.m@company.com" value={form.email} onChange={setField("email")} />
-            </div>
-            <div>
-              <label style={labelStyle}>Phone Number</label>
-              <PhoneInput value={form.phone} onChange={v => setForm(f => ({ ...f, phone: v }))} />
-            </div>
-          </div>
-
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}>
-            <div>
-              <label style={labelStyle}>Department *</label>
-              <select
-                style={{ ...inputStyle, cursor: "pointer", background: "#fff" }}
-                value={form.department}
-                onChange={e => {
-                  const department = e.target.value;
-                  const titles = positionsForDepartment(department, positions).map(p => p.name);
-                  setForm(f => ({
-                    ...f,
-                    department,
-                    jobTitle: titles.includes(f.jobTitle) ? f.jobTitle : "",
-                  }));
-                }}
-              >
-                <option value="">Select department</option>
-                {departments.map(d => <option key={d} value={d}>{d}</option>)}
-              </select>
-            </div>
-            <div>
-              <label style={labelStyle}>Job Title</label>
-              <select
-                style={{ ...inputStyle, cursor: form.department ? "pointer" : "not-allowed", background: "#fff" }}
-                value={form.jobTitle}
-                disabled={!form.department}
-                onChange={setField("jobTitle")}
-              >
-                <option value="">{form.department ? "Select position" : "Select a department first"}</option>
-                {positionsForDepartment(form.department, positions).map(p => (
-                  <option key={p.id} value={p.name}>{p.name}</option>
-                ))}
-              </select>
-            </div>
-          </div>
-
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}>
-            <div>
-              <label style={labelStyle}>National ID</label>
-              <input style={inputStyle} placeholder="e.g. 9001015009087" value={form.nationalId} onChange={setField("nationalId")} />
-            </div>
-            <div>
-              <label style={labelStyle}>Salary (ZAR)</label>
-              <input style={inputStyle} type="number" placeholder="e.g. 35000" value={form.salary} onChange={setField("salary")} />
-            </div>
-          </div>
-
-          <div>
-            <label style={labelStyle}>Bank Account Details</label>
-            <input style={inputStyle} placeholder="e.g. FNB 123456789" value={form.bankAccount} onChange={setField("bankAccount")} />
-          </div>
-
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}>
-            <div>
-              <label style={labelStyle}>Role</label>
-              {/*
-                SECURITY FIX: 'owner' has been removed from this dropdown.
-                Owners are only created through the platform admin invite flow
-                (POST /platform/companies → accept-invite). Allowing an admin
-                or owner to freely create another 'owner' account from here
-                would bypass tenant isolation and mint an unscoped root user.
-              */}
-              <select style={{ ...inputStyle, cursor: "pointer" }} value={form.role} onChange={setField("role")}>
-                <option value="user">Employee</option>
-                <option value="admin">Admin / Manager</option>
-              </select>
-            </div>
-            <div>
-              <label style={labelStyle}>Password *</label>
-              <input style={inputStyle} type="password" placeholder="Temporary password" value={form.password} onChange={setField("password")} />
-            </div>
-          </div>
-        </div>
-
-        {/* Footer */}
-        <div style={{ padding: "16px 24px", borderTop: "1px solid #f2f4f7", display: "flex", justifyContent: "flex-end", gap: 10, flexShrink: 0 }}>
-          <button onClick={onClose} style={{ padding: "9px 18px", borderRadius: 8, border: "1px solid #d0d5dd", background: "#fff", fontSize: 14, fontWeight: 500, color: "#344054", cursor: "pointer" }}>Cancel</button>
-          <button
-            onClick={handleSubmit}
-            disabled={saving}
-            style={{ padding: "9px 20px", borderRadius: 8, border: "none", background: C.primary, fontSize: 14, fontWeight: 600, color: "#fff", cursor: saving ? "not-allowed" : "pointer", opacity: saving ? 0.7 : 1, display: "flex", alignItems: "center", gap: 8 }}
-          >
-            {saving ? <><Spinner size="sm" /> Creating...</> : "Create Employee"}
-          </button>
-        </div>
-      </div>
-    </div>
-  );
-}
-
-// ─── View Employee Modal ──────────────────────────────────────────────────────
-
-function ViewEmployeeModal({ employee, onClose }: { employee: any; onClose: () => void }) {
-  useEffect(() => {
-    document.body.style.overflow = "hidden";
-    return () => { document.body.style.overflow = ""; };
-  }, []);
-
-  return (
-    <div style={{ position: "fixed", inset: 0, zIndex: 9999, display: "flex", alignItems: "center", justifyContent: "center", padding: 24 }}>
-      <div onClick={onClose} style={{ position: "absolute", inset: 0, background: "rgba(0,0,0,0.55)", backdropFilter: "blur(6px)" }} />
-      <div onClick={e => e.stopPropagation()} style={{ position: "relative", width: "100%", maxWidth: 420, borderRadius: 16, background: "#fff", boxShadow: "0 25px 50px rgba(0,0,0,0.2)", overflow: "hidden" }}>
-        <div style={{ background: `linear-gradient(135deg, ${C.primary} 0%, ${C.primaryDark} 100%)`, padding: "28px 24px 36px", position: "relative" }}>
-          <button onClick={onClose} style={{ position: "absolute", top: 14, right: 14, background: "rgba(255,255,255,0.15)", border: "none", borderRadius: 8, padding: 6, cursor: "pointer", color: "#fff", display: "flex" }}>
-            <AiOutlineClose size={18} />
-          </button>
-          <div style={{ width: 60, height: 60, borderRadius: "50%", background: "rgba(255,255,255,0.25)", display: "flex", alignItems: "center", justifyContent: "center", marginBottom: 12 }}>
-            {employee?.photo ? (
-              <img src={employee.photo} alt="" style={{ width: 60, height: 60, borderRadius: "50%", objectFit: "cover" }} />
-            ) : (
-              <AiOutlineUser color="white" size={30} />
-            )}
-          </div>
-          <h2 style={{ margin: 0, fontSize: 20, fontWeight: 700, color: "#fff" }}>{employee?.firstName} {employee?.lastName}</h2>
-          <p style={{ margin: "4px 0 0", fontSize: 13, color: "rgba(255,255,255,0.7)" }}>{employee?.roles?.[0]?.type || "Employee"}</p>
-        </div>
-        <div style={{ padding: 24, display: "flex", flexDirection: "column", gap: 12 }}>
-          {[
-            { label: "Email",      value: employee?.email },
-            { label: "Department", value: employee?.departmentId?.name || employee?.department },
-            { label: "Role",       value: employee?.roles?.[0]?.type },
-            { label: "Phone",      value: employee?.phone || "—" },
-            { label: "Job Title",  value: employee?.jobTitle || "—" },
-            { label: "National ID",value: employee?.nationalId || "—" },
-          ].map(({ label, value }) => (
-            <div key={label} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "10px 14px", background: "#f9fafb", borderRadius: 10 }}>
-              <span style={{ fontSize: 13, color: "#9ca3af", fontWeight: 600 }}>{label}</span>
-              <span style={{ fontSize: 13, fontWeight: 600, color: "#1d2939", maxWidth: 220, textAlign: "right", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{value || "—"}</span>
-            </div>
-          ))}
-        </div>
-        <div style={{ padding: "0 24px 24px" }}>
-          <button onClick={onClose} style={{ width: "100%", padding: 11, borderRadius: 10, border: "1px solid #d0d5dd", background: "#fff", fontSize: 14, fontWeight: 600, color: "#344054", cursor: "pointer" }}>Close</button>
-        </div>
-      </div>
-    </div>
-  );
-}
-
-// ─── Main Page ────────────────────────────────────────────────────────────────
+const employeeRecordId = (row: any) => String(row?._id || row?.id || row?.employeeId || "");
 
 export const EmployeesPage = () => {
-  const [search, setSearch]             = useState("");
-  const [employees, setEmployees]       = useState<any[]>([]);
-  const [loadingData, setLoadingData]   = useState(true);
-  const [fetchError, setFetchError]     = useState("");
-  const [showAddModal, setShowAddModal] = useState(false);
-  const [viewEmployee, setViewEmployee] = useState<any | null>(null);
+  const navigate = useNavigate();
+  const [search, setSearch]           = useState("");
+  const [employees, setEmployees]     = useState<any[]>([]);
+  const [loadingData, setLoadingData] = useState(true);
+  const [fetchError, setFetchError]   = useState("");
 
-  // ── Fetch ───────────────────────────────────────────────────────────────────
+  const openProfile = (row: any) => {
+    const id = employeeRecordId(row);
+    if (!id) return;
+    navigate(`/owner/profile/${id}`);
+  };
 
   const fetchEmployees = async () => {
     setLoadingData(true);
@@ -320,52 +57,75 @@ export const EmployeesPage = () => {
 
   useEffect(() => { fetchEmployees(); }, []);
 
-  // ── Table columns ───────────────────────────────────────────────────────────
-
   const columns = [
     {
-      name: <span className="font-weight-bold fs-13">Employee Name</span>,
+      name: <span className="font-weight-bold fs-13">Employee</span>,
       cell: (row: any) => (
-        <div style={{ width: "100%" }}>
+        <button
+          type="button"
+          onClick={() => openProfile(row)}
+          style={{
+            width: "100%", border: "none", background: "transparent",
+            textAlign: "left", cursor: "pointer", padding: 0,
+          }}
+        >
           <div className="w-100 d-flex align-items-center gap-2">
-            <div className="d-flex justify-content-center align-items-center bg-primary" style={{ width: 35, height: 35, borderRadius: "50%", flexShrink: 0 }}>
+            <div className="d-flex justify-content-center align-items-center" style={{
+              width: 35, height: 35, borderRadius: "50%", flexShrink: 0, background: C.primary,
+            }}>
               {row?.photo ? (
-                <img src={row.photo} alt="employee" style={{ width: 35, height: 35, borderRadius: "50%", objectFit: "cover" }} />
+                <img src={row.photo} alt="" style={{ width: 35, height: 35, borderRadius: "50%", objectFit: "cover" }} />
               ) : (
                 <AiOutlineUser color="white" size={19} />
               )}
             </div>
             <div>
-              <div style={{ fontSize: 14, fontWeight: 400 }}>{row?.firstName} {row?.lastName}</div>
+              <div style={{ fontSize: 14, fontWeight: 600, color: C.ink }}>{row?.firstName} {row?.lastName}</div>
               <div style={{ fontSize: 12, fontWeight: 500, color: "#A7A7A7" }}>
                 {row?.email?.length < 27 ? row?.email : `${row?.email?.substring(0, 28)}...`}
               </div>
             </div>
           </div>
-        </div>
+        </button>
       ),
+    },
+    {
+      name: <span className="font-weight-bold fs-13">Position</span>,
+      selector: (row: any) => row?.position || row?.jobTitle || "—",
     },
     {
       name: <span className="font-weight-bold fs-13">Department</span>,
       selector: (row: any) => row?.departmentId?.name || row?.department || "—",
     },
     {
-      name: <span className="font-weight-bold fs-13">Role</span>,
-      selector: (row: any) => row?.roles?.[0]?.type || "Employee",
+      name: <span className="font-weight-bold fs-13">Employment</span>,
+      selector: (row: any) => row?.employmentType || row?.employment_type || row?.roles?.[0]?.type || "Employee",
     },
     {
       name: <span className="font-weight-bold fs-13">Action</span>,
       cell: (row: any) => (
-        <div style={{ display: "flex", alignItems: "center" }}>
-          <AiFillEye size={20} className="mx-1" style={{ cursor: "pointer", color: C.primary }} onClick={() => setViewEmployee(row)} />
-        </div>
+        <button
+          type="button"
+          onClick={() => openProfile(row)}
+          title="View profile"
+          aria-label={`View profile for ${row?.firstName || ""} ${row?.lastName || ""}`.trim()}
+          style={{
+            display: "inline-flex", alignItems: "center", gap: 6,
+            padding: "6px 12px", borderRadius: 8,
+            border: `1px solid ${C.primary}33`, background: `${C.primary}12`,
+            color: C.primary, fontSize: 13, fontWeight: 600, cursor: "pointer",
+          }}
+        >
+          <AiFillEye size={16} />
+          View profile
+        </button>
       ),
     },
   ];
 
   const filteredEmployees = employees.filter((item) => {
     if (!search) return true;
-    return [item?.firstName, item?.lastName, item?.departmentId?.name, item?.department, item?.email].some(
+    return [item?.firstName, item?.lastName, item?.departmentId?.name, item?.department, item?.email, item?.position, item?.jobTitle].some(
       (field) => field?.toLowerCase().includes(search.toLowerCase())
     );
   });
@@ -376,9 +136,9 @@ export const EmployeesPage = () => {
         <PageHero
           icon={<Users size={24} color="#fff" />}
           title="Employees"
-          subtitle="Search the directory and add people to the organisation."
+          subtitle="Search the directory and open a full people file."
           actions={
-            <button type="button" style={perfBtnHero} onClick={() => setShowAddModal(true)}>
+            <button type="button" style={perfBtnHero} onClick={() => navigate("/owner/manage-employees")}>
               Add Employee
             </button>
           }
@@ -406,22 +166,13 @@ export const EmployeesPage = () => {
               data={filteredEmployees}
               pagination
               highlightOnHover
+              pointerOnHover
+              onRowClicked={openProfile}
               noDataComponent={<div style={{ padding: 32, color: C.muted }}>No employees found.</div>}
             />
           )}
         </SectionCard>
       </PerformancePage>
-
-      {showAddModal && (
-        <AddEmployeeModal
-          onClose={() => setShowAddModal(false)}
-          onSuccess={() => { fetchEmployees(); }}
-        />
-      )}
-
-      {viewEmployee && (
-        <ViewEmployeeModal employee={viewEmployee} onClose={() => setViewEmployee(null)} />
-      )}
     </React.Fragment>
   );
 };

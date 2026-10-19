@@ -5,9 +5,9 @@
  * related records in a manager-friendly layout via `SharedLayout`.
  */
 import React, { useState, useEffect, useRef, useCallback } from "react";
-import { useNavigate, useParams } from "react-router-dom";
+import { useNavigate, useParams, useLocation } from "react-router-dom";
 import SharedLayout from "./SharedLayout";
-import { C } from "../../shared/utils/employee";
+import { API_URL, C, normalizeEmployeeList, unwrapArray, unwrapSuccessData } from "../../shared/utils/employee";
 import { Users } from "lucide-react";
 import { PageHero } from "./managerUi";
 
@@ -313,89 +313,130 @@ interface Alert {
   message: string;
 }
 
-const MOCK_API_EMPLOYEE: ApiEmployee = {
-  id: "EMP001",
-  employee_code: "EMP001",
-  full_name: "Jane Doe",
-  fullName: "Jane Doe",
-  department: "Engineering",
-  position: "Software Engineer",
-  email: "jane.doe@example.com",
-  phone: "+27 71 000 0000",
-  profile_image: "",
-  status: "active",
-  personal_info: {
-    first_name: "Jane",
-    last_name: "Doe",
-    date_of_birth: "1992-05-10",
-    gender: "female",
-    nationality: "South African",
-    id_number: "9205101234088",
-  },
-  employment_details: {
-    employee_code: "EMP001",
-    department: "Engineering",
-    position: "Software Engineer",
-    hire_date: "2022-01-15",
-    employment_status: "permanent",
-    work_location: "Johannesburg Office",
-  },
-  contact_info: {
-    personal_email: "jane.doe@example.com",
-    work_email: "jane.doe@kagohc.com",
-    personal_phone: "+27 71 000 0000",
-    work_phone: "+27 10 555 0000",
-    address: "123 Main Road",
-    city: "Johannesburg",
-    state: "Gauteng",
-    postal_code: "2000",
-    country: "South Africa",
-    emergency_contact_name: "John Doe",
-    emergency_contact_phone: "+27 72 000 0000",
-    emergency_contact_relation: "Spouse",
-  },
-  banking_details: {
-    bank_name: "Standard Bank",
-    account_number: "1234567890",
-    account_holder_name: "Jane Doe",
-    tax_id: "TX1234567",
-  },
-};
-
-const mapApiEmployeeToEmployee = (d: ApiEmployee): Employee => ({
-  id: d.id,
-  employeeId: d.employee_code,
-  fullName: d.fullName || d.full_name,
-  email: d.email || d.contact_info?.personal_email || "",
-  phone: d.phone || d.contact_info?.personal_phone || "",
-  dateOfBirth: d.personal_info?.date_of_birth || "",
-  idNumber: d.personal_info?.id_number || "",
-  gender: d.personal_info?.gender || "",
-  nationality: d.personal_info?.nationality || "",
-  taxNumber: d.banking_details?.tax_id || "",
-  bio: d.personal_info?.middle_name || "",
-  position: d.employment_details?.position || d.position || "",
-  department: d.employment_details?.department || d.department,
-  employmentType: d.employment_details?.employment_type || "",
-  status: d.status,
-  startDate: d.employment_details?.hire_date || "",
-  workLocation: d.employment_details?.work_location || "",
-  bankName: d.banking_details?.bank_name || "",
-  bankAccountNumber: d.banking_details?.account_number || "",
-  branchCode: d.banking_details?.bank_branch || "",
+const EMPTY_EMPLOYEE: Employee = {
+  id: "",
+  employeeId: "",
+  fullName: "",
+  email: "",
+  phone: "",
+  dateOfBirth: "",
+  idNumber: "",
+  gender: "",
+  nationality: "",
+  taxNumber: "",
+  bio: "",
+  position: "",
+  department: "",
+  employmentType: "",
+  status: "",
+  startDate: "",
+  workLocation: "",
+  bankName: "",
+  bankAccountNumber: "",
+  branchCode: "",
   linkedin: "",
   twitter: "",
   facebook: "",
   instagram: "",
-  profilePicture: d.profile_image || null,
-  streetName: d.contact_info?.address,
-  suburb: undefined,
-  city: d.contact_info?.city,
-  postalCode: d.contact_info?.postal_code,
-});
+  profilePicture: null,
+};
+
+const recordId = (row: any): string => String(row?._id || row?.id || row?.employeeId || "").trim();
+
+const looksLikeEmployee = (row: any): boolean =>
+  Boolean(row && typeof row === "object" && !Array.isArray(row) && (
+    row._id || row.id || row.firstName || row.first_name || row.email || row.employeeId || row.fullName || row.full_name
+  ));
+
+const deptName = (value: any): string => {
+  if (!value) return "";
+  if (typeof value === "string") return value;
+  return value.name || value.title || value.department || "";
+};
+
+const pickEmployeeRecord = (payload: any, employeeId: string): any | null => {
+  const wanted = String(employeeId || "").trim();
+  const matchId = (row: any) => wanted && recordId(row) === wanted;
+  const list = unwrapArray(payload);
+  if (list.length) {
+    const found = list.find(matchId);
+    if (found) return found;
+  }
+  const layers = [
+    payload,
+    unwrapSuccessData(payload),
+    payload?.data,
+    payload?.data?.data,
+    payload?.data?.employee,
+    payload?.employee,
+  ];
+  for (const layer of layers) {
+    if (Array.isArray(layer)) {
+      const found = layer.find(matchId);
+      if (found) return found;
+      continue;
+    }
+    if (looksLikeEmployee(layer) && (!wanted || !recordId(layer) || matchId(layer))) return layer;
+  }
+  return null;
+};
+
+const isoDate = (value: any): string => {
+  if (!value) return "";
+  const d = new Date(value);
+  return Number.isNaN(d.getTime()) ? String(value) : d.toISOString().split("T")[0];
+};
+
+const mapRawEmployee = (raw: any): Employee => {
+  const first = raw?.firstName || raw?.first_name || raw?.personal_info?.first_name || "";
+  const last = raw?.lastName || raw?.last_name || raw?.personal_info?.last_name || "";
+  const fullName = `${first} ${last}`.trim() || raw?.fullName || raw?.full_name || "";
+  const addr = raw?.address && typeof raw.address === "object" ? raw.address : {};
+  return {
+    id: recordId(raw),
+    employeeId: raw?.employeeId || raw?.employee_code || raw?.employment_details?.employee_code || "",
+    fullName,
+    email: raw?.email || raw?.contact_info?.work_email || raw?.contact_info?.personal_email || "",
+    phone: raw?.phone || raw?.cellNumber || raw?.mobile || raw?.contact_info?.personal_phone || "",
+    dateOfBirth: isoDate(raw?.dateOfBirth || raw?.date_of_birth || raw?.personal_info?.date_of_birth),
+    idNumber: raw?.idNumber || raw?.nationalId || raw?.id_number || raw?.personal_info?.id_number || "",
+    gender: raw?.gender || raw?.personal_info?.gender || "",
+    nationality: raw?.nationality || raw?.personal_info?.nationality || "",
+    taxNumber: raw?.taxNumber || raw?.tax_id || raw?.banking_details?.tax_id || "",
+    bio: raw?.bio || raw?.personal_info?.middle_name || "",
+    position: raw?.position || raw?.jobTitle || raw?.designation || raw?.employment_details?.position || "",
+    department: deptName(raw?.department) || deptName(raw?.departmentId) || raw?.departmentName || deptName(raw?.employment_details?.department),
+    employmentType: raw?.employmentType || raw?.employment_type || raw?.employment_details?.employment_type || "",
+    status: raw?.status || raw?.employment_details?.employment_status || "active",
+    startDate: isoDate(raw?.startDate || raw?.hireDate || raw?.hire_date || raw?.employment_details?.hire_date),
+    workLocation: raw?.workLocation || raw?.work_location || raw?.employment_details?.work_location || "",
+    bankName: raw?.bankName || raw?.banking_details?.bank_name || "",
+    bankAccountNumber: raw?.bankAccountNumber || raw?.bankAccount || raw?.account_number || raw?.banking_details?.account_number || "",
+    branchCode: raw?.branchCode || raw?.bankBranch || raw?.banking_details?.bank_branch || "",
+    linkedin: raw?.linkedin || "",
+    twitter: raw?.twitter || "",
+    facebook: raw?.facebook || "",
+    instagram: raw?.instagram || "",
+    profilePicture: raw?.photo || raw?.profilePicture || raw?.profile_image || raw?.avatar || null,
+    streetName: addr.street || raw?.streetName || raw?.contact_info?.address || "",
+    suburb: raw?.suburb || addr.state || "",
+    city: addr.city || raw?.city || raw?.contact_info?.city || "",
+    postalCode: addr.zipCode || addr.postalCode || raw?.postalCode || raw?.contact_info?.postal_code || "",
+  };
+};
+
+const resolveProfileId = (paramId?: string): string => {
+  if (paramId) return String(paramId);
+  const searchId = new URLSearchParams(window.location.search).get("id");
+  if (searchId) return searchId;
+  const match = window.location.pathname.match(/\/profile\/([^/?#]+)/);
+  return match?.[1] || "";
+};
 
 function EmployeeProfileContent() {
   const navigate = useNavigate();
+  const location = useLocation();
+  const { id: paramId } = useParams<{ id?: string }>();
 
   // Authentication check
   useEffect(() => {
@@ -409,8 +450,7 @@ function EmployeeProfileContent() {
     }
 
     try {
-      const user = JSON.parse(userStr);
-      console.log('Authenticated user:', user);
+      JSON.parse(userStr);
     } catch (error) {
       console.error('Invalid user data in localStorage:', error);
       navigate('/');
@@ -418,19 +458,12 @@ function EmployeeProfileContent() {
     }
   }, [navigate]);
 
-  const [employee, setEmployee] = useState<Employee>(mapApiEmployeeToEmployee(MOCK_API_EMPLOYEE));
-  const [allEmployees, setAllEmployees] = useState<{ id: string; code: string; fullName: string; department: string }[]>([
-    {
-      id: MOCK_API_EMPLOYEE.id,
-      code: MOCK_API_EMPLOYEE.employee_code,
-      fullName: MOCK_API_EMPLOYEE.fullName || MOCK_API_EMPLOYEE.full_name,
-      department: MOCK_API_EMPLOYEE.department,
-    },
-  ]);
+  const [employee, setEmployee] = useState<Employee>(EMPTY_EMPLOYEE);
+  const [allEmployees, setAllEmployees] = useState<{ id: string; code: string; fullName: string; department: string }[]>([]);
   const [selectedEmployeeId, setSelectedEmployeeId] = useState('');
   const [employeesLoadError, setEmployeesLoadError] = useState('');
   const [pendingBankingRequest, setPendingBankingRequest] = useState<any>(null);
-  const [isLoading, setIsLoading] = useState(false);
+  const [isLoading, setIsLoading] = useState(() => Boolean(resolveProfileId(paramId)));
   const [isSaving, setIsSaving] = useState(false);
   const [alert, setAlert] = useState<Alert>({ show: false, type: 'info', message: '' });
   const [activeTab, setActiveTab] = useState('personal-info');
@@ -503,20 +536,18 @@ function EmployeeProfileContent() {
     const token = localStorage.getItem('token');
     if (!token) { setEmployeesLoadError('Not authenticated.'); return; }
     try {
-      const response = await fetch('https://employee-evaluation-kago-e63baae4d822.herokuapp.com/api/v1/employees', {
+      const response = await fetch(`${API_URL}/employees`, {
         headers: { 'Authorization': `Bearer ${token}` }
       });
       const data = await response.json();
-      let arr: any[] = [];
-      if (Array.isArray(data?.data?.data)) arr = data.data.data;
-      else if (Array.isArray(data?.data)) arr = data.data;
+      const arr = normalizeEmployeeList(data);
       if (arr.length > 0) {
         setAllEmployees(arr.map((emp: any) => ({
-          id: emp._id || emp.id,
+          id: recordId(emp),
           code: emp.employeeId || emp.employee_code || '',
-          fullName: `${emp.firstName || ''} ${emp.lastName || ''}`.trim() || emp.fullName || emp.full_name || '',
-          department: emp.department?.name || emp.departmentName || emp.department || 'Unassigned',
-        })));
+          fullName: `${emp.firstName || emp.first_name || ''} ${emp.lastName || emp.last_name || ''}`.trim() || emp.fullName || emp.full_name || '',
+          department: deptName(emp.department) || deptName(emp.departmentId) || emp.departmentName || 'Unassigned',
+        })).filter((emp: { id: string }) => emp.id));
       } else {
         setEmployeesLoadError('No employees found.');
       }
@@ -526,50 +557,33 @@ function EmployeeProfileContent() {
   };
 
   const loadEmployeeProfile = async (employeeId: string, openEdit = false) => {
+    if (!employeeId) return;
     setIsLoading(true);
+    setEmployee(EMPTY_EMPLOYEE);
     const token = localStorage.getItem('token');
     if (!token) { setIsLoading(false); return; }
+    const headers = { Authorization: `Bearer ${token}` };
     try {
-      const response = await fetch(`https://employee-evaluation-kago-e63baae4d822.herokuapp.com/api/v1/employees/${employeeId}`, {
-        headers: { 'Authorization': `Bearer ${token}` }
-      });
-      const data = await response.json();
-      // API: { success, message, data: employee, timestamp }
-      const raw = data.data || data;
-      if (raw && (raw._id || raw.id)) {
-        const mapped: Employee = {
-          id: raw._id || raw.id,
-          employeeId: raw.employeeId || raw.employee_code,
-          fullName: `${raw.firstName || ''} ${raw.lastName || ''}`.trim() || raw.fullName || raw.full_name || '',
-          email: raw.email || '',
-          phone: raw.phone || '',
-          dateOfBirth: raw.dateOfBirth || raw.date_of_birth || '',
-          idNumber: raw.idNumber || raw.id_number || '',
-          gender: raw.gender || '',
-          nationality: raw.nationality || '',
-          taxNumber: raw.taxNumber || raw.tax_id || '',
-          bio: raw.bio || '',
-          position: raw.position || '',
-          department: raw.department?.name || raw.departmentName || raw.department || '',
-          employmentType: raw.employmentType || raw.employment_type || '',
-          status: raw.status || 'active',
-          startDate: raw.startDate ? new Date(raw.startDate).toISOString().split('T')[0] : '',
-          workLocation: raw.workLocation || raw.work_location || '',
-          bankName: raw.bankName || '',
-          bankAccountNumber: raw.bankAccountNumber || raw.account_number || '',
-          branchCode: raw.branchCode || raw.branch_code || '',
-          linkedin: raw.linkedin || '',
-          twitter: raw.twitter || '',
-          facebook: raw.facebook || '',
-          instagram: raw.instagram || '',
-          profilePicture: raw.profilePicture || raw.profile_image || null,
-          streetName: raw.address?.street || raw.streetName || '',
-          suburb: raw.suburb || '',
-          city: raw.address?.city || raw.city || '',
-          postalCode: raw.address?.zipCode || raw.postalCode || '',
-        };
+      let raw: any = null;
+      try {
+        const response = await fetch(`${API_URL}/employees/${employeeId}`, { headers });
+        if (response.ok) {
+          const data = await response.json();
+          raw = pickEmployeeRecord(data, employeeId);
+        }
+      } catch {
+        raw = null;
+      }
+      if (!raw || (recordId(raw) && recordId(raw) !== String(employeeId))) {
+        const listRes = await fetch(`${API_URL}/employees`, { headers });
+        const listData = await listRes.json();
+        raw = pickEmployeeRecord(listData, employeeId);
+      }
+      if (raw && looksLikeEmployee(raw)) {
+        const mapped = mapRawEmployee(raw);
+        if (!mapped.id) mapped.id = employeeId;
         setEmployee(mapped);
-        setSelectedEmployeeId(employeeId);
+        setSelectedEmployeeId(mapped.id || employeeId);
         if (openEdit) setTimeout(() => openEditModal('info'), 100);
       } else {
         showAlert('Employee not found', 'error');
@@ -627,6 +641,11 @@ function EmployeeProfileContent() {
 
   const switchEmployee = (employeeId: string) => {
     if (!employeeId) return;
+    if (location.pathname.startsWith("/owner/")) {
+      navigate(`/owner/profile/${employeeId}`);
+    } else {
+      navigate(`/manager/profile/${employeeId}`);
+    }
     loadEmployeeProfile(employeeId);
   };
 
@@ -668,7 +687,7 @@ function EmployeeProfileContent() {
     const token = localStorage.getItem('token');
     if (!token) { setIsSaving(false); return; }
     try {
-      const response = await fetch(`https://employee-evaluation-kago-e63baae4d822.herokuapp.com/api/v1/employees/${employee.id}`, {
+      const response = await fetch(`${API_URL}/employees/${employee.id}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
         body: JSON.stringify({
@@ -734,7 +753,7 @@ function EmployeeProfileContent() {
     const token = localStorage.getItem('token');
     if (!token) return;
     try {
-      const response = await fetch(`https://employee-evaluation-kago-e63baae4d822.herokuapp.com/api/v1/employees/${employee.id}/status`, {
+      const response = await fetch(`${API_URL}/employees/${employee.id}/status`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
         body: JSON.stringify({ status: newStatus })
@@ -756,18 +775,14 @@ function EmployeeProfileContent() {
     window.location.href = `../Termination/Termination.html?id=${empId}&name=${encodeURIComponent(empName)}`;
   };
 
-  const { id: paramId } = useParams<{ id?: string }>();
-
   useEffect(() => {
     loadAllEmployees();
-    // Support both /manager/profile/:id (React Router) and /manager/profile?id=xxx (query string)
-    const searchId = new URLSearchParams(window.location.search).get('id');
-    const mode     = new URLSearchParams(window.location.search).get('mode');
-    const employeeId = paramId || searchId;
+    const mode = new URLSearchParams(location.search).get("mode");
+    const employeeId = resolveProfileId(paramId);
     if (employeeId) {
-      loadEmployeeProfile(employeeId, mode === 'edit');
+      loadEmployeeProfile(employeeId, mode === "edit");
     }
-  }, [paramId]);
+  }, [paramId, location.pathname, location.search]);
 
   const getStatusBadgeStyle = (status: string): React.CSSProperties => {
     switch(status) {

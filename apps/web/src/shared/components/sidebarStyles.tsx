@@ -174,6 +174,67 @@ export const SidebarHoverStyle: React.FC = () => (
         margin-bottom: 24px;
       }
     }
+
+    .kago-sidebar-logo-mark {
+      width: 148px;
+      height: 52px;
+    }
+
+    /* Collapsed (minimized) sidebar: keep a readable logo and icon-only groups. */
+    body.vertical-collpsed .kago-sidebar {
+      overflow: visible !important;
+    }
+    body.vertical-collpsed .kago-sidebar .h-100 {
+      overflow: visible !important;
+    }
+    body.vertical-collpsed .kago-sidebar .kago-sidebar-logo {
+      padding: 4px 8px 12px !important;
+      justify-content: center;
+    }
+    body.vertical-collpsed .kago-sidebar .kago-sidebar-logo-mark {
+      width: 56px;
+      height: 56px;
+    }
+    body.vertical-collpsed .kago-sidebar #sidebar-menu > ul > li > a,
+    body.vertical-collpsed .kago-sidebar #sidebar-menu > ul > li > .sb-group-toggle {
+      justify-content: center !important;
+      padding: 14px 0 !important;
+      min-height: 52px;
+    }
+    body.vertical-collpsed .kago-sidebar #sidebar-menu > ul > li > a span,
+    body.vertical-collpsed .kago-sidebar #sidebar-menu > ul > li > .sb-group-toggle span {
+      display: none !important;
+    }
+    body.vertical-collpsed .kago-sidebar #sidebar-menu > ul > li > .sb-group-toggle > svg {
+      display: none !important;
+    }
+    body.vertical-collpsed .kago-sidebar #sidebar-menu > ul > li > .sb-group-toggle > div {
+      margin: 0;
+      justify-content: center;
+      width: 100%;
+    }
+    body.vertical-collpsed .kago-sidebar #sidebar-menu > ul > li > a svg,
+    body.vertical-collpsed .kago-sidebar #sidebar-menu > ul > li > .sb-group-toggle > div svg {
+      margin-right: 0 !important;
+      width: 22px;
+      height: 22px;
+      flex-shrink: 0;
+    }
+    body.vertical-collpsed .kago-sidebar #sidebar-menu > ul > li > .sub-menu {
+      display: none !important;
+    }
+    body.vertical-collpsed .kago-sidebar #sidebar-menu > ul > li:hover > .sub-menu {
+      display: block !important;
+      position: absolute;
+      left: 70px;
+      top: 0;
+      min-width: 196px;
+      padding: 8px 10px !important;
+      background: #000;
+      z-index: 30;
+      box-shadow: 4px 8px 20px rgba(0, 0, 0, 0.35);
+      border-radius: 0 8px 8px 0;
+    }
   `}</style>
 );
 
