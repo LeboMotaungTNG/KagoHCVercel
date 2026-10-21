@@ -16,6 +16,7 @@ import {
   MapPin, Phone, Plus, Save, Shield, Sparkles, Trash2, Upload, User as UserIcon, X,
 } from "lucide-react";
 import SharedLayout from "./SharedLayout";
+import ProfileVerificationPanel from "./ProfileVerificationPanel";
 import PhoneInput from "../../shared/components/PhoneInput";
 import SensitiveReveal from "../../shared/components/SensitiveReveal";
 import { C, FONT_NUM, R, SHADOW, SHADOW_L } from "../../shared/utils/employee";
@@ -242,7 +243,7 @@ const SECTION_META: Record<ProfileSectionId, {
  * Main component
  * ─────────────────────────────────────────────────────────────────────── */
 
-const userFromStorage = (): { _id?: string; email?: string; firstName?: string; lastName?: string } => {
+const userFromStorage = (): { _id?: string; email?: string; firstName?: string; lastName?: string; role?: string } => {
   try { return JSON.parse(localStorage.getItem("user") || "{}"); }
   catch { return {}; }
 };
@@ -429,6 +430,12 @@ const EmployeeProfilePage: React.FC = () => {
             onUploadAvatar={() => avatarInputRef.current?.click()}
           />
           <input ref={avatarInputRef} type="file" accept="image/*" onChange={onAvatarChange} style={{ display: "none" }} />
+
+          {["user", "employee"].includes(String(user.role || "").toLowerCase()) && (
+            <div style={{ marginTop: 22 }}>
+              <ProfileVerificationPanel profile={profile} />
+            </div>
+          )}
 
           {loading ? (
             <div style={{ ...card, marginTop: 24, textAlign: "center", color: C.muted }}>

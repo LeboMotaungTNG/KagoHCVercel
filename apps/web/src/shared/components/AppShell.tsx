@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
-import { ChevronDown, ChevronRight, LogOut, Menu } from "lucide-react";
+import { ChevronDown, ChevronRight, LogOut, Menu, Settings, UserRound } from "lucide-react";
 import {
   SidebarHoverStyle,
   MobileSidebarChrome,
@@ -15,6 +15,7 @@ import type { NotificationRole } from "../utils/notifications";
 import DelegationActingBanner from "../../components/delegation/DelegationActingBanner";
 import { navForRole } from "../nav/roleMenus";
 import { groupIsActive, pathIsActive, type NavGroupItem, type NavLinkItem } from "../nav/types";
+import { fetchProfileCompletion } from "../utils/profileVerification";
 // @ts-ignore
 import logoKago from "../../assets/images/logo-black-white.png";
 
@@ -286,17 +287,50 @@ const AppFooter: React.FC = () => (
 const AppShell: React.FC<AppShellProps> = ({ children, title, role: roleProp }) => {
   const navigate = useNavigate();
   const [role, setRole] = useState(() => roleProp || readRole());
+  const [profileLocked, setProfileLocked] = useState(false);
 
   useEffect(() => {
     setRole(roleProp || readRole());
   }, [roleProp]);
+
+  useEffect(() => {
+    const currentRole = normalizeAppRole(roleProp || readRole());
+    if (currentRole !== "employee" && currentRole !== "user") {
+      setProfileLocked(false);
+      return;
+    }
+    let active = true;
+    const token = localStorage.getItem("token") || "";
+    fetchProfileCompletion(token)
+      .then(profile => { if (active) setProfileLocked(!profile.modulesUnlocked); })
+      .catch(() => { if (active) setProfileLocked(true); });
+    return () => { active = false; };
+  }, [roleProp, role]);
 
   const onLogout = () => {
     clearSession();
     navigate("/login");
   };
 
-  const nav = navForRole(role);
+  const baseNav = navForRole(role);
+  const nav = profileLocked && (role === "employee" || role === "user")
+    ? {
+        sections: baseNav.sections
+          .map(section => ({
+            ...section,
+            items: section.items.flatMap(item => {
+              if (item.kind === "link") return ["/employee/profile", "/employee/settings"].includes(item.to) ? [item] : [];
+              const children = item.children.filter(child => ["/employee/profile", "/employee/settings"].includes(child.to));
+              return children.length ? [{ ...item, children }] : [];
+            }),
+          }))
+          .filter(section => section.items.length > 0),
+        mobile: [
+          { to: "/employee/profile", label: "Profile", icon: UserRound },
+          { to: "/employee/settings", label: "Settings", icon: Settings },
+        ],
+      }
+    : baseNav;
   const showBanner = role !== "auditor";
 
   return (

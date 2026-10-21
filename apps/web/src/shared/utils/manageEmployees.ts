@@ -226,7 +226,10 @@ export interface Employee {
   full_name: string; phone: string;
 }
 
-export interface QueueItem extends Employee { tempId: string; }
+export interface QueueItem extends Employee {
+  tempId: string;
+  processingError?: string;
+}
 
 /** Clears salary, bank, and payroll fields — volunteers are unpaid. */
 export const volunteerPayReset = (): Partial<Employee> => ({
@@ -550,6 +553,8 @@ export interface CreateEmployeeResult {
   ok: boolean;
   data?: any;
   message?: string;
+  errors?: string[];
+  fieldErrors?: Record<string, string>;
 }
 
 /** POST /employees/create-with-onboarding — payload mirrors backend contract. */
@@ -558,11 +563,19 @@ export async function createEmployeeWithOnboarding(
   token: string,
 ): Promise<CreateEmployeeResult> {
   try {
+    const {
+      tempId: _tempId,
+      processingError: _processingError,
+      ...employeeForm
+    } = emp;
+    const hasEmergencyContact = !!(
+      emp.emergency_name || emp.emergency_rel || emp.emergency_phone1 || emp.emergency_email
+    );
     const res = await fetch(`${API_URL}/employees/create-with-onboarding`, {
       method: "POST",
       headers: authHeaders(token),
       body: JSON.stringify({
-        ...emp,
+        ...employeeForm,
         firstName: emp.first_name,
         lastName: emp.surname,
         email: emp.email,
@@ -572,6 +585,22 @@ export async function createEmployeeWithOnboarding(
         annual_salary: emp.annual_salary,
         phone: emp.cell_number,
         employment_type: emp.employment_type,
+        dateOfBirth: emp.date_of_birth || undefined,
+        idNumber: emp.id_number || undefined,
+        passportNumber: emp.passport_number || undefined,
+        alternativePhone: emp.alt_cell || undefined,
+        salaryFrequency: "monthly",
+        bankName: emp.bank_name || undefined,
+        bankBranchCode: emp.bank_branch_code || undefined,
+        bankAccountNumber: emp.bank_account_number || undefined,
+        taxReference: emp.tax_number || undefined,
+        uifReference: emp.uif_number || undefined,
+        emergencyContact: hasEmergencyContact ? {
+          name: emp.emergency_name,
+          relationship: emp.emergency_rel,
+          phone: emp.emergency_phone1,
+          email: emp.emergency_email,
+        } : undefined,
         create_account: emp.create_account !== false,
         send_email: true,
         sendInvite: true,
@@ -585,6 +614,8 @@ export async function createEmployeeWithOnboarding(
       ok: res.ok && data?.success,
       data,
       message: data?.message,
+      errors: data?.errors,
+      fieldErrors: data?.fieldErrors,
     };
   } catch (err: any) {
     return { ok: false, message: err?.message || "Couldn't connect. Please check your internet and try again." };
@@ -605,8 +636,26 @@ export async function extractEmployeeDocument(
       body,
     });
     const data = await res.json().catch(() => ({}));
-    if (data?.success && Array.isArray(data.employees)) {
-      return { ok: true, employees: data.employees };
+    const extractedEmployees = data?.data?.employees ?? data?.employees;
+    if (data?.success && Array.isArray(extractedEmployees)) {
+      const employees = extractedEmployees.map((employee: any) => {
+        const [firstName = "", ...lastNameParts] = String(employee.full_name || "").trim().split(/\s+/);
+        return {
+          ...employee,
+          first_name: employee.first_name || firstName,
+          surname: employee.surname || lastNameParts.join(" "),
+          cell_number: employee.cell_number || employee.phone || "",
+          id_number: employee.id_number || "",
+          passport_number: employee.passport_number || "",
+          phys_street: employee.phys_street || employee.address_street || "",
+          phys_city: employee.phys_city || employee.address_city || "",
+          phys_province: employee.phys_province || employee.address_province || "",
+          phys_postal: employee.phys_postal || employee.address_postal_code || "",
+          employment_type: employee.employment_type || "Full Time",
+          annual_salary: employee.annual_salary || employee.salary || "",
+        };
+      });
+      return { ok: true, employees };
     }
     return { ok: false, message: data?.message || "No employee data could be extracted." };
   } catch (err: any) {

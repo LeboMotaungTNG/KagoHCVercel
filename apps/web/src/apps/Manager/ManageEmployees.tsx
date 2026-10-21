@@ -525,7 +525,17 @@ function ManageEmployeesContent() {
 
   const [mode, setMode] = useState<Mode>('form');
   const [currentStep, setCurrentStep] = useState<Step>(1);
-  const [queue, setQueue] = useState<QueueItem[]>([]);
+  const [queue, setQueue] = useState<QueueItem[]>(() => {
+    try {
+      const user = JSON.parse(localStorage.getItem('user') || '{}');
+      const ownerKey = user.id || user._id || user.email || 'session';
+      const savedQueue = JSON.parse(localStorage.getItem(`employeeOnboardingQueue:${ownerKey}`) || '[]');
+      return Array.isArray(savedQueue) ? savedQueue : [];
+    } catch {
+      return [];
+    }
+  });
+  const queuePanelRef = useRef<HTMLDivElement>(null);
   const [tableRows, setTableRows] = useState<Partial<Employee>[]>([]);
   const [showSuccess, setShowSuccess] = useState<string | null>(null);
   const [bulkDepartment, setBulkDepartment] = useState('');
@@ -571,6 +581,16 @@ function ManageEmployeesContent() {
       }
     }
   }, []);
+
+  useEffect(() => {
+    try {
+      const user = JSON.parse(localStorage.getItem('user') || '{}');
+      const ownerKey = user.id || user._id || user.email || 'session';
+      localStorage.setItem(`employeeOnboardingQueue:${ownerKey}`, JSON.stringify(queue));
+    } catch (error) {
+      console.warn('Unable to persist onboarding queue:', error);
+    }
+  }, [queue]);
 
   const generateEmployeeCode = () => {
     setFormData(prev => ({ ...prev, employee_code: generateRandomEmployeeCode() }));
@@ -862,15 +882,18 @@ function ManageEmployeesContent() {
 
     setUploading(true);
     try {
-      const EXTRACT_API = 'https://employee-evaluation-kago-e63baae4d822.herokuapp.com/api/v1/onboarding/extract-document';
+      const API_URL = import.meta.env.VITE_API_URL || 'https://employee-evaluation-kago-e63baae4d822.herokuapp.com/api/v1';
       const token = localStorage.getItem('token');
+      if (!token) throw new Error('Session expired. Please sign in again.');
       const formPayload = new FormData();
       formPayload.append('document', file);
-      const res = await fetch(EXTRACT_API, { method: 'POST', headers: { 'Authorization': `Bearer ${token}` }, body: formPayload });
-      const data = await res.json();
+      const res = await fetch(`${API_URL}/onboarding/extract-document`, { method: 'POST', headers: { 'Authorization': `Bearer ${token}` }, body: formPayload });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data.message || `Document extraction failed (${res.status}).`);
 
-      if (data.success && data.employees?.length) {
-        const extracted: QueueItem[] = data.employees.map((emp: Partial<Employee>) => ({
+      const employees = data.data?.employees || data.employees;
+      if (data.success && Array.isArray(employees) && employees.length) {
+        const extracted: QueueItem[] = employees.map((emp: Partial<Employee>) => ({
           full_name: emp.full_name || '',
           email: emp.email || '',
           phone: emp.phone || '',
@@ -892,15 +915,17 @@ function ManageEmployeesContent() {
           tempId: Date.now().toString() + Math.random().toString(36).substr(2, 9),
         }));
         setQueue(prev => [...prev, ...extracted]);
-        setShowSuccess(`${extracted.length} employee(s) extracted and added to queue!`);
+        setShowSuccess(`${extracted.length} employee(s) added. Review them in the queue.`);
         setMode('form');
+        requestAnimationFrame(() => queuePanelRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' }));
       } else {
         alert(data.message || 'No employee data could be extracted from this file.');
       }
-    } catch {
-      alert('Error uploading file. The extraction API is not available — use Form or Table mode.');
+    } catch (error) {
+      alert(error instanceof Error ? error.message : 'Unable to extract data from this document.');
     } finally {
       setUploading(false);
+      e.target.value = '';
       setTimeout(() => setShowSuccess(null), 3000);
     }
   };
@@ -1889,7 +1914,7 @@ function ManageEmployeesContent() {
         </div>
 
         {/* Right Panel - Queue */}
-        <div style={{
+        <div ref={queuePanelRef} style={{
           background: "#fff", borderRadius: 16,
           boxShadow: "0 1px 3px 0 rgba(16,24,40,0.1), 0 1px 2px 0 rgba(16,24,40,0.06)",
           border: "1px solid #e4e7ec", overflow: "hidden",

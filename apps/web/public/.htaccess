@@ -1,0 +1,15 @@
+RewriteEngine On
+
+# Force HTTPS
+RewriteCond %{HTTPS} off
+RewriteRule ^ https://%{HTTP_HOST}%{REQUEST_URI} [L,R=301]
+
+# Send every app route to index.html (real files and folders are served as-is)
+RewriteCond %{REQUEST_FILENAME} !-f
+RewriteCond %{REQUEST_FILENAME} !-d
+RewriteRule ^ index.html [L]
+
+# Always fetch the latest index.html after an update
+<FilesMatch "index\.html$">
+  Header set Cache-Control "no-cache"
+</FilesMatch>

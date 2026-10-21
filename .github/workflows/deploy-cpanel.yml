@@ -1,0 +1,50 @@
+# .github/workflows/deploy-cpanel.yml
+#
+# Builds the frontend and uploads it to cPanel every time you push to main.
+# Needs three GitHub secrets (Settings → Secrets and variables → Actions):
+#   FTP_SERVER    e.g. ftp.yourdomain.co.za
+#   FTP_USERNAME  the FTP account you create in cPanel (its folder = public_html)
+#   FTP_PASSWORD  that account's password
+
+name: Deploy frontend to cPanel
+
+on:
+  push:
+    branches: [main]        # change to your branch name if it isn't "main"
+  workflow_dispatch:        # adds a "Run workflow" button in the Actions tab
+
+concurrency:
+  group: deploy-cpanel
+  cancel-in-progress: true
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Get the code
+        uses: actions/checkout@v4
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Install
+        run: npm ci
+
+      - name: Build
+        run: npm run build
+        env:
+          # The backend on Heroku. Baked into the site at build time.
+          VITE_API_URL: https://employee-evaluation-kago-e63baae4d822.herokuapp.com/api/v1
+
+      - name: Upload to cPanel
+        uses: SamKirkland/FTP-Deploy-Action@v4.3.5
+        with:
+          server: ${{ secrets.FTP_SERVER }}
+          username: ${{ secrets.FTP_USERNAME }}
+          password: ${{ secrets.FTP_PASSWORD }}
+          protocol: ftps            # use "ftp" if your host doesn't support FTPS
+          local-dir: ./apps/web/dist/
+          server-dir: ./            # the FTP account's own folder (public_html)

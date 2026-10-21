@@ -1064,6 +1064,11 @@ function QueueCard({ item, index, onRemove }: { item: QueueItem; index: number; 
         padding: "10px 14px", fontSize: 11.5, color: BRAND.textMuted,
         display: "grid", gridTemplateColumns: "1fr 1fr", gap: "4px 12px",
       }}>
+        {item.processingError && (
+          <div role="alert" style={{ gridColumn: "1 / -1", color: "#b42318", background: "#fef3f2", border: "1px solid #fecdca", borderRadius: 8, padding: "8px 10px", lineHeight: 1.45 }}>
+            {item.processingError}
+          </div>
+        )}
         <div><span style={{ color: BRAND.textFaint }}>Dept</span> · {item.department || "—"}</div>
         <div><span style={{ color: BRAND.textFaint }}>Position</span> · {item.position || "—"}</div>
         <div style={{ gridColumn: "1 / -1", display: "flex", gap: 6, flexWrap: "wrap", marginTop: 4 }}>
@@ -1178,6 +1183,7 @@ function ManageEmployeesContent() {
   const [activeTab, setActiveTab] = useState<FormTab>(restoredDraft?.activeTab || 1);
   const [form, setForm] = useState<Employee>(restoredDraft?.form || defaultForm());
   const [queue, setQueue] = useState<QueueItem[]>(restoredDraft?.queue || []);
+  const queuePanelRef = React.useRef<HTMLDivElement>(null);
   const [tableRows, setTableRows] = useState<Partial<TableRowData>[]>(restoredDraft?.tableRows || []);
   const [bulkDept, setBulkDept] = useState(restoredDraft?.bulkDept || "");
   const [bulkDate, setBulkDate] = useState(restoredDraft?.bulkDate || "");
@@ -1223,6 +1229,35 @@ function ManageEmployeesContent() {
   const showToast = (msg: string, type: "success"|"error" = "success") => {
     setToast({ msg, type });
     setTimeout(() => setToast(null), 4000);
+  };
+
+  const handleDocumentUpload = async (file: File) => {
+    const token = localStorage.getItem("token");
+    if (!token) {
+      showToast("Session expired. Please login again.", "error");
+      return;
+    }
+
+    setUploading(true);
+    try {
+      const result = await extractEmployeeDocument(file, token);
+      if (!result.ok || !result.employees?.length) {
+        showToast(result.message || "No employee data could be extracted.", "error");
+        return;
+      }
+
+      const extracted: QueueItem[] = result.employees.map(emp =>
+        toQueueItem({ ...defaultForm(), ...emp, employee_code: generateRandomEmployeeCode() } as Employee),
+      );
+      setQueue(prev => [...prev, ...extracted]);
+      showToast(`${extracted.length} employee(s) added. Review them in the queue.`);
+      setMode("form");
+      requestAnimationFrame(() => queuePanelRef.current?.scrollIntoView({ behavior: "smooth", block: "center" }));
+    } catch (error) {
+      showToast(error instanceof Error ? error.message : "Unable to extract this document.", "error");
+    } finally {
+      setUploading(false);
+    }
   };
 
   useEffect(() => {
@@ -1281,25 +1316,38 @@ function ManageEmployeesContent() {
 
     setProcessing(true);
     let successCount = 0;
-    let failCount = 0;
+    const failedItems: QueueItem[] = [];
+    const generatedCredentials: string[] = [];
     for (const emp of queue) {
       const result = await createEmployeeWithOnboarding(emp, token);
       if (result.ok) {
         successCount++;
+        if (result.data?.generatedPassword) {
+          generatedCredentials.push(`${getFullName(emp)} (${emp.email}): ${result.data.generatedPassword}`);
+        }
       } else {
-        failCount++;
-        console.error(`Failed to create ${emp.email}: ${result.message || "unknown error"}`);
+        const details = result.message || result.errors?.join(" ") || "The server rejected this employee.";
+        failedItems.push({ ...emp, processingError: details });
+        console.error(`Failed to create ${emp.email}: ${details}`, result.fieldErrors);
       }
     }
 
-    showToast(
-      `${successCount} employee(s) added${failCount > 0 ? ` · ${failCount} failed` : ""}.`,
-      failCount > 0 ? "error" : "success",
-    );
-    setQueue([]);
-    clearForm();
-    setTableRows([]);
-    clearOnboardingDraft();
+    setQueue(failedItems);
+    if (failedItems.length === 0) {
+      showToast(`${successCount} employee(s) added successfully.`);
+      clearForm();
+      setTableRows([]);
+      clearOnboardingDraft();
+    } else {
+      const firstError = failedItems[0].processingError;
+      showToast(
+        `${successCount} employee(s) added; ${failedItems.length} remain in the queue. Correct the errors shown on each row and retry.${firstError ? ` ${firstError}` : ""}`,
+        "error",
+      );
+    }
+    if (generatedCredentials.length > 0) {
+      window.alert(`Welcome emails were not sent for these accounts. Share these temporary passwords securely:\n\n${generatedCredentials.join("\n")}`);
+    }
     setProcessing(false);
   };
 
@@ -1690,7 +1738,7 @@ function ManageEmployeesContent() {
                   onDrop={e => {
                     e.preventDefault();
                     const file = e.dataTransfer.files[0];
-                    if (file) document.getElementById("fileInput")?.click();
+                    if (file) void handleDocumentUpload(file);
                   }}
                 >
                   <div style={{ color: "#98a2b3", marginBottom: 16 }}><Ic.Upload /></div>
@@ -1699,23 +1747,10 @@ function ManageEmployeesContent() {
                   </h4>
                   <p style={{ color: "#667085", fontSize: 13, marginBottom: 4 }}>Drag & drop or click to upload</p>
                   <p style={{ color: "#98a2b3", fontSize: 12, marginBottom: 20 }}>Supports: PDF, Excel (.xlsx, .xls), CSV, Word (.docx)</p>
-                  <input id="fileInput" type="file" accept=".pdf,.xlsx,.xls,.csv,.docx" onChange={async e => {
-                    const file = e.target.files?.[0]; if (!file) return;
-                    const token = localStorage.getItem("token");
-                    if (!token) { showToast("Session expired. Please login again.", "error"); return; }
-                    setUploading(true);
-                    const result = await extractEmployeeDocument(file, token);
-                    if (result.ok && result.employees?.length) {
-                      const extracted: QueueItem[] = result.employees.map(emp =>
-                        toQueueItem({ ...defaultForm(), ...emp, employee_code: generateRandomEmployeeCode() } as Employee),
-                      );
-                      setQueue(prev => [...prev, ...extracted]);
-                      showToast(`${extracted.length} employee(s) extracted and added to queue!`);
-                      setMode("form");
-                    } else {
-                      showToast(result.message || "Extraction API not available — use Form or Table mode instead.", "error");
-                    }
-                    setUploading(false);
+                  <input id="fileInput" type="file" accept=".pdf,.xlsx,.xls,.csv,.docx" onChange={e => {
+                    const file = e.target.files?.[0];
+                    if (file) void handleDocumentUpload(file);
+                    e.target.value = "";
                   }} style={{ display: "none" }} />
                   <button type="button" onClick={e => { e.stopPropagation(); document.getElementById("fileInput")?.click(); }} style={S.btn("primary")}><Ic.Upload /> Choose File</button>
                 </div>
@@ -1724,7 +1759,7 @@ function ManageEmployeesContent() {
                   <div style={{ fontWeight: 600, color: "#344054", fontSize: 13, marginBottom: 10 }}>Download Template</div>
                   <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 8 }}>
                     {[["Excel Template","xlsx","#12b76a"],["CSV Template","csv","#667085"],["PDF Guide","pdf","#f04438"]].map(([label, ext, color]) => (
-                      <button key={ext} type="button" style={{ padding: "10px 14px", border: `1px solid ${color}22`, borderRadius: 8, background: `${color}11`, color, fontSize: 12, cursor: "pointer", fontWeight: 500 }}>
+                      <button key={ext} type="button" onClick={ext === "csv" ? () => { window.location.href = "/templates/employee-onboarding-one-employee.csv"; } : undefined} style={{ padding: "10px 14px", border: `1px solid ${color}22`, borderRadius: 8, background: `${color}11`, color, fontSize: 12, cursor: "pointer", fontWeight: 500 }}>
                         ↓ {label}
                       </button>
                     ))}
@@ -1736,7 +1771,7 @@ function ManageEmployeesContent() {
         </div>
 
         {/* Queue — full width under the form */}
-        <div style={{
+        <div ref={queuePanelRef} style={{
           ...siblingCard, padding: 0,
           display: "flex", flexDirection: "column",
           overflow: "hidden",
