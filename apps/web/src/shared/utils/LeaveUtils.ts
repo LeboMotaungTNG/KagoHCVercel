@@ -80,7 +80,7 @@ export const LEAVE_TYPE_STYLES: Record<string, React.CSSProperties> = {
 };
 
 export const STATUS_LABELS: Record<LeaveStatus, string> = {
-  pending: "Awaiting manager",
+  pending: "Submitted",
   pending_manager: "Awaiting manager",
   pending_hr: "Awaiting HR",
   approved: "Approved",

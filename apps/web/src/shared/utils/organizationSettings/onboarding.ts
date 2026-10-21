@@ -19,19 +19,30 @@ export interface OnboardingResult {
   color:  string;
 }
 
+const filled = (...vals: unknown[]): boolean =>
+  vals.some((v) => v !== undefined && v !== null && String(v).trim().length > 0);
+
 /** Build the onboarding checklist for a (possibly partial) company record. */
 export function computeOnboardingProgress(data: CompanyData): OnboardingResult {
+  const bank = data.bank || ({} as CompanyData["bank"]);
+  const address = data.address || ({} as CompanyData["address"]);
+  const contacts = data.contacts || ({} as CompanyData["contacts"]);
+  const extra = data as CompanyData & {
+    taxId?: string;
+    contacts?: CompanyData["contacts"] & { ceo?: { name?: string } };
+  };
+
   const items: OnboardingCheck[] = [
-    { label: "Company name",           done: !!data.name },
-    { label: "CIPC registration no.",  done: !!data.registrationNumber },
-    { label: "Income tax number",      done: !!data.incomeTaxNumber },
-    { label: "PAYE reference",         done: !!data.payeReference },
-    { label: "UIF reference",          done: !!data.uifReference },
-    { label: "Banking details",        done: !!data.bank?.accountNumber },
-    { label: "Physical address",       done: !!data.address?.physicalAddress },
-    { label: "Primary contact",        done: !!data.contacts?.primaryContact?.name },
-    { label: "Payroll contact",        done: !!data.contacts?.payroll?.name },
-    { label: "Fiscal year configured", done: !!(data.fiscalYearStart && data.fiscalYearEnd) },
+    { label: "Company name",          done: filled(data.name) },
+    { label: "CIPC registration no.", done: filled(data.registrationNumber) },
+    { label: "Income tax number",     done: filled(data.incomeTaxNumber, extra.taxId) },
+    { label: "PAYE reference",        done: filled(data.payeReference) },
+    { label: "UIF reference",         done: filled(data.uifReference) },
+    { label: "Banking details",       done: filled(bank.accountNumber, bank.bankName) },
+    { label: "Physical address",      done: filled(address.physicalAddress, address.street, address.city) },
+    { label: "Primary contact",       done: filled(contacts.primaryContact?.name, extra.contacts?.ceo?.name) },
+    { label: "Payroll contact",       done: filled(contacts.payroll?.name) },
+    { label: "Fiscal year configured", done: filled(data.fiscalYearStart) && filled(data.fiscalYearEnd) },
   ];
 
   const done = items.filter((c) => c.done).length;

@@ -338,7 +338,7 @@ const AppShell: React.FC<AppShellProps> = ({ children, title, role: roleProp }) 
       <AppHeader role={role} title={title} onLogout={onLogout} />
       <AppSidebar role={role} onLogout={onLogout} />
       <div className="main-content">
-        <div className="page-content" style={{ backgroundColor: "#f9f7f5", minHeight: "100vh" }}>
+        <div className="page-content kago-page-content" style={{ backgroundColor: "#f9f7f5" }}>
           <div className="container-fluid">
             {showBanner ? <DelegationActingBanner /> : null}
             {children}

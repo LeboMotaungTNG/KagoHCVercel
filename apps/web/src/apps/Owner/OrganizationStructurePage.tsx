@@ -293,7 +293,7 @@ function OrganizationStructureContent() {
       link.href = image;
       link.download = "organization-structure.png";
       link.click();
-      showToast("Organization chart downloaded as PNG.", "success");
+      showToast("Organisation chart downloaded as PNG.", "success");
     } catch (error) {
       console.error("PNG export failed:", error);
       showToast("Couldn't export the chart. Please try again.", "error");
@@ -340,7 +340,7 @@ function OrganizationStructureContent() {
 
       pdf.addImage(image, "PNG", margin, margin, imageWidth, imageHeight);
       pdf.save("organization-structure.pdf");
-      showToast("Organization chart downloaded as PDF.", "success");
+      showToast("Organisation chart downloaded as PDF.", "success");
     } catch (error) {
       console.error("PDF export failed:", error);
       showToast("Couldn't export the chart. Please try again.", "error");
@@ -537,10 +537,10 @@ function OrganizationStructureContent() {
           fontSize: 14.5, fontWeight: 800, color: "#fff",
           overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", maxWidth: 260,
         }}>
-          {companyName || "Organization"}
+          {companyName || "Organisation"}
         </div>
         <div style={{ fontSize: 11, color: "rgba(255,255,255,0.6)" }}>
-          {companyName ? "Organization · " : ""}{employees.length} people · {businessUnits.length} business units
+          {companyName ? "Organisation · " : ""}{employees.length} people · {businessUnits.length} business units
         </div>
       </div>
     </div>
@@ -673,7 +673,7 @@ function OrganizationStructureContent() {
 
       <PageHero
         icon={<span style={{ color: "#fff", display: "flex" }}><Ic.Landmark /></span>}
-        title="Organization Structure"
+        title="Organisation Structure"
         subtitle="Business units, departments, and who manages whom"
         actions={
           <>
@@ -792,7 +792,7 @@ const OrganizationStructurePage: React.FC<{ embedded?: boolean }> = ({ embedded 
   embedded ? (
     <OrganizationStructureContent />
   ) : (
-    <SharedLayout title="Organization Structure">
+    <SharedLayout title="Organisation Structure">
       <OrganizationStructureContent />
     </SharedLayout>
   );

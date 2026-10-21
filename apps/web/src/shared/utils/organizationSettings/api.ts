@@ -16,6 +16,11 @@ import type {
   ApiEnvelope, CompanyData, CustomLeaveType, LeaveTypeConfig,
   PayrollRun, PayrollSettings,
 } from "./types";
+import {
+  companyPayloadForSave,
+  normalizeCompanyFromApi,
+} from "../onboarding";
+import { DEFAULT_COMPANY_DATA } from "./constants";
 
 /* ── Generic helpers ──────────────────────────────────────────────── */
 
@@ -41,11 +46,121 @@ async function send<T>(
 
 /* ── Company profile ──────────────────────────────────────────────── */
 
-export const loadCompanySettings = () =>
-  getJSON<Partial<CompanyData>>("/owner/company/settings");
+const toOrgCompany = (incoming: any): CompanyData => {
+  const n = normalizeCompanyFromApi(incoming);
+  const src = incoming && typeof incoming === "object" ? incoming : {};
+  const srcContacts = src.contacts && typeof src.contacts === "object" ? src.contacts : {};
+  const srcAddress = src.address && typeof src.address === "object" ? src.address : {};
+  return {
+    ...DEFAULT_COMPANY_DATA,
+    name: n.name,
+    tradingName: String(src.tradingName || src.trading_name || ""),
+    logo: n.logoUrl || String(src.logo || ""),
+    sector: n.sector,
+    businessType: n.businessType || n.companyType,
+    locationTrackingEnabled: Boolean(src.locationTrackingEnabled),
+    numberOfEmployees: Number(src.numberOfEmployees) || DEFAULT_COMPANY_DATA.numberOfEmployees,
+    email: n.email,
+    phone: n.phone,
+    alternativePhone: n.alternativePhone,
+    website: n.website,
+    description: String(src.description || ""),
+    registrationNumber: n.registrationNumber,
+    vatNumber: n.vatNumber,
+    incomeTaxNumber: n.incomeTaxNumber || n.taxId,
+    payeReference: n.payeReference,
+    uifReference: n.uifReference,
+    sdlReference: n.sdlReference,
+    coida: n.workInjuryFundRef || String(src.coida || ""),
+    provisionalTaxpayer: n.provisionalTaxpayer,
+    taxComplianceStatus: n.taxComplianceStatus,
+    beeLevel: String(src.beeLevel || src.bbbeeLevel || src.bee || ""),
+    bank: { ...DEFAULT_COMPANY_DATA.bank, ...n.bank },
+    contacts: {
+      primaryContact: {
+        ...DEFAULT_COMPANY_DATA.contacts.primaryContact,
+        ...(srcContacts.primaryContact || {}),
+        name: n.contacts.ceo.name || srcContacts.primaryContact?.name || "",
+        email: n.contacts.ceo.email || srcContacts.primaryContact?.email || "",
+        phone: n.contacts.ceo.phone || srcContacts.primaryContact?.phone || "",
+      },
+      finance: {
+        ...DEFAULT_COMPANY_DATA.contacts.finance,
+        ...(srcContacts.finance || {}),
+        name: n.contacts.finance.name,
+        email: n.contacts.finance.email,
+        phone: n.contacts.finance.phone,
+      },
+      payroll: {
+        ...DEFAULT_COMPANY_DATA.contacts.payroll,
+        ...(srcContacts.payroll || {}),
+        name: n.contacts.payroll.name,
+        email: n.contacts.payroll.email,
+        phone: n.contacts.payroll.phone,
+      },
+      hr: {
+        ...DEFAULT_COMPANY_DATA.contacts.hr,
+        ...(srcContacts.hr || {}),
+      },
+    },
+    address: {
+      ...DEFAULT_COMPANY_DATA.address,
+      ...n.address,
+      physicalAddress: n.address.physicalAddress || srcAddress.physicalAddress || "",
+      postalAddress: n.address.postalAddress || srcAddress.postalAddress || "",
+      suburb: String(srcAddress.suburb || ""),
+      province: n.address.state || srcAddress.province || "",
+      country: n.address.country,
+    },
+    language: n.language,
+    timezone: n.timezone,
+    dateFormat: n.dateFormat,
+    currency: String(src.currency || DEFAULT_COMPANY_DATA.currency),
+    fiscalYearStart: n.fiscalYearStart,
+    fiscalYearEnd: n.fiscalYearEnd,
+    companyStatus: n.companyStatus,
+  };
+};
 
-export const saveCompanySettings = (data: CompanyData) =>
-  send<CompanyData>("/owner/company/settings", "PUT", data);
+export const loadCompanySettings = async () => {
+  const json = await getJSON<Partial<CompanyData>>("/owner/company/settings");
+  const raw = (json as any)?.data ?? json;
+  return { ...json, data: toOrgCompany(raw) };
+};
+
+export const saveCompanySettings = (data: CompanyData) => {
+  const mapped = companyPayloadForSave(data);
+  return send<CompanyData>("/owner/company/settings", "PUT", {
+    ...mapped,
+    ...data,
+    incomeTaxNumber: data.incomeTaxNumber || mapped.incomeTaxNumber,
+    taxId: data.incomeTaxNumber || mapped.taxId,
+    payeReference: data.payeReference || mapped.payeReference,
+    uifReference: data.uifReference || mapped.uifReference,
+    sdlReference: data.sdlReference || mapped.sdlReference,
+    vatNumber: data.vatNumber || mapped.vatNumber,
+    coida: data.coida || mapped.coida,
+    beeLevel: data.beeLevel,
+    taxComplianceStatus: data.taxComplianceStatus,
+    provisionalTaxpayer: data.provisionalTaxpayer,
+    tradingName: data.tradingName,
+    description: data.description,
+    currency: data.currency,
+    locationTrackingEnabled: data.locationTrackingEnabled,
+    contacts: {
+      ...((mapped.contacts as object) || {}),
+      ...data.contacts,
+    },
+    address: {
+      ...((mapped.address as object) || {}),
+      ...data.address,
+    },
+    bank: {
+      ...((mapped.bank as object) || {}),
+      ...data.bank,
+    },
+  });
+};
 
 /* ── Payroll ──────────────────────────────────────────────────────── */
 

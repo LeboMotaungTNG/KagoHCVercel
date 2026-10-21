@@ -35,6 +35,18 @@ export const COUNTRY_PROFILES: CountryProfile[] = [
   { name: "Tanzania",                     iso2: "TZ", dialCode: "255", trunkPrefix: "0", nsnLengths: [9],     placeholder: "071 234 5678",  placeholderLocal: "71 234 5678",   flag: "🇹🇿" },
   { name: "Zambia",                       iso2: "ZM", dialCode: "260", trunkPrefix: "0", nsnLengths: [9],     placeholder: "097 123 4567",  placeholderLocal: "97 123 4567",   flag: "🇿🇲" },
   { name: "Zimbabwe",                     iso2: "ZW", dialCode: "263", trunkPrefix: "0", nsnLengths: [9],     placeholder: "071 234 5678",  placeholderLocal: "71 234 5678",   flag: "🇿🇼" },
+  { name: "Australia",                    iso2: "AU", dialCode: "61",  trunkPrefix: "0", nsnLengths: [9],     placeholder: "0412 345 678",  placeholderLocal: "412 345 678",   flag: "🇦🇺" },
+  { name: "China",                        iso2: "CN", dialCode: "86",  trunkPrefix: "0", nsnLengths: [11],    placeholder: "138 0013 8000", placeholderLocal: "138 0013 8000", flag: "🇨🇳" },
+  { name: "Germany",                      iso2: "DE", dialCode: "49",  trunkPrefix: "0", nsnLengths: [10,11], placeholder: "0151 2345678",  placeholderLocal: "151 2345678",   flag: "🇩🇪" },
+  { name: "Ghana",                        iso2: "GH", dialCode: "233", trunkPrefix: "0", nsnLengths: [9],     placeholder: "024 123 4567",  placeholderLocal: "24 123 4567",   flag: "🇬🇭" },
+  { name: "India",                        iso2: "IN", dialCode: "91",  trunkPrefix: "0", nsnLengths: [10],    placeholder: "09876 543210",  placeholderLocal: "9876 543210",   flag: "🇮🇳" },
+  { name: "Ireland",                      iso2: "IE", dialCode: "353", trunkPrefix: "0", nsnLengths: [9],     placeholder: "085 123 4567",  placeholderLocal: "85 123 4567",   flag: "🇮🇪" },
+  { name: "Kenya",                        iso2: "KE", dialCode: "254", trunkPrefix: "0", nsnLengths: [9],     placeholder: "0712 345678",   placeholderLocal: "712 345678",    flag: "🇰🇪" },
+  { name: "Netherlands",                  iso2: "NL", dialCode: "31",  trunkPrefix: "0", nsnLengths: [9],     placeholder: "06 12345678",   placeholderLocal: "6 12345678",    flag: "🇳🇱" },
+  { name: "Nigeria",                      iso2: "NG", dialCode: "234", trunkPrefix: "0", nsnLengths: [10],    placeholder: "0803 123 4567",  placeholderLocal: "803 123 4567",  flag: "🇳🇬" },
+  { name: "Portugal",                     iso2: "PT", dialCode: "351", trunkPrefix: "",  nsnLengths: [9],     placeholder: "912 345 678",   placeholderLocal: "912 345 678",   flag: "🇵🇹" },
+  { name: "United Kingdom",               iso2: "GB", dialCode: "44",  trunkPrefix: "0", nsnLengths: [10],    placeholder: "07700 900123",  placeholderLocal: "7700 900123",   flag: "🇬🇧" },
+  { name: "United States",                iso2: "US", dialCode: "1",   trunkPrefix: "1", nsnLengths: [10],    placeholder: "202 555 0100",  placeholderLocal: "202 555 0100",  flag: "🇺🇸" },
 ];
 
 export const DEFAULT_COUNTRY = "South Africa";

@@ -133,6 +133,197 @@ export const EMPTY_COMPANY: CompanyData = {
   country: "South Africa",
 };
 
+const pickStr = (...vals: unknown[]): string => {
+  for (const v of vals) {
+    if (v === undefined || v === null) continue;
+    const s = String(v).trim();
+    if (s) return s;
+  }
+  return "";
+};
+
+const sizeFromHeadcount = (n: number): string => {
+  if (n <= 10) return "1-10";
+  if (n <= 50) return "11-50";
+  if (n <= 200) return "51-200";
+  if (n <= 500) return "201-500";
+  return "500+";
+};
+
+const mapContact = (c: any): ContactPerson => {
+  if (!c || typeof c !== "object") return { ...EMPTY_CONTACT };
+  return {
+    name: pickStr(c.name, c.fullName, [c.firstName, c.lastName].filter(Boolean).join(" ")),
+    email: pickStr(c.email),
+    phone: pickStr(c.phone, c.mobile, c.telephone),
+  };
+};
+
+const unwrapCompanyRecord = (raw: any): any => {
+  if (!raw || typeof raw !== "object") return {};
+  if (raw.company && typeof raw.company === "object" && !raw.name && !raw.registrationNumber) {
+    return raw.company;
+  }
+  if (raw.settings && typeof raw.settings === "object" && !raw.name) return raw.settings;
+  return raw;
+};
+
+const mergeContact = (a: ContactPerson, b: ContactPerson): ContactPerson => ({
+  name: pickStr(b.name, a.name),
+  email: pickStr(b.email, a.email),
+  phone: pickStr(b.phone, a.phone),
+});
+
+/** Map GET /owner/company/settings (and org-settings aliases) onto the onboarding form shape. */
+export const normalizeCompanyFromApi = (raw: any): CompanyData => {
+  const src = unwrapCompanyRecord(raw);
+  if (!src || typeof src !== "object") return { ...EMPTY_COMPANY };
+  const bank = src.bank && typeof src.bank === "object" ? src.bank : (src.banking || {});
+  const contacts = src.contacts && typeof src.contacts === "object" ? src.contacts : {};
+  const address = src.address && typeof src.address === "object" ? src.address : {};
+  const ceo = mapContact(contacts.ceo || contacts.primaryContact || contacts.primary);
+  const headcount = Number(src.numberOfEmployees);
+  return {
+    ...EMPTY_COMPANY,
+    name: pickStr(src.name, src.companyName, src.registeredName),
+    size: pickStr(src.size, Number.isFinite(headcount) && headcount > 0 ? sizeFromHeadcount(headcount) : ""),
+    sector: pickStr(src.sector, src.industry),
+    email: pickStr(src.email, src.companyEmail),
+    phone: pickStr(src.phone, src.telephone, src.mainPhone),
+    alternativePhone: pickStr(src.alternativePhone, src.altPhone),
+    website: pickStr(src.website),
+    fax: pickStr(src.fax),
+    language: pickStr(src.language) || EMPTY_COMPANY.language,
+    timezone: pickStr(src.timezone) || EMPTY_COMPANY.timezone,
+    dateFormat: pickStr(src.dateFormat) || EMPTY_COMPANY.dateFormat,
+    status: pickStr(src.status, src.companyStatus) || EMPTY_COMPANY.status,
+    logoUrl: pickStr(src.logoUrl, src.logo),
+    logoDataUrl: pickStr(src.logoDataUrl),
+    registrationNumber: pickStr(src.registrationNumber, src.cipcNumber),
+    companyType: pickStr(src.companyType, src.businessType),
+    companyStatus: pickStr(src.companyStatus, src.status) || EMPTY_COMPANY.companyStatus,
+    registrationDate: pickStr(src.registrationDate),
+    taxId: pickStr(src.taxId, src.incomeTaxNumber, src.taxNumber),
+    vatNumber: pickStr(src.vatNumber),
+    incomeTaxNumber: pickStr(src.incomeTaxNumber, src.taxId, src.taxNumber),
+    payeReference: pickStr(src.payeReference, src.paye),
+    uifReference: pickStr(src.uifReference, src.uif),
+    sdlReference: pickStr(src.sdlReference, src.sdl),
+    workInjuryFundRef: pickStr(src.workInjuryFundRef, src.coida, src.wca),
+    sarsBranch: pickStr(src.sarsBranch),
+    provisionalTaxpayer: Boolean(src.provisionalTaxpayer),
+    taxComplianceStatus: pickStr(src.taxComplianceStatus) || EMPTY_COMPANY.taxComplianceStatus,
+    bank: {
+      bankName: pickStr(bank.bankName, bank.name),
+      accountName: pickStr(bank.accountName, bank.accountHolder),
+      accountNumber: pickStr(bank.accountNumber, bank.account),
+      branchCode: pickStr(bank.branchCode, bank.branch),
+      accountType: pickStr(bank.accountType) || EMPTY_COMPANY.bank.accountType,
+      swiftCode: pickStr(bank.swiftCode, bank.bic),
+    },
+    contacts: {
+      ceo,
+      finance: mapContact(contacts.finance),
+      payroll: mapContact(contacts.payroll),
+    },
+    address: {
+      street: pickStr(address.street, address.streetAddress, address.line1),
+      city: pickStr(address.city, address.town),
+      state: pickStr(address.state, address.province),
+      country: pickStr(address.country, src.country) || EMPTY_COMPANY.address.country,
+      postalCode: pickStr(address.postalCode, address.code),
+      physicalAddress: pickStr(address.physicalAddress),
+      postalAddress: pickStr(address.postalAddress),
+    },
+    fiscalYearStart: pickStr(src.fiscalYearStart, src.financialYearStart),
+    fiscalYearEnd: pickStr(src.fiscalYearEnd, src.financialYearEnd),
+    lastAuditDate: pickStr(src.lastAuditDate),
+    yearsInOperation: Number(src.yearsInOperation) || 0,
+    businessType: pickStr(src.businessType, src.companyType),
+    country: pickStr(src.country, address.country) || EMPTY_COMPANY.country,
+  };
+};
+
+/** Keep filled values when the API omits a nested object or returns blanks. */
+export const mergeCompanyData = (base: CompanyData, incoming: Partial<CompanyData> | CompanyData): CompanyData => {
+  const b = { ...EMPTY_COMPANY, ...base };
+  const n = normalizeCompanyFromApi({ ...b, ...incoming, bank: incoming.bank, contacts: incoming.contacts, address: incoming.address });
+  return {
+    ...b,
+    ...Object.fromEntries(
+      Object.entries(n).filter(([key, val]) => {
+        if (key === "bank" || key === "contacts" || key === "address") return false;
+        if (typeof val === "string") return val.trim().length > 0;
+        if (typeof val === "boolean") return true;
+        if (typeof val === "number") return val !== 0 || typeof (b as any)[key] !== "number";
+        return val != null;
+      }),
+    ),
+    bank: {
+      bankName: pickStr(n.bank.bankName, b.bank.bankName),
+      accountName: pickStr(n.bank.accountName, b.bank.accountName),
+      accountNumber: pickStr(n.bank.accountNumber, b.bank.accountNumber),
+      branchCode: pickStr(n.bank.branchCode, b.bank.branchCode),
+      accountType: pickStr(n.bank.accountType, b.bank.accountType) || b.bank.accountType,
+      swiftCode: pickStr(n.bank.swiftCode, b.bank.swiftCode),
+    },
+    contacts: {
+      ceo: mergeContact(b.contacts.ceo, n.contacts.ceo),
+      finance: mergeContact(b.contacts.finance, n.contacts.finance),
+      payroll: mergeContact(b.contacts.payroll, n.contacts.payroll),
+    },
+    address: {
+      street: pickStr(n.address.street, b.address.street),
+      city: pickStr(n.address.city, b.address.city),
+      state: pickStr(n.address.state, b.address.state),
+      country: pickStr(n.address.country, b.address.country, n.country, b.country),
+      postalCode: pickStr(n.address.postalCode, b.address.postalCode),
+      physicalAddress: pickStr(n.address.physicalAddress, b.address.physicalAddress),
+      postalAddress: pickStr(n.address.postalAddress, b.address.postalAddress),
+    },
+  } as CompanyData;
+};
+
+/** Write every alias the org-settings schema and the onboarding form use. */
+export const companyPayloadForSave = (company: CompanyData): Record<string, unknown> => {
+  const n = normalizeCompanyFromApi(company);
+  const physical = pickStr(
+    n.address.physicalAddress,
+    [n.address.street, n.address.city, n.address.state, n.address.postalCode].filter(Boolean).join(", "),
+  );
+  return {
+    ...company,
+    ...n,
+    businessType: n.businessType || n.companyType,
+    companyType: n.companyType || n.businessType,
+    incomeTaxNumber: n.incomeTaxNumber || n.taxId,
+    taxId: n.taxId || n.incomeTaxNumber,
+    coida: n.workInjuryFundRef,
+    workInjuryFundRef: n.workInjuryFundRef,
+    companyStatus: n.companyStatus || n.status,
+    status: n.status || n.companyStatus,
+    contacts: {
+      ceo: n.contacts.ceo,
+      primaryContact: {
+        name: n.contacts.ceo.name,
+        email: n.contacts.ceo.email,
+        phone: n.contacts.ceo.phone,
+        designation: "CEO / Managing Director",
+      },
+      finance: n.contacts.finance,
+      payroll: n.contacts.payroll,
+    },
+    address: {
+      ...n.address,
+      province: n.address.state,
+      state: n.address.state,
+      physicalAddress: physical,
+    },
+    bank: n.bank,
+    country: n.country || n.address.country,
+  };
+};
+
 export interface DepartmentManagerInfo {
   id: string;
   firstName: string;
@@ -336,7 +527,7 @@ const authHeaders = (): HeadersInit => {
 
 const handleJson = async (res: Response): Promise<any> => {
   const data = await res.json().catch(() => ({}));
-  if (!res.ok && data?.success !== true) {
+  if (!res.ok || data?.success === false) {
     throw new Error(data?.message || data?.error?.message || `Request failed (${res.status})`);
   }
   return data;
@@ -344,19 +535,22 @@ const handleJson = async (res: Response): Promise<any> => {
 
 // Company
 
-export const fetchCompanySettings = async (): Promise<Partial<CompanyData>> => {
+export const fetchCompanySettings = async (): Promise<CompanyData> => {
   const data = await safeJson(`${API_URL}/owner/company/settings`, { headers: authHeaders() });
   const c = unwrapSuccessData(data);
-  return c && typeof c === "object" ? c : {};
+  return normalizeCompanyFromApi(c);
 };
 
-export const saveCompanySettings = async (company: CompanyData): Promise<void> => {
+export const saveCompanySettings = async (company: CompanyData): Promise<CompanyData> => {
+  const payload = companyPayloadForSave(company);
   const res = await fetch(`${API_URL}/owner/company/settings`, {
     method: "PUT",
     headers: authHeaders(),
-    body: JSON.stringify(company),
+    body: JSON.stringify(payload),
   });
-  await handleJson(res);
+  const data = await handleJson(res);
+  const saved = unwrapSuccessData(data);
+  return mergeCompanyData(normalizeCompanyFromApi(payload), normalizeCompanyFromApi(saved));
 };
 
 // Departments  (backend: /api/v1/department — POST /, GET /, GET /hierarchy,
@@ -483,7 +677,10 @@ export const completeOnboarding = async (payload: {
   const res = await fetch(`${API_URL}/owner/onboarding/complete`, {
     method: "POST",
     headers: authHeaders(),
-    body: JSON.stringify(payload),
+    body: JSON.stringify({
+      ...payload,
+      company: companyPayloadForSave(payload.company),
+    }),
   });
   await handleJson(res);
 };
@@ -584,7 +781,25 @@ export const validateCompanyForSave = (c: CompanyData): string | null => {
 export const initialsFromName = (first?: string, last?: string): string =>
   `${(first?.[0] || "").toUpperCase()}${(last?.[0] || "").toUpperCase()}` || "?";
 
+/** Mark wizard steps done from saved org data, not only local clicks. */
+export const inferOnboardingSteps = (opts: {
+  country?: string;
+  company?: CompanyData;
+  administratorCount?: number;
+  departmentCount?: number;
+  cached?: number[];
+}): number[] => {
+  const steps = new Set<number>((opts.cached || []).filter((n) => n >= 1 && n <= 4));
+  if (opts.country || opts.company?.country || opts.company?.address?.country) steps.add(1);
+  const fill = opts.company ? computeCompanyCompletion(opts.company) : 0;
+  if (opts.company?.name || fill >= 20) steps.add(2);
+  if ((opts.administratorCount || 0) > 0) steps.add(3);
+  if ((opts.departmentCount || 0) > 0) steps.add(4);
+  return Array.from(steps).sort((a, b) => a - b);
+};
+
 export const computeCompanyCompletion = (c: CompanyData): number => {
+  const n = normalizeCompanyFromApi(c);
   const paths = [
     "name", "sector", "companyType", "size", "email", "phone",
     "registrationNumber", "taxId", "payeReference", "uifReference",
@@ -594,7 +809,7 @@ export const computeCompanyCompletion = (c: CompanyData): number => {
     "fiscalYearStart", "fiscalYearEnd",
   ];
   const filled = paths.filter(p => {
-    const v = getByPath(c, p);
+    const v = getByPath(n, p);
     return v !== undefined && v !== null && String(v).trim().length > 0;
   }).length;
   return Math.round((filled / paths.length) * 100);

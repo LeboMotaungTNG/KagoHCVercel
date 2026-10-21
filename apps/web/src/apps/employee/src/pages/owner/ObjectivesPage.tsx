@@ -27,13 +27,28 @@ export default function ObjectivesPage() {
   const [targetMetric, setTargetMetric] = useState('');
 
   const refresh = async () => {
-    const [o, g] = await Promise.all([listObjectives(), listGoals()]);
-    setObjectives(o);
-    setGoals(g);
+    const [o, g] = await Promise.all([
+      listObjectives().catch((err) => {
+        throw err;
+      }),
+      listGoals().catch(() => [] as EmployeeGoal[]),
+    ]);
+    setObjectives(Array.isArray(o) ? o : []);
+    setGoals(Array.isArray(g) ? g : []);
   };
 
   useEffect(() => {
-    refresh().finally(() => setLoading(false));
+    refresh()
+      .catch((err) => {
+        const msg = err instanceof Error ? err.message : "Could not load objectives.";
+        const missing = /not found|404/i.test(msg);
+        setError(missing
+          ? "Objectives are not available on this server yet, so nothing could be loaded or saved."
+          : msg);
+        setObjectives([]);
+        setGoals([]);
+      })
+      .finally(() => setLoading(false));
   }, []);
 
   const handleCreate = async () => {

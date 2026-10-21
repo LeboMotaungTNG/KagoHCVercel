@@ -2603,10 +2603,13 @@ Net Pay: ${formatCurrency(employee.netSalary || employee.basicSalary * 0.81)}
   );
 };
 
-const Payroll: React.FC = () => (
-  <SharedLayout title="Payroll Management">
+const Payroll: React.FC<{ embedded?: boolean }> = ({ embedded = false }) =>
+  embedded ? (
     <PayrollPageContent />
-  </SharedLayout>
-);
+  ) : (
+    <SharedLayout title="Payroll Management">
+      <PayrollPageContent />
+    </SharedLayout>
+  );
 
 export default Payroll;

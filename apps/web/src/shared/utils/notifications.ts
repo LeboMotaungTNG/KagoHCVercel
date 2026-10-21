@@ -292,7 +292,7 @@ const ownerSeeds = (): AppNotification[] => [
     id: "owner-compliance",
     category: "system",
     title: "Compliance contacts due",
-    body: "Update organization notification contacts in Organization Settings.",
+    body: "Update organisation notification contacts in Organisation Settings.",
     createdAt: daysAgo(2),
     read: false,
     href: "/owner/organization-settings",
