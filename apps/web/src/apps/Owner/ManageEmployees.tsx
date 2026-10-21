@@ -829,14 +829,10 @@ function Tab4Payment({ f, upd }: { f: Employee; upd: (k: keyof Employee, v: any)
       )}
 
       <div style={S.sectionTitle}><Ic.Lock /> Account Setup</div>
-      <div style={S.row2}>
-        <FI label="Password" icon={<Ic.Lock />}><PasswordInput value={f.password} onChange={v => upd("password", v)} placeholder="Min. 6 characters" /></FI>
-        <FI label="Confirm Password" icon={<Ic.Lock />}><PasswordInput value={f.confirm_password} onChange={v => upd("confirm_password", v)} placeholder="Re-enter password" /></FI>
+      <div style={{ padding: "12px 14px", background: "#f0f9ff", border: "1px solid #bae6fd", borderRadius: 8, marginBottom: 12, fontSize: 13, color: "#0c4a6e" }}>
+        We email the employee a link to set their own password. You never choose or see it.
       </div>
-      <div style={{ display: "flex", gap: 16 }}>
-        <Checkbox checked={f.create_account} onChange={v => upd("create_account", v)} label="Create system account" sub="Employee can log in with their email and password" />
-        <Checkbox checked={f.send_email} onChange={v => upd("send_email", v)} label="Send welcome email" sub="Email credentials to employee" />
-      </div>
+      <Checkbox checked={f.create_account} onChange={v => upd("create_account", v)} label="Create system account" sub="Sends an invite to their email so they can log in" />
     </div>
   );
 }
@@ -1159,6 +1155,14 @@ function TableModeRow({ data, index, departments, positions, onChange, onRemove 
           {PAYMENT_METHODS.map(m => <option key={m}>{m}</option>)}
         </select>
       </td>
+      <td style={{ padding: "5px 7px" }}>
+        <select style={{ ...sel, minWidth: 130 }} value={data.bank_name || ""} disabled={isVolunteerType(data.employment_type)} onChange={e => onChange("bank_name", e.target.value)}>
+          <option value="">Bank</option>
+          {ZAF_BANKS.map(b => <option key={b}>{b}</option>)}
+        </select>
+      </td>
+      <td style={{ padding: "5px 7px" }}><input style={{ ...inp, minWidth: 120 }} placeholder="Account no." value={data.bank_account_number || ""} disabled={isVolunteerType(data.employment_type)} onChange={e => onChange("bank_account_number", e.target.value)} /></td>
+      <td style={{ padding: "5px 7px" }}><input style={{ ...inp, minWidth: 90 }} placeholder="Branch" maxLength={6} value={data.bank_branch_code || ""} disabled={isVolunteerType(data.employment_type)} onChange={e => onChange("bank_branch_code", e.target.value)} /></td>
       <td style={{ padding: "6px 8px", textAlign: "center" }}>
         <button type="button" onClick={onRemove} style={{ ...S.btn("danger"), padding: "4px 8px" }}><Ic.Trash /></button>
       </td>
@@ -1631,7 +1635,7 @@ function ManageEmployeesContent() {
                 <table style={{ minWidth: 2200, borderCollapse: "collapse", fontSize: 12.5 }}>
                   <thead>
                     <tr style={{ background: "#f9fafb", position: "sticky", top: 0, zIndex: 1 }}>
-                      {["#","First Name","Surname","Email","ID Type","ID/Passport","Phone","Gender","DOB","Street Address","City","Province","Postal","Department","Position","Emp. Type","Start Date","Annual Salary","Payment Method","Actions"].map(h => (
+                      {["#","First Name","Surname","Email","ID Type","ID/Passport","Phone","Gender","DOB","Street Address","City","Province","Postal","Department","Position","Emp. Type","Start Date","Annual Salary","Payment Method","Bank","Account number","Branch code","Actions"].map(h => (
                         <th key={h} style={{ padding: "8px 8px", border: `1px solid ${BRAND.border}`, textAlign: "left", fontSize: 11.5, fontWeight: 700, color: "#344054", whiteSpace: "nowrap", background: "#f9fafb", letterSpacing: 0.2, textTransform: "uppercase" }}>{h}</th>
                       ))}
                     </tr>
@@ -1644,7 +1648,7 @@ function ManageEmployeesContent() {
                       />
                     ))}
                     {tableRows.length === 0 && (
-                      <tr><td colSpan={20} style={{ padding: "32px 20px", textAlign: "center", color: BRAND.textFaint, fontSize: 13 }}>
+                      <tr><td colSpan={23} style={{ padding: "32px 20px", textAlign: "center", color: BRAND.textFaint, fontSize: 13 }}>
                         <div style={{ marginBottom: 8, display: "flex", justifyContent: "center", color: BRAND.tint300 }}><Ic.Inbox /></div>
                         No rows yet. Click <strong style={{ color: BRAND.text }}>Add Row</strong> to start entering employees.
                       </td></tr>

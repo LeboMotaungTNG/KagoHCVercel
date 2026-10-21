@@ -182,7 +182,7 @@ export const ModernAnalyticsSection = ({ orgAnalytics }: any) => {
               color: "#2D3748",
               margin: 0,
             }}>
-              Organization Insights
+              Organisation Insights
             </h3>
             <p style={{
               fontSize: "14px",

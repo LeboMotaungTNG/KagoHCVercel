@@ -8,6 +8,9 @@ import React, { useState, useEffect, useRef, useCallback } from "react";
 import { useNavigate, useParams, useLocation } from "react-router-dom";
 import SharedLayout from "./SharedLayout";
 import { API_URL, C, normalizeEmployeeList, unwrapArray, unwrapSuccessData } from "../../shared/utils/employee";
+import SensitiveReveal from "../../shared/components/SensitiveReveal";
+import { loadOrgDocumentsAsync } from "../../shared/utils/documentsLibrary";
+import { STATUS_LABELS } from "../../shared/utils/LeaveUtils";
 import { Users } from "lucide-react";
 import { PageHero } from "./managerUi";
 
@@ -399,14 +402,14 @@ const mapRawEmployee = (raw: any): Employee => {
     email: raw?.email || raw?.contact_info?.work_email || raw?.contact_info?.personal_email || "",
     phone: raw?.phone || raw?.cellNumber || raw?.mobile || raw?.contact_info?.personal_phone || "",
     dateOfBirth: isoDate(raw?.dateOfBirth || raw?.date_of_birth || raw?.personal_info?.date_of_birth),
-    idNumber: raw?.idNumber || raw?.nationalId || raw?.id_number || raw?.personal_info?.id_number || "",
+    idNumber: raw?.idNumber || raw?.nationalId || raw?.id_number || raw?.identityNumber || raw?.identification_number || raw?.identification?.idNumber || raw?.identification?.id_number || raw?.personal_info?.id_number || raw?.idNumberSA || "",
     gender: raw?.gender || raw?.personal_info?.gender || "",
     nationality: raw?.nationality || raw?.personal_info?.nationality || "",
     taxNumber: raw?.taxNumber || raw?.tax_id || raw?.banking_details?.tax_id || "",
     bio: raw?.bio || raw?.personal_info?.middle_name || "",
-    position: raw?.position || raw?.jobTitle || raw?.designation || raw?.employment_details?.position || "",
+    position: raw?.position || raw?.jobTitle || raw?.job_title || raw?.designation || raw?.employment_details?.position || raw?.employment_details?.jobTitle || raw?.roles?.[0]?.name || "",
     department: deptName(raw?.department) || deptName(raw?.departmentId) || raw?.departmentName || deptName(raw?.employment_details?.department),
-    employmentType: raw?.employmentType || raw?.employment_type || raw?.employment_details?.employment_type || "",
+    employmentType: raw?.employmentType || raw?.employment_type || raw?.employment_details?.employment_type || raw?.roles?.[0]?.type || "",
     status: raw?.status || raw?.employment_details?.employment_status || "active",
     startDate: isoDate(raw?.startDate || raw?.hireDate || raw?.hire_date || raw?.employment_details?.hire_date),
     workLocation: raw?.workLocation || raw?.work_location || raw?.employment_details?.work_location || "",
@@ -467,6 +470,9 @@ function EmployeeProfileContent() {
   const [isSaving, setIsSaving] = useState(false);
   const [alert, setAlert] = useState<Alert>({ show: false, type: 'info', message: '' });
   const [activeTab, setActiveTab] = useState('personal-info');
+  const [relatedLeave, setRelatedLeave] = useState<any[]>([]);
+  const [relatedAttendance, setRelatedAttendance] = useState<any[]>([]);
+  const [relatedDocs, setRelatedDocs] = useState<{ title: string; category?: string; uploadedAt?: string }[]>([]);
   const [isEditMode, setIsEditMode] = useState(false);
   const [editForm, setEditForm] = useState<EditForm>({
     fullName: '', email: '', phone: '', position: '', department: '',
@@ -681,6 +687,44 @@ function EmployeeProfileContent() {
       setIsEditMode(true);
     }
   };
+
+  useEffect(() => {
+    if (!employee.id) return;
+    let cancelled = false;
+    const token = localStorage.getItem("token");
+    const headers = { Authorization: `Bearer ${token}`, "Content-Type": "application/json" };
+    const matchesEmployee = (row: any) => {
+      const ids = [
+        row?.employeeId?._id, row?.employeeId, row?.employee?._id, row?.employee,
+        row?.userId, row?.user?._id,
+      ].map((v) => String(v || ""));
+      const emails = [row?.employeeEmail, row?.email, row?.employee?.email].map((v) => String(v || "").toLowerCase());
+      return ids.includes(String(employee.id)) || (employee.email && emails.includes(employee.email.toLowerCase()));
+    };
+    (async () => {
+      try {
+        const res = await fetch(`${API_URL}/leave?limit=100&page=1`, { headers });
+        const data = await res.json();
+        if (!cancelled) setRelatedLeave(unwrapArray(data).filter(matchesEmployee).slice(0, 20));
+      } catch {
+        if (!cancelled) setRelatedLeave([]);
+      }
+      try {
+        const res = await fetch(`${API_URL}/attendance`, { headers });
+        const data = await res.json();
+        if (!cancelled) setRelatedAttendance(unwrapArray(data).filter(matchesEmployee).slice(0, 20));
+      } catch {
+        if (!cancelled) setRelatedAttendance([]);
+      }
+      try {
+        const docs = await loadOrgDocumentsAsync();
+        if (!cancelled) setRelatedDocs(docs.slice(0, 20));
+      } catch {
+        if (!cancelled) setRelatedDocs([]);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [employee.id, employee.email]);
 
   const saveProfile = async () => {
     setIsSaving(true);
@@ -1344,9 +1388,22 @@ function EmployeeProfileContent() {
             ) : !isLoading && employee.id && !isEditMode ? (
               <div style={{ borderRadius: 12, border: "1px solid #e4e7ec", background: "#fff" }}>
                 <div style={{ padding: 20 }}>
-                  <h3 style={{ fontSize: 18, fontWeight: 600, color: "#1d2939", margin: "0 0 16px 0" }}>
-                    Employee Profile
-                  </h3>
+                  <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, marginBottom: 16, flexWrap: "wrap" }}>
+                    <h3 style={{ fontSize: 18, fontWeight: 600, color: "#1d2939", margin: 0 }}>
+                      Employee Profile
+                    </h3>
+                    <button
+                      type="button"
+                      onClick={() => openEditModal('info')}
+                      style={{
+                        display: "inline-flex", alignItems: "center", gap: 8, borderRadius: 8,
+                        border: "none", background: C.coral, padding: "10px 16px",
+                        fontSize: 14, fontWeight: 600, color: "#fff", cursor: "pointer"
+                      }}
+                    >
+                      <IconPerson /> Edit profile
+                    </button>
+                  </div>
 
                   {/* Profile Header */}
                   <div style={{
@@ -1439,28 +1496,16 @@ function EmployeeProfileContent() {
                       {/* Action Buttons */}
                       <div style={{ display: "flex", gap: 12, justifyContent: "center" }}>
                         <button
+                          type="button"
                           onClick={() => openEditModal('info')}
                           style={{
                             display: "flex", alignItems: "center", gap: 8, borderRadius: 8,
-                            border: "1px solid #d0d5dd", background: "#fff", padding: "10px 16px",
-                            fontSize: 14, fontWeight: 500, color: "#344054", cursor: "pointer"
+                            border: "none", background: C.coral, padding: "10px 16px",
+                            fontSize: 14, fontWeight: 600, color: "#fff", cursor: "pointer"
                           }}
                         >
-                          <IconPerson /> Edit Profile
+                          <IconPerson /> Edit profile
                         </button>
-                        <div style={{ position: "relative" }}>
-                          <button
-                            onClick={() => {}} // Add dropdown logic if needed
-                            style={{
-                              display: "flex", alignItems: "center", gap: 8, borderRadius: 8,
-                              border: "1px solid #d0d5dd", background: "#fff", padding: "10px 16px",
-                              fontSize: 14, fontWeight: 500, color: "#344054", cursor: "pointer"
-                            }}
-                          >
-                            <IconThreeDots /> Actions
-                          </button>
-                          {/* Dropdown menu would go here */}
-                        </div>
                       </div>
 
                       {/* Pending Banking Request */}
@@ -1502,8 +1547,8 @@ function EmployeeProfileContent() {
                   {/* Tabs */}
                   <div style={{ marginBottom: 24 }}>
                     <div style={{ borderBottom: "1px solid #e4e7ec" }}>
-                      <nav style={{ display: "flex", gap: 8 }}>
-                        {['personal-info', 'employment-info', 'contact-info', 'financial-info'].map((tab) => (
+                      <nav style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+                        {['personal-info', 'employment-info', 'contact-info', 'financial-info', 'documents', 'leave', 'attendance'].map((tab) => (
                           <button
                             key={tab}
                             onClick={() => showTab(tab)}
@@ -1518,6 +1563,9 @@ function EmployeeProfileContent() {
                             {tab === 'employment-info' && 'Employment'}
                             {tab === 'contact-info' && 'Contact & Address'}
                             {tab === 'financial-info' && 'Financial & Banking'}
+                            {tab === 'documents' && 'Documents'}
+                            {tab === 'leave' && 'Leave'}
+                            {tab === 'attendance' && 'Attendance'}
                           </button>
                         ))}
                       </nav>
@@ -1572,13 +1620,23 @@ function EmployeeProfileContent() {
                               <div>
                                 <label style={{ fontSize: 13, color: "#667085", display: "block", marginBottom: 4 }}>South African ID</label>
                                 <p style={{ fontSize: 14, fontWeight: 500, color: "#1d2939", margin: 0 }}>
-                                  {formatIDNumber(employee.idNumber)}
+                                  <SensitiveReveal
+                                    field="id_number"
+                                    value={employee.idNumber}
+                                    subjectId={employee.id}
+                                    subjectName={employee.fullName}
+                                  />
                                 </p>
                               </div>
                               <div>
                                 <label style={{ fontSize: 13, color: "#667085", display: "block", marginBottom: 4 }}>Tax Number</label>
                                 <p style={{ fontSize: 14, fontWeight: 500, color: "#1d2939", margin: 0 }}>
-                                  {employee.taxNumber || 'Not provided'}
+                                  <SensitiveReveal
+                                    field="tax_number"
+                                    value={employee.taxNumber}
+                                    subjectId={employee.id}
+                                    subjectName={employee.fullName}
+                                  />
                                 </p>
                               </div>
                             </div>
@@ -1611,8 +1669,8 @@ function EmployeeProfileContent() {
                                 <p style={{ fontSize: 14, fontWeight: 500, color: "#1d2939", margin: 0 }}>{employee.id}</p>
                               </div>
                               <div>
-                                <label style={{ fontSize: 13, color: "#667085", display: "block", marginBottom: 4 }}>Position</label>
-                                <p style={{ fontSize: 14, fontWeight: 500, color: "#1d2939", margin: 0 }}>{employee.position}</p>
+                                <label style={{ fontSize: 13, color: "#667085", display: "block", marginBottom: 4 }}>Job title</label>
+                                <p style={{ fontSize: 14, fontWeight: 500, color: "#1d2939", margin: 0 }}>{employee.position || "Not provided"}</p>
                               </div>
                               <div>
                                 <label style={{ fontSize: 13, color: "#667085", display: "block", marginBottom: 4 }}>Department</label>
@@ -1721,7 +1779,12 @@ function EmployeeProfileContent() {
                               <div>
                                 <label style={{ fontSize: 13, color: "#667085", display: "block", marginBottom: 4 }}>Tax Number</label>
                                 <p style={{ fontSize: 14, fontWeight: 500, color: "#1d2939", margin: 0 }}>
-                                  {employee.taxNumber || 'Not provided'}
+                                  <SensitiveReveal
+                                    field="tax_number"
+                                    value={employee.taxNumber}
+                                    subjectId={employee.id}
+                                    subjectName={employee.fullName}
+                                  />
                                 </p>
                               </div>
                             </div>
@@ -1741,7 +1804,12 @@ function EmployeeProfileContent() {
                               <div>
                                 <label style={{ fontSize: 13, color: "#667085", display: "block", marginBottom: 4 }}>Account Number</label>
                                 <p style={{ fontSize: 14, fontWeight: 500, color: "#1d2939", margin: 0 }}>
-                                  {employee.bankAccountNumber ? '****' + employee.bankAccountNumber.slice(-4) : 'Not provided'}
+                                  <SensitiveReveal
+                                    field="bank_account"
+                                    value={employee.bankAccountNumber}
+                                    subjectId={employee.id}
+                                    subjectName={employee.fullName}
+                                  />
                                 </p>
                               </div>
                               <div>
@@ -1752,6 +1820,78 @@ function EmployeeProfileContent() {
                               </div>
                             </div>
                           </div>
+                        </div>
+                      )}
+
+                      {activeTab === 'documents' && (
+                        <div>
+                          <h4 style={{ fontSize: 16, fontWeight: 600, color: "#1d2939", marginBottom: 16 }}>Documents</h4>
+                          {relatedDocs.length === 0 ? (
+                            <p style={{ fontSize: 14, color: "#667085", margin: 0 }}>No company documents are available yet.</p>
+                          ) : (
+                            <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+                              {relatedDocs.map((doc, i) => (
+                                <div key={`${doc.title}-${i}`} style={{ padding: 12, border: "1px solid #e4e7ec", borderRadius: 8 }}>
+                                  <div style={{ fontSize: 14, fontWeight: 600, color: "#1d2939" }}>{doc.title}</div>
+                                  <div style={{ fontSize: 12, color: "#667085", marginTop: 4 }}>
+                                    {[doc.category, doc.uploadedAt ? formatDate(doc.uploadedAt) : ""].filter(Boolean).join(" · ")}
+                                  </div>
+                                </div>
+                              ))}
+                            </div>
+                          )}
+                        </div>
+                      )}
+
+                      {activeTab === 'leave' && (
+                        <div>
+                          <h4 style={{ fontSize: 16, fontWeight: 600, color: "#1d2939", marginBottom: 16 }}>Leave</h4>
+                          {relatedLeave.length === 0 ? (
+                            <p style={{ fontSize: 14, color: "#667085", margin: 0 }}>No leave records for this employee.</p>
+                          ) : (
+                            <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+                              {relatedLeave.map((row: any, i: number) => {
+                                const status = String(row.status || row.leaveStatus || "");
+                                const label = (STATUS_LABELS as Record<string, string>)[status] || status || "—";
+                                const type = row.leave_type || row.leaveType || row.type || "Leave";
+                                const start = row.start_date || row.startDate || "";
+                                const end = row.end_date || row.endDate || "";
+                                return (
+                                  <div key={row._id || row.id || i} style={{ padding: 12, border: "1px solid #e4e7ec", borderRadius: 8 }}>
+                                    <div style={{ fontSize: 14, fontWeight: 600, color: "#1d2939" }}>{type}</div>
+                                    <div style={{ fontSize: 12, color: "#667085", marginTop: 4 }}>
+                                      {start ? formatDate(start) : "—"} – {end ? formatDate(end) : "—"} · {label}
+                                    </div>
+                                  </div>
+                                );
+                              })}
+                            </div>
+                          )}
+                        </div>
+                      )}
+
+                      {activeTab === 'attendance' && (
+                        <div>
+                          <h4 style={{ fontSize: 16, fontWeight: 600, color: "#1d2939", marginBottom: 16 }}>Attendance</h4>
+                          {relatedAttendance.length === 0 ? (
+                            <p style={{ fontSize: 14, color: "#667085", margin: 0 }}>No attendance records for this employee.</p>
+                          ) : (
+                            <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+                              {relatedAttendance.map((row: any, i: number) => {
+                                const date = row.date || row.attendanceDate || row.createdAt || "";
+                                const status = row.status || row.attendanceStatus || "—";
+                                const clockIn = row.clockIn || row.checkIn || row.timeIn || "";
+                                return (
+                                  <div key={row._id || row.id || i} style={{ padding: 12, border: "1px solid #e4e7ec", borderRadius: 8 }}>
+                                    <div style={{ fontSize: 14, fontWeight: 600, color: "#1d2939" }}>{date ? formatDate(date) : "Attendance"}</div>
+                                    <div style={{ fontSize: 12, color: "#667085", marginTop: 4 }}>
+                                      {status}{clockIn ? ` · in ${clockIn}` : ""}
+                                    </div>
+                                  </div>
+                                );
+                              })}
+                            </div>
+                          )}
                         </div>
                       )}
                     </div>

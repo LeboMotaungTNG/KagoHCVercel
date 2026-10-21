@@ -12,6 +12,8 @@ import OwnerLeave from "./OwnerLeave";
 import ManageEmployees from "./ManageEmployees";
 import EmployeeProfile from "../Manager/EmployeeProfile";
 import OwnerOrganizationStructurePage from "./OrganizationStructurePage";
+import AttendancePage from "../Manager/AttendancePage";
+import Payroll from "../Manager/Payroll";
 
 import FrameworkLibraryPage from "../employee/src/pages/owner/FrameworkLibraryPage";
 import FrameworkBuilderPage from "../employee/src/pages/owner/FrameworkBuilderPage";
@@ -28,6 +30,8 @@ const OwnerDashboard = () => (
       <Route path="manage-employees" element={<ManageEmployees embedded />} />
       <Route path="profile/:id" element={<EmployeeProfile embedded />} />
       <Route path="leave" element={<OwnerLeave />} />
+      <Route path="attendance" element={<AttendancePage embedded />} />
+      <Route path="payroll" element={<Payroll embedded />} />
       <Route path="reviews" element={<ReviewsDashboardPage />} />
       <Route path="employee-review" element={<Navigate to="/owner/reviews" replace />} />
       <Route path="frameworks" element={<FrameworkLibraryPage />} />

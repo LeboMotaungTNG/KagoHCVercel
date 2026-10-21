@@ -539,7 +539,7 @@ export function LeaveManagement({ accent = C.primary, canReview = true, reviewSt
           <div style={{ display: "flex", flexWrap: "wrap", gap: 10 }}>
             <select defaultValue="" onChange={e => setFilter("status", e.target.value as LeaveStatus | "")} style={inputStyle}>
               <option value="">All Status</option>
-              {(["pending_manager","pending_hr","pending","approved","rejected","cancelled"] as LeaveStatus[]).map(s => (
+              {(["pending_manager","pending_hr","approved","rejected","cancelled"] as LeaveStatus[]).map(s => (
                 <option key={s} value={s}>{STATUS_LABELS[s]}</option>
               ))}
             </select>

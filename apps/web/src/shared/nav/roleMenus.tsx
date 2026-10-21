@@ -197,6 +197,8 @@ const ownerNav: AppShellNav = {
       items: [
         { kind: "link", to: "/owner", label: "Dashboard", icon: Home, exact: true },
         { kind: "link", to: "/owner/leave", label: "Leave Requests", icon: ClipboardList },
+        { kind: "link", to: "/owner/attendance", label: "Attendance", icon: Calendar },
+        { kind: "link", to: "/owner/payroll", label: "Payroll", icon: DollarSign },
         { kind: "link", to: "/delegations", label: "Delegations", icon: ShieldCheck },
       ],
     },
@@ -212,7 +214,7 @@ const ownerNav: AppShellNav = {
           children: [
             { to: "/owner/managers", label: "Managers" },
             { to: "/owner/employees", label: "Employees" },
-            { to: "/owner/manage-employees", label: "Onboard Employees" },
+            { to: "/owner/manage-employees", label: "Full onboarding" },
           ],
         },
       ],
@@ -239,8 +241,8 @@ const ownerNav: AppShellNav = {
       id: "organisation",
       label: "Organisation",
       items: [
-        { kind: "link", to: "/owner/organization-structure", label: "Organization Structure", icon: Network },
-        { kind: "link", to: "/owner/organization-settings", label: "Organization Settings", icon: Building2 },
+        { kind: "link", to: "/owner/organization-structure", label: "Organisation Structure", icon: Network },
+        { kind: "link", to: "/owner/organization-settings", label: "Organisation Settings", icon: Building2 },
         { kind: "link", to: "/owner/onboarding", label: "Onboarding", icon: Rocket },
         { kind: "link", to: "/owner/subscriptions", label: "Subscriptions", icon: Award },
       ],

@@ -9,6 +9,7 @@ import {
 import { C as TOKENS } from "../../shared/utils/employee";
 import { PageHero } from "../employee/src/components/PerformanceUI";
 import { isHrReviewStatus } from "../../shared/utils/LeaveUtils";
+import { formatMonthlyPrice, isActiveCompanyStatus, planFromHeadcount } from "../../shared/utils/ownerOrgNumbers";
 
 /* ─── Design tokens ──────────────────────────────────────────────────────── */
 const C = TOKENS;
@@ -193,15 +194,21 @@ const OrgGrowthCard: React.FC<{
   onPayroll: number;
   employees: number;
 }> = ({ pendingLeave, onPayroll, employees }) => {
+  const navigate = useNavigate();
   const payrollPct = employees > 0 ? Math.round((onPayroll / employees) * 100) : 0;
   const tier = payrollPct >= 90 ? "Excellent coverage" : payrollPct >= 70 ? "Good coverage" : "Review payroll";
 
   return (
-    <section style={{
+    <section
+      role="button"
+      tabIndex={0}
+      onClick={() => navigate("/owner/payroll")}
+      onKeyDown={(e) => { if (e.key === "Enter") navigate("/owner/payroll"); }}
+      style={{
       position: "relative", overflow: "hidden",
       background: `linear-gradient(155deg, ${C.teal} 0%, #0a7a70 100%)`,
       borderRadius: R.hero, padding: 24, boxShadow: SHADOW_L,
-      color: "#fff", display: "flex", flexDirection: "column", minHeight: 240,
+      color: "#fff", display: "flex", flexDirection: "column", minHeight: 200, cursor: "pointer",
     }}>
       <div aria-hidden style={{ position: "absolute", right: -50, top: -50, width: 180, height: 180, borderRadius: "50%", background: "rgba(255,255,255,0.08)" }} />
       <div aria-hidden style={{ position: "absolute", left: -40, bottom: -90, width: 200, height: 200, borderRadius: "50%", background: "rgba(255,255,255,0.04)" }} />
@@ -484,20 +491,20 @@ const AttendanceBreakdownCard: React.FC<{
 };
 
 /* ─── Subscription status card ───────────────────────────────────────────── */
-const SubscriptionCard: React.FC<{ employeeCount: number }> = ({ employeeCount }) => {
+const SubscriptionCard: React.FC<{ employeeCount: number; companyStatus: string }> = ({ employeeCount, companyStatus }) => {
   const navigate = useNavigate();
-
-  // Derive plan from headcount (can be replaced with real API data)
-  const plan      = employeeCount > 200 ? "Enterprise" : employeeCount > 50 ? "Business" : "Starter";
-  const planColor = plan === "Enterprise" ? C.accent : plan === "Business" ? C.teal : C.blue;
-  const planBg    = plan === "Enterprise" ? C.accentBg : plan === "Business" ? C.tealBg : C.blueBg;
-  const renewsIn  = 14; // days — replace with real data when available
+  const { planName, monthlyRand } = planFromHeadcount(employeeCount);
+  const active = isActiveCompanyStatus(companyStatus);
+  const planColor = planName === "Enterprise" ? C.accent : planName === "Business" ? C.teal : C.blue;
+  const planBg    = planName === "Enterprise" ? C.accentBg : planName === "Business" ? C.tealBg : C.blueBg;
+  const statusBg = active ? planBg : "#fef3f2";
+  const statusColor = active ? planColor : "#b42318";
 
   return (
     <Card style={{ background: `linear-gradient(180deg, #fff 0%, ${C.accentBg} 240%)` }}>
       <SectionHead
         title="Subscription"
-        subtitle="Your current plan"
+        subtitle="Same plan and headcount as the Plan page"
         right={
           <IconBubble bg={planBg} color={planColor} size={36}>
             <Award size={16} />
@@ -507,20 +514,20 @@ const SubscriptionCard: React.FC<{ employeeCount: number }> = ({ employeeCount }
 
       <div style={{ display: "flex", alignItems: "center", gap: 12, padding: "16px", borderRadius: R.lg, background: planBg, border: `1px solid ${planColor}22`, marginBottom: 16 }}>
         <div style={{ flex: 1 }}>
-          <div style={{ fontSize: 18, fontWeight: 800, color: planColor }}>{plan} Plan</div>
+          <div style={{ fontSize: 18, fontWeight: 800, color: planColor }}>{planName} Plan</div>
           <div style={{ fontSize: 13, color: C.muted, marginTop: 2 }}>
-            {employeeCount} active employees · Renews in {renewsIn} days
+            {formatMonthlyPrice(monthlyRand)} / month · {employeeCount} employees in the directory
           </div>
         </div>
-        <StatusPill bg={planBg} color={planColor} dot>Active</StatusPill>
+        <StatusPill bg={statusBg} color={statusColor} dot>{companyStatus || "Active"}</StatusPill>
       </div>
 
       <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
         {[
           { label: "Unlimited leave management",   on: true },
           { label: "AI-powered HR assistant",      on: true },
-          { label: "Advanced payroll integration", on: plan !== "Starter" },
-          { label: "Multi-department analytics",   on: plan === "Enterprise" },
+          { label: "Advanced payroll integration", on: planName !== "Starter" },
+          { label: "Multi-department analytics",   on: planName === "Enterprise" },
         ].map(f => (
           <div key={f.label} style={{ display: "flex", alignItems: "center", gap: 10 }}>
             <div style={{
@@ -563,10 +570,12 @@ const QuickActionsCard: React.FC = () => {
     { label: "Managers",       path: "/owner/managers",              icon: <Star size={18} />,      bg: C.blueBg,   color: C.blue    },
     { label: "Employees",      path: "/owner/employees",             icon: <Users size={18} />,     bg: C.greenBg,  color: C.green   },
     { label: "Reviews",      path: "/owner/reviews",               icon: <PenTool size={18} />,   bg: C.coralBg,  color: C.coral   },
-    { label: "Org Settings",   path: "/owner/organization-settings", icon: <Settings size={18} />,  bg: C.tealBg,   color: C.teal    },
+    { label: "Org settings",   path: "/owner/organization-settings", icon: <Settings size={18} />,  bg: C.tealBg,   color: C.teal    },
     { label: "Subscriptions",  path: "/owner/subscriptions",         icon: <Award size={18} />,     bg: C.amberBg,  color: C.amber   },
     { label: "Onboarding",     path: "/owner/onboarding",            icon: <Plus size={18} />,      bg: C.purpleBg, color: C.purple  },
-    { label: "Manage Emps",    path: "/owner/manage-employees",      icon: <Building2 size={18} />, bg: "#f1f5f9",  color: C.muted   },
+    { label: "Full onboarding", path: "/owner/manage-employees",     icon: <Building2 size={18} />, bg: "#f1f5f9",  color: C.muted   },
+    { label: "Attendance",     path: "/owner/attendance",            icon: <Clock size={18} />,     bg: C.greenBg,  color: C.green   },
+    { label: "Payroll",        path: "/owner/payroll",               icon: <Target size={18} />,    bg: C.tealBg,   color: C.teal    },
   ];
   return (
     <Card>
@@ -646,6 +655,7 @@ export const OwnerOverview: React.FC = () => {
   const [user, setUser]               = useState<any>(null);
   const [loading, setLoading]         = useState(true);
   const [leaveLoading, setLeaveLoading] = useState(true);
+  const [companyStatus, setCompanyStatus] = useState("Active");
 
   /* Auth guard */
   useEffect(() => {
@@ -672,7 +682,8 @@ export const OwnerOverview: React.FC = () => {
       fetch(`${API_URL}/employees`,   { headers }).then(r => r.json()),
       fetch(`${API_URL}/leave/stats`, { headers }).then(r => r.json()),
       fetch(`${API_URL}/attendance`,  { headers }).then(r => r.json()),
-    ]).then(([empData, leaveData, attData]) => {
+      fetch(`${API_URL}/owner/company/settings`, { headers }).then(r => r.json()).catch(() => null),
+    ]).then(([empData, leaveData, attData, companyData]) => {
       const emps = toArr(empData,  ["data.data","data","data.rows"]);
       const att  = toArr(attData,  ["data.data","data","data.records","data.attendance","data.rows"]);
       const ls   = leaveData?.data?.data ?? leaveData?.data ?? leaveData;
@@ -713,6 +724,8 @@ export const OwnerOverview: React.FC = () => {
         return { id: String(m?.id ?? m?._id ?? Math.random()), name, department: dept, teamSize, email: m?.email };
       });
 
+      const company = companyData?.data ?? companyData ?? {};
+      setCompanyStatus(String(company.companyStatus || company.status || "Active").trim() || "Active");
       setCounts({ employees: emps.length, managers: mgrs.length, departments: departments.length, presentToday: presentAndLate, pendingLeave, onPayroll, absent, late });
       setDeptStats(departments);
       setManagerList(mgrList);
@@ -780,7 +793,7 @@ export const OwnerOverview: React.FC = () => {
           <StatTile label="Total Employees" value={loading ? "…" : counts.employees}    sub="Across all teams"      icon={<Users size={20} />}       iconBg={C.accentBg} iconColor={C.accent} onClick={() => navigate("/owner/employees")}     />
           <StatTile label="Managers"        value={loading ? "…" : counts.managers}     sub="Active team leads"     icon={<Star size={20} />}        iconBg={C.blueBg}   iconColor={C.blue}   onClick={() => navigate("/owner/managers")}      />
           <StatTile label="Pending Leave"   value={loading ? "…" : counts.pendingLeave} sub="Awaiting HR review"       icon={<Calendar size={20} />}    iconBg={C.warnBg}   iconColor={C.amber}  delta={{ up: counts.pendingLeave === 0, text: counts.pendingLeave === 0 ? "clear" : String(counts.pendingLeave) }} onClick={() => navigate("/owner/leave")} />
-          <StatTile label="On Payroll"      value={loading ? "…" : counts.onPayroll}    sub={`${counts.employees > 0 ? Math.round((counts.onPayroll/counts.employees)*100) : 0}% coverage`} icon={<Target size={20} />} iconBg={C.tealBg} iconColor={C.teal} onClick={() => navigate("/owner/subscriptions")} />
+          <StatTile label="On Payroll"      value={loading ? "…" : counts.onPayroll}    sub={`${counts.employees > 0 ? Math.round((counts.onPayroll/counts.employees)*100) : 0}% coverage`} icon={<Target size={20} />} iconBg={C.tealBg} iconColor={C.teal} onClick={() => navigate("/owner/payroll")} />
         </div>
 
         {/* Departments + Managers */}
@@ -799,7 +812,7 @@ export const OwnerOverview: React.FC = () => {
         <div className="own-row own-trio">
           <QuickActionsCard />
           <AIAssistantCard />
-          <SubscriptionCard employeeCount={counts.employees} />
+          <SubscriptionCard employeeCount={counts.employees} companyStatus={companyStatus} />
         </div>
 
         <p style={{ textAlign: "center", color: C.faint, fontSize: 12.5, margin: "8px 0 24px" }}>

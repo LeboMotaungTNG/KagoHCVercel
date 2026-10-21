@@ -91,6 +91,8 @@ export interface CoFieldDef {
   hint?:        string;
   required?:    boolean;
   span?:        1 | 2;
+  readOnly?:    boolean;
+  sensitive?:   boolean;
 }
 
 /* ── Payroll ──────────────────────────────────────────────────────── */

@@ -235,6 +235,16 @@ export const SidebarHoverStyle: React.FC = () => (
       box-shadow: 4px 8px 20px rgba(0, 0, 0, 0.35);
       border-radius: 0 8px 8px 0;
     }
+
+    .kago-page-content {
+      min-height: calc(100vh - 70px);
+    }
+    @media (max-width: 767.98px) {
+      .kago-page-content {
+        min-height: calc(100dvh - 72px);
+        padding-bottom: 88px;
+      }
+    }
   `}</style>
 );
 

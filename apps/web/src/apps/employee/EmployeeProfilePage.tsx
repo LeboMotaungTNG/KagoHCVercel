@@ -17,6 +17,7 @@ import {
 } from "lucide-react";
 import SharedLayout from "./SharedLayout";
 import PhoneInput from "../../shared/components/PhoneInput";
+import SensitiveReveal from "../../shared/components/SensitiveReveal";
 import { C, FONT_NUM, R, SHADOW, SHADOW_L } from "../../shared/utils/employee";
 import {
   type DocumentCategory,
@@ -479,8 +480,15 @@ const EmployeeProfilePage: React.FC = () => {
                              onChange={v => updateDraft("personal", { gender: v })} />
                       <Field label="Nationality" value={(editing ? draft : profile).personal.nationality} editing={editing}
                              onChange={v => updateDraft("personal", { nationality: v })} />
-                      <Field label="ID Number" value={(editing ? draft : profile).personal.idNumber} editing={editing}
-                             onChange={v => updateDraft("personal", { idNumber: v })} />
+                      {editing ? (
+                        <Field label="ID Number" value={draft.personal.idNumber} editing
+                               onChange={v => updateDraft("personal", { idNumber: v })} />
+                      ) : (
+                        <div>
+                          <label style={{ fontSize: 12, fontWeight: 600, color: C.muted, display: "block", marginBottom: 6 }}>ID Number</label>
+                          <SensitiveReveal field="id_number" value={profile.personal.idNumber} audit={false} />
+                        </div>
+                      )}
                       <Field label="Marital Status" value={(editing ? draft : profile).personal.maritalStatus} editing={editing}
                              onChange={v => updateDraft("personal", { maritalStatus: v })} />
                     </FieldGrid>
@@ -585,14 +593,28 @@ const EmployeeProfilePage: React.FC = () => {
                              onChange={v => updateDraft("banking", { bankName: v })} />
                       <Field label="Account Holder" value={(editing ? draft : profile).banking.accountHolder} editing={editing}
                              onChange={v => updateDraft("banking", { accountHolder: v })} />
-                      <Field label="Account Number" value={(editing ? draft : profile).banking.accountNumber} editing={editing}
-                             onChange={v => updateDraft("banking", { accountNumber: v })} />
+                      {editing ? (
+                        <Field label="Account Number" value={draft.banking.accountNumber} editing
+                               onChange={v => updateDraft("banking", { accountNumber: v })} />
+                      ) : (
+                        <div>
+                          <label style={{ fontSize: 12, fontWeight: 600, color: C.muted, display: "block", marginBottom: 6 }}>Account Number</label>
+                          <SensitiveReveal field="bank_account" value={profile.banking.accountNumber} audit={false} />
+                        </div>
+                      )}
                       <Field label="Branch Code" value={(editing ? draft : profile).banking.branchCode} editing={editing}
                              onChange={v => updateDraft("banking", { branchCode: v })} />
                       <Field label="Account Type" value={(editing ? draft : profile).banking.accountType} editing={editing}
                              onChange={v => updateDraft("banking", { accountType: v as any })} />
-                      <Field label="Tax Number" value={(editing ? draft : profile).banking.taxNumber} editing={editing}
-                             onChange={v => updateDraft("banking", { taxNumber: v })} />
+                      {editing ? (
+                        <Field label="Tax Number" value={draft.banking.taxNumber} editing
+                               onChange={v => updateDraft("banking", { taxNumber: v })} />
+                      ) : (
+                        <div>
+                          <label style={{ fontSize: 12, fontWeight: 600, color: C.muted, display: "block", marginBottom: 6 }}>Tax Number</label>
+                          <SensitiveReveal field="tax_number" value={profile.banking.taxNumber} audit={false} />
+                        </div>
+                      )}
                       <Field label="UIF Number" value={(editing ? draft : profile).banking.uifNumber} editing={editing}
                              onChange={v => updateDraft("banking", { uifNumber: v })} />
                     </FieldGrid>
@@ -901,7 +923,10 @@ const OverviewSection: React.FC<{
         <InfoRow icon={<UserIcon size={14} />} label="Full Name"  value={fullName(profile.personal)} />
         <InfoRow icon={<Globe2 size={14} />}   label="Nationality" value={profile.personal.nationality} />
         <InfoRow icon={<Calendar size={14} />} label="Date of Birth" value={formatDateLong(profile.personal.dateOfBirth)} />
-        <InfoRow icon={<Shield size={14} />}   label="ID Number"   value={profile.personal.idNumber} />
+        <div>
+          <div style={{ fontSize: 12, color: C.muted, marginBottom: 4 }}>ID Number</div>
+          <SensitiveReveal field="id_number" value={profile.personal.idNumber} audit={false} />
+        </div>
       </FieldGrid>
     </Section>
 

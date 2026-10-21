@@ -5,6 +5,7 @@ import {
   ModalBody, ModalFooter
 } from "reactstrap";
 import PhoneInput from "../../shared/components/PhoneInput";
+import SensitiveReveal from "../../shared/components/SensitiveReveal";
 import {
   FaSave, FaEdit, FaPlus, FaTrash, FaChevronDown, FaChevronRight,
   FaBuilding, FaMoneyBillWave, FaCalendarAlt, FaCloudUploadAlt,
@@ -35,6 +36,7 @@ import {
   LANGUAGES, TIMEZONES, DATE_FORMATS, CURRENCIES,
   // helpers / icons / mappers
   setDeep, formatRand, currentMonthRange, makeSarsReceipt,
+  keepFilledCompany, cacheCompanyDetails, loadCachedCompanyDetails,
   LeaveIcon, LEAVE_ICON_KEYS,
   BCEA_META, mapStatutoryFromApi, mapCustomLeaveFromApi,
   generateBalancesFromEmployees,
@@ -42,6 +44,7 @@ import {
   CONTACT_ROLES,
   orgApi,
 } from "../../shared/utils/organizationSettings";
+import { normalizeEmployeeList } from "../../shared/utils/employee";
 
 // ─────────────────────────────────────────────
 // SHARED DESIGN TOKENS (matches Leave tab style)
@@ -85,7 +88,7 @@ const FieldRenderer = ({
             <label style={co_label}>
               {f.label}{f.required && <span style={{ color: "#EF4444", marginLeft: "3px" }}>*</span>}
             </label>
-            {editing ? (
+            {editing && !f.readOnly ? (
               f.type === "textarea" ? (
                 <textarea rows={3} value={val} placeholder={f.placeholder} onChange={(e) => onChange(f.key, e.target.value)} style={{ ...co_input, resize: "vertical", minHeight: "76px" }} />
               ) : f.type === "toggle" ? (
@@ -106,7 +109,11 @@ const FieldRenderer = ({
               <p style={co_value}>
                 {f.type === "toggle"
                   ? (val ? <span style={{ color: "#059669", fontWeight: 600 }}>Yes</span> : <span style={{ color: "#9CA3AF" }}>No</span>)
-                  : (val || <span style={{ color: "#CBD5E0" }}>—</span>)}
+                  : f.sensitive
+                    ? <SensitiveReveal field="company_account" value={String(val || "")} subjectId="company" subjectName={data?.name} />
+                  : f.type === "number"
+                    ? (val === "" || val === undefined || val === null ? <span style={{ color: "#CBD5E0" }}>—</span> : String(val))
+                    : (val || <span style={{ color: "#CBD5E0" }}>—</span>)}
               </p>
             )}
             {f.hint && <p style={{ fontSize: "11px", color: "#9CA3AF", marginTop: "3px", marginBottom: 0 }}>{f.hint}</p>}
@@ -161,6 +168,7 @@ const CompanyDetailsTab = () => {
 
   const [data, setData]   = useState<CompanyData>(DEFAULT_COMPANY_DATA);
   const [draft, setDraft] = useState<CompanyData>(DEFAULT_COMPANY_DATA);
+  const [directoryCount, setDirectoryCount] = useState<number | null>(null);
 
   // Pull persisted settings on mount; fall back to defaults on any failure.
   useEffect(() => {
@@ -168,17 +176,30 @@ const CompanyDetailsTab = () => {
     (async () => {
       setIsLoading(true);
       try {
-        const json = await orgApi.loadCompanySettings();
-        if (!cancelled && json.success && json.data) {
-          const incoming = json.data;
-          const merged: CompanyData = {
-            ...DEFAULT_COMPANY_DATA,
-            ...incoming,
-            bank:     { ...DEFAULT_COMPANY_DATA.bank,     ...(incoming.bank     || {}) },
-            contacts: { ...DEFAULT_COMPANY_DATA.contacts, ...(incoming.contacts || {}) },
-            address:  { ...DEFAULT_COMPANY_DATA.address,  ...(incoming.address  || {}) },
-          };
+        const [json, empJson] = await Promise.all([
+          orgApi.loadCompanySettings(),
+          orgApi.loadEmployees().catch(() => ({ data: [] } as any)),
+        ]);
+        const liveCount = normalizeEmployeeList(empJson?.data ?? empJson).length;
+        if (!cancelled) setDirectoryCount(liveCount);
+        const incoming = json?.data;
+        const cached = loadCachedCompanyDetails<CompanyData>();
+        if (!cancelled && incoming && typeof incoming === "object") {
+          const merged = keepFilledCompany(
+            {
+              ...DEFAULT_COMPANY_DATA,
+              ...(cached || {}),
+              bank:     { ...DEFAULT_COMPANY_DATA.bank,     ...(cached?.bank     || {}) },
+              contacts: { ...DEFAULT_COMPANY_DATA.contacts, ...(cached?.contacts || {}) },
+              address:  { ...DEFAULT_COMPANY_DATA.address,  ...(cached?.address  || {}) },
+            },
+            incoming,
+          );
+          merged.numberOfEmployees = liveCount;
           setData(merged); setDraft(merged);
+        } else if (!cancelled) {
+          setData((prev) => ({ ...prev, numberOfEmployees: liveCount }));
+          setDraft((prev) => ({ ...prev, numberOfEmployees: liveCount }));
         }
       } catch { /* fall back to defaults silently */ }
       finally { if (!cancelled) setIsLoading(false); }
@@ -191,13 +212,21 @@ const CompanyDetailsTab = () => {
 
   const handleSave = async () => {
     try {
-      const json = await orgApi.saveCompanySettings(draft);
-      if (json.success !== false) {
-        setData(draft);
-        setIsEditing(false);
-        setSaveSuccess(true);
-        setTimeout(() => setSaveSuccess(false), 3000);
-      }
+      const payload = {
+        ...draft,
+        numberOfEmployees: directoryCount ?? draft.numberOfEmployees,
+      };
+      const json = await orgApi.saveCompanySettings(payload);
+      if (json.success === false) return;
+      const reloaded = await orgApi.loadCompanySettings().catch(() => null);
+      const next = keepFilledCompany(payload, reloaded?.data);
+      next.numberOfEmployees = directoryCount ?? payload.numberOfEmployees;
+      cacheCompanyDetails(next);
+      setData(next);
+      setDraft(next);
+      setIsEditing(false);
+      setSaveSuccess(true);
+      setTimeout(() => setSaveSuccess(false), 3000);
     } catch { /* silent — UI stays in edit mode so the user can retry */ }
   };
 
@@ -215,7 +244,7 @@ const CompanyDetailsTab = () => {
 
       {!isLoading && (
         <>
-          <OnboardingProgress data={data} />
+          <OnboardingProgress data={draft} />
 
           {/* Identity bar */}
           <div style={{ ...co_card, display: "flex", alignItems: "center", gap: "18px", padding: "16px 22px" }}>
@@ -224,7 +253,7 @@ const CompanyDetailsTab = () => {
             </div>
             <div style={{ flex: 1 }}>
               <div style={{ fontWeight: 700, fontSize: "16px", color: "#111827" }}>{data.name || "—"}</div>
-              <div style={{ fontSize: "13px", color: "#6B7280", marginTop: "1px" }}>{data.sector} · {data.businessType}{data.numberOfEmployees ? ` · ${data.numberOfEmployees} employees` : ""}</div>
+              <div style={{ fontSize: "13px", color: "#6B7280", marginTop: "1px" }}>{data.sector} · {data.businessType}{(directoryCount ?? data.numberOfEmployees) ? ` · ${directoryCount ?? data.numberOfEmployees} employees` : ""}</div>
             </div>
             <span style={{ padding: "3px 12px", borderRadius: "20px", fontSize: "12px", fontWeight: 700, backgroundColor: data.companyStatus === "Active" ? "#D1FAE5" : "#FEE2E2", color: data.companyStatus === "Active" ? "#065F46" : "#991B1B" }}>{data.companyStatus}</span>
             {!isEditing
@@ -257,7 +286,7 @@ const CompanyDetailsTab = () => {
                   { label: "Trading Name (if different)", key: "tradingName", placeholder: "Leave blank if same as registered name" },
                   { label: "Sector / Industry", key: "sector", type: "select", required: true, options: SECTORS },
                   { label: "Business Type", key: "businessType", type: "select", required: true, options: BUSINESS_TYPES },
-                  { label: "Number of Employees", key: "numberOfEmployees", type: "number", placeholder: "Full-time equivalent headcount", hint: "Include permanent and fixed-term staff" },
+                  { label: "People in directory", key: "numberOfEmployees", type: "number", readOnly: true, hint: "Taken from Employees — not typed here, so it cannot drift from the dashboard." },
                   { label: "Company Status", key: "companyStatus", type: "select", options: COMPANY_STATUSES },
                   { label: "Primary Email Address", key: "email", type: "email", required: true, placeholder: "info@company.co.za" },
                   { label: "Main Phone Number", key: "phone", type: "tel", required: true, placeholder: "+27 11 000 0000" },
@@ -333,7 +362,7 @@ const CompanyDetailsTab = () => {
                 <FieldRenderer editing={isEditing} data={draft} onChange={handleChange} fields={[
                   { label: "Bank Name", key: "bank.bankName", type: "select", required: true, options: BANKS },
                   { label: "Account Name", key: "bank.accountName", required: true, placeholder: "Must match registered company name exactly" },
-                  { label: "Account Number", key: "bank.accountNumber", required: true, placeholder: "e.g., 62812345678" },
+                  { label: "Account Number", key: "bank.accountNumber", required: true, placeholder: "e.g., 62812345678", sensitive: true },
                   { label: "Branch Code", key: "bank.branchCode", required: true, placeholder: "e.g., 250655", hint: "Universal branch code applies to most major SA banks" },
                   { label: "Account Type", key: "bank.accountType", type: "select", required: true, options: ACCOUNT_TYPES },
                   { label: "SWIFT / BIC Code", key: "bank.swiftCode", placeholder: "e.g., FIRNZAJJ", hint: "Required for international transfers only" },

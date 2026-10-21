@@ -167,7 +167,7 @@ const LoginForm = () => {
                   <Input
                     name="password"
                     type={showPassword ? "text" : "password"}
-                    placeholder="Enter Password"
+                    placeholder="Enter password"
                     onChange={validation.handleChange}
                     onBlur={validation.handleBlur}
                     value={validation.values.password}
@@ -221,7 +221,7 @@ const LoginForm = () => {
 
               <div className="w-100 d-grid">
                 <ButtonSubmit
-                  Title={pending ? "Logging in..." : "Login"}
+                  Title={pending ? "Logging in..." : "Log in"}
                   BackgroundColor={C.primary}
                   ColorText="#fff"
                   BorderColor=""

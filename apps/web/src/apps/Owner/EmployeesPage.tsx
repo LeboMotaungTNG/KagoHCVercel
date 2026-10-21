@@ -25,6 +25,7 @@ export const EmployeesPage = () => {
   const [employees, setEmployees]     = useState<any[]>([]);
   const [loadingData, setLoadingData] = useState(true);
   const [fetchError, setFetchError]   = useState("");
+  const [isPhone, setIsPhone]         = useState(false);
 
   const openProfile = (row: any) => {
     const id = employeeRecordId(row);
@@ -56,6 +57,14 @@ export const EmployeesPage = () => {
   };
 
   useEffect(() => { fetchEmployees(); }, []);
+
+  useEffect(() => {
+    const mq = window.matchMedia("(max-width: 767px)");
+    const apply = () => setIsPhone(mq.matches);
+    apply();
+    mq.addEventListener("change", apply);
+    return () => mq.removeEventListener("change", apply);
+  }, []);
 
   const columns = [
     {
@@ -91,7 +100,7 @@ export const EmployeesPage = () => {
     },
     {
       name: <span className="font-weight-bold fs-13">Position</span>,
-      selector: (row: any) => row?.position || row?.jobTitle || "—",
+      selector: (row: any) => row?.position || row?.jobTitle || row?.job_title || row?.designation || "—",
     },
     {
       name: <span className="font-weight-bold fs-13">Department</span>,
@@ -139,7 +148,7 @@ export const EmployeesPage = () => {
           subtitle="Search the directory and open a full people file."
           actions={
             <button type="button" style={perfBtnHero} onClick={() => navigate("/owner/manage-employees")}>
-              Add Employee
+              Full onboarding
             </button>
           }
         />
@@ -156,6 +165,49 @@ export const EmployeesPage = () => {
             <div className="d-flex justify-content-center align-items-center py-5">
               <Spinner color="primary" /> <span className="ms-2">Loading employees...</span>
             </div>
+          ) : isPhone ? (
+            filteredEmployees.length === 0 ? (
+              <div style={{ padding: 32, color: C.muted, textAlign: "center" }}>No employees found.</div>
+            ) : (
+              <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+                {filteredEmployees.map((row) => {
+                  const position = row?.position || row?.jobTitle || row?.job_title || row?.designation || "—";
+                  const department = row?.departmentId?.name || row?.department || "—";
+                  return (
+                    <button
+                      key={employeeRecordId(row) || `${row?.email}-${row?.firstName}`}
+                      type="button"
+                      onClick={() => openProfile(row)}
+                      style={{
+                        display: "flex", alignItems: "center", gap: 12, textAlign: "left",
+                        width: "100%", padding: 14, borderRadius: 12, cursor: "pointer",
+                        border: `1px solid ${C.line}`, background: C.surface,
+                      }}
+                    >
+                      <div style={{
+                        width: 40, height: 40, borderRadius: "50%", flexShrink: 0, background: C.primary,
+                        display: "flex", alignItems: "center", justifyContent: "center", overflow: "hidden",
+                      }}>
+                        {row?.photo ? (
+                          <img src={row.photo} alt="" style={{ width: 40, height: 40, objectFit: "cover" }} />
+                        ) : (
+                          <AiOutlineUser color="white" size={20} />
+                        )}
+                      </div>
+                      <div style={{ minWidth: 0, flex: 1 }}>
+                        <div style={{ fontSize: 14, fontWeight: 650, color: C.ink }}>
+                          {row?.firstName} {row?.lastName}
+                        </div>
+                        <div style={{ fontSize: 12, color: C.muted, marginTop: 2 }}>
+                          {position} · {department}
+                        </div>
+                      </div>
+                      <span style={{ fontSize: 12, fontWeight: 600, color: C.primary, flexShrink: 0 }}>View</span>
+                    </button>
+                  );
+                })}
+              </div>
+            )
           ) : (
             <DataTable
               customStyles={ownerTableStyles}

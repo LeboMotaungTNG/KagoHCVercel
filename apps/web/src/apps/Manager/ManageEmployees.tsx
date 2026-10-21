@@ -615,9 +615,7 @@ function ManageEmployeesContent() {
     if (!data.department) return 'Department is required';
     if (!data.position) return 'Position is required';
     if (!data.start_date) return 'Start date is required';
-    if (data.create_account && !data.password) return 'Password is required when creating account';
-    if (data.password && data.password !== data.confirm_password) return 'Passwords do not match';
-    if (data.password && data.password.length < 6) return 'Password must be at least 6 characters';
+    if (data.create_account && !data.email) return 'Email is required so we can send a password invite';
     return null;
   };
 
@@ -686,8 +684,9 @@ function ManageEmployeesContent() {
       department: emp.department,
       position: emp.position,
       start_date: emp.start_date,
-      password: emp.password,
-      // Optional fields that backend accepts
+      send_email: true,
+      sendInvite: true,
+      create_account: emp.create_account !== false,
       phone: emp.phone || '',
       role: 'user'
     }));
@@ -833,10 +832,10 @@ function ManageEmployeesContent() {
       employment_type: row.employment_type || 'Full Time',
       start_date: row.start_date || '',
       work_location: row.work_location || '',
-      password: row.password || `Temp${Math.random().toString(36).substring(2, 10)}!`,
-      confirm_password: row.password || `Temp${Math.random().toString(36).substring(2, 10)}!`,
+      password: '',
+      confirm_password: '',
       create_account: true,
-      send_email: false,
+      send_email: true,
       tempId: Date.now().toString() + Math.random().toString(36).substr(2, 9),
     }));
 
@@ -887,7 +886,7 @@ function ManageEmployeesContent() {
           employment_type: emp.employment_type || 'Full Time',
           start_date: emp.start_date || '',
           work_location: emp.work_location || '',
-          password: 'Welcome123',
+          password: '',
           create_account: true,
           send_email: true,
           tempId: Date.now().toString() + Math.random().toString(36).substr(2, 9),
@@ -1560,72 +1559,12 @@ function ManageEmployeesContent() {
                     borderBottom: "1px solid #f2f4f7"
                   }}>Account Setup</h4>
 
-                  <div style={{ marginBottom: 20 }}>
-                    <label style={{ display: "block", marginBottom: 6, color: "#344054", fontWeight: 500, fontSize: 14 }}>
-                      Password <span style={{ color: "#f04438" }}>*</span>
-                    </label>
-                    <div style={{ position: "relative" }}>
-                      <span style={{ position: "absolute", left: 12, top: "50%", transform: "translateY(-50%)", color: "#98a2b3" }}>
-                        <IconLock />
-                      </span>
-                      <input
-                        type="password"
-                        value={formData.password}
-                        onChange={(e) => setFormData(prev => ({ ...prev, password: e.target.value }))}
-                        placeholder="Min. 6 characters"
-                        style={{
-                          width: "100%", padding: "10px 12px 10px 40px",
-                          border: "1px solid #d0d5dd", borderRadius: 8,
-                          fontSize: 14, outline: "none"
-                        }}
-                        required={formData.create_account}
-                      />
-                    </div>
-                  </div>
-
-                  <div style={{ marginBottom: 20 }}>
-                    <label style={{ display: "block", marginBottom: 6, color: "#344054", fontWeight: 500, fontSize: 14 }}>
-                      Confirm Password <span style={{ color: "#f04438" }}>*</span>
-                    </label>
-                    <div style={{ position: "relative" }}>
-                      <span style={{ position: "absolute", left: 12, top: "50%", transform: "translateY(-50%)", color: "#98a2b3" }}>
-                        <IconLock />
-                      </span>
-                      <input
-                        type="password"
-                        value={formData.confirm_password}
-                        onChange={(e) => setFormData(prev => ({ ...prev, confirm_password: e.target.value }))}
-                        placeholder="Re-enter password"
-                        style={{
-                          width: "100%", padding: "10px 12px 10px 40px",
-                          border: "1px solid #d0d5dd", borderRadius: 8,
-                          fontSize: 14, outline: "none"
-                        }}
-                        required={formData.create_account}
-                      />
-                    </div>
-                  </div>
-
-                  <div style={{ marginBottom: 20 }}>
-                    <label style={{
-                      display: "flex", alignItems: "center", gap: 12,
-                      cursor: "pointer", position: "relative", paddingLeft: 28
-                    }}>
-                      <input
-                        type="checkbox"
-                        checked={formData.send_email}
-                        onChange={(e) => setFormData(prev => ({ ...prev, send_email: e.target.checked }))}
-                        style={{ position: "absolute", opacity: 0 }}
-                      />
-                      <span style={{
-                        position: "absolute", left: 0, height: 20, width: 20,
-                        backgroundColor: "#fff", border: "1.5px solid #d0d5dd",
-                        borderRadius: 6, transition: "all 0.2s ease"
-                      }} />
-                      <span style={{ fontSize: 14, color: "#344054", fontWeight: 500 }}>
-                        Send welcome email
-                      </span>
-                    </label>
+                  <div style={{
+                    marginBottom: 20, padding: "12px 14px", borderRadius: 8,
+                    background: "#f0f9ff", border: "1px solid #bae6fd",
+                    fontSize: 13, color: "#0c4a6e",
+                  }}>
+                    We email the employee a link to set their own password. You never choose or see it.
                   </div>
 
                   <div style={{ marginBottom: 20 }}>
@@ -1650,7 +1589,7 @@ function ManageEmployeesContent() {
                       </span>
                     </label>
                     <small style={{ display: "block", marginTop: 6, fontSize: 12, color: "#667085" }}>
-                      When checked, the employee can log in to the employee portal with their email and this password.
+                      When checked, they receive an invite email and set their own password on first login.
                     </small>
                   </div>
 

@@ -28,6 +28,7 @@ import {
   SYSTEM_ROLES,
   completeOnboarding,
   computeCompanyCompletion,
+  inferOnboardingSteps,
   createAdministrator,
   createDepartment,
   deleteDepartment,
@@ -38,6 +39,8 @@ import {
   initialsFromName,
   loadCache,
   loadCachedPositions,
+  mergeCompanyData,
+  normalizeCompanyFromApi,
   readFileAsDataUrl,
   saveCache,
   saveCachedPositions,
@@ -188,8 +191,8 @@ const Field: React.FC<FieldProps> = ({ label, value, editing, type = "text", pla
           {options.map(opt => <option key={opt} value={opt}>{opt}</option>)}
         </select>
       ) : type === "tel" ? (
-        // Smart phone field tied to the active country (locked dial code,
-        // local placeholder, local-only validation).
+        // Phone field with country picker. Default follows the company country;
+        // the employee can still choose another dial code.
         <PhoneInput value={value || ""} onChange={v => onChange?.(v)} />
       ) : (
         <input
@@ -292,22 +295,35 @@ const OnboardingPage: React.FC = () => {
       setCompletedSteps(cached.completedSteps || []);
       setPositions(cached.positions || []);
     }
-    persistReady.current = true;
     (async () => {
       try {
-        const remote = await fetchCompanySettings();
-        if (remote && Object.keys(remote).length) {
-          const merged = { ...EMPTY_COMPANY, ...(cached?.company || {}), ...remote } as CompanyData;
+        const [remote, remoteAdmins, remoteDepts] = await Promise.all([
+          fetchCompanySettings().catch(() => ({}) as Partial<CompanyData>),
+          fetchAdministrators().catch(() => [] as Administrator[]),
+          fetchDepartments().catch(() => [] as Department[]),
+        ]);
+        const fromCache = cached?.company
+          ? normalizeCompanyFromApi(cached.company)
+          : EMPTY_COMPANY;
+        const merged = mergeCompanyData(fromCache, remote || {});
+        const hasRemote = Boolean(remote?.name || remote?.registrationNumber || remote?.email || remote?.phone);
+        if (hasRemote || cached?.company) {
           setCompany(merged);
           setCompanyDraft(merged);
-          // Backend is the source of truth — if it has a country, sync the
-          // global context so phone inputs across the system pick it up.
-          const remoteCountry =
-            (remote as any)?.country ||
-            (remote as any)?.address?.country;
+          const remoteCountry = merged.country || merged.address?.country;
           if (remoteCountry) setActiveCountry(remoteCountry);
         }
+        if (remoteAdmins.length) setAdministrators(remoteAdmins);
+        if (remoteDepts.length) setDepartments(remoteDepts);
+        setCompletedSteps(inferOnboardingSteps({
+          country: (remote as any)?.country || (remote as any)?.address?.country || cached?.country || country,
+          company: merged,
+          administratorCount: (remoteAdmins.length || cached?.administrators?.length || 0),
+          departmentCount: remoteDepts.length,
+          cached: cached?.completedSteps || [],
+        }));
       } catch (err) { console.warn("Could not load company settings:", err); }
+      finally { persistReady.current = true; }
     })();
   }, []);
 
@@ -333,7 +349,7 @@ const OnboardingPage: React.FC = () => {
         address: { ...company.address, country },
       };
       saveCompanySettings(next)
-        .then(() => setCompany(next))
+        .then((saved) => { setCompany(saved); setCompanyDraft(saved); })
         .catch(() => { /* silent — cached locally regardless */ });
     }
   };
@@ -363,8 +379,9 @@ const OnboardingPage: React.FC = () => {
     if (err) { showToast(err, "error"); return; }
     setSavingCompany(true);
     try {
-      await saveCompanySettings(companyDraft);
-      setCompany(companyDraft);
+      const saved = await saveCompanySettings(companyDraft);
+      setCompany(saved);
+      setCompanyDraft(saved);
       setEditingCompany(false);
       showToast("Company details saved.", "success");
     } catch (e: any) {
@@ -791,7 +808,7 @@ const CountryStep: React.FC<{
     <Section
       icon={<Globe2 size={20} />} iconColor={OC.blue}
       title="Country Selection"
-      subtitle="Auto-loads SADC compliance defaults and locks phone inputs to local numbers."
+      subtitle="Sets public holidays and statutory leave defaults. Phone fields can use any country code."
     >
       <div style={{ display: "grid", gridTemplateColumns: "minmax(0, 1fr)", gap: 16 }}>
         <div>
@@ -844,10 +861,9 @@ const CountryStep: React.FC<{
         }}>
           <Sparkles size={16} style={{ marginTop: 2 }} />
           <span>
-            Compliance rules, public holidays, statutory leave defaults and{" "}
-            <strong>every phone field across the system</strong> will be tailored to{" "}
-            <strong>{profile.name}</strong> once you continue. Only{" "}
-            <strong>+{profile.dialCode}</strong> numbers will be accepted.
+            Compliance rules, public holidays and statutory leave defaults will follow{" "}
+            <strong>{profile.name}</strong>. Phone fields stay open to other country codes
+            (for example +44 or +1) — pick the flag on the number field.
           </span>
         </div>
 

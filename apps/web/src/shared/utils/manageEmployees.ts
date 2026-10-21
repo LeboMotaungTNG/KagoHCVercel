@@ -254,6 +254,9 @@ export interface TableRowData {
   email: string;
   id_number: string;
   phone: string;
+  bank_name: string;
+  bank_account_number: string;
+  bank_branch_code: string;
   passport_number: string;
   address_street: string;
   address_city: string;
@@ -453,9 +456,7 @@ export function validateEmployee(data: Partial<Employee>): ValidationResult {
     if (!data.bank_account_number) errors.push("Account number is required");
     if (data.bank_account_number !== data.bank_account_confirm) errors.push("Account numbers do not match");
   }
-  if (data.create_account && !data.password) errors.push("Password is required");
-  if (data.password && data.password !== data.confirm_password) errors.push("Passwords do not match");
-  if (data.password && data.password.length < 6) errors.push("Password must be at least 6 characters");
+  if (data.create_account && !data.email) errors.push("Email is required so we can send a password invite");
 
   return { valid: errors.length === 0, errors };
 }
@@ -526,10 +527,8 @@ export function validateOnboardingTab(tab: FormTab, data: Partial<Employee>): Va
         errors.push("Account numbers do not match");
       }
     }
-    if (data.create_account) {
-      if (isBlank(data.password)) errors.push("Password is required");
-      else if ((data.password || "").length < 6) errors.push("Password must be at least 6 characters");
-      if (data.password !== data.confirm_password) errors.push("Passwords do not match");
+    if (data.create_account && isBlank(data.email)) {
+      errors.push("Email is required so the employee can set their own password");
     }
   }
 
@@ -573,9 +572,12 @@ export async function createEmployeeWithOnboarding(
         annual_salary: emp.annual_salary,
         phone: emp.cell_number,
         employment_type: emp.employment_type,
-        create_account: true,
-        password: emp.password || "Welcome123!",
-        send_email: emp.send_email,
+        create_account: emp.create_account !== false,
+        send_email: true,
+        sendInvite: true,
+        invite: true,
+        password: undefined,
+        confirm_password: undefined,
       }),
     });
     const data = await res.json().catch(() => ({}));
@@ -812,8 +814,15 @@ export const queueItemFromTableRow = (row: Partial<TableRowData>): QueueItem => 
     payment_method: isVolunteerType(row.employment_type)
       ? "Cash"
       : ((row.payment_method || "Bank Transfer") as PaymentMethod),
+    bank_name: row.bank_name || "",
+    bank_account_number: row.bank_account_number || "",
+    bank_account_confirm: row.bank_account_number || "",
+    bank_branch_code: row.bank_branch_code || "",
     ...(isVolunteerType(row.employment_type) ? volunteerPayReset() : {}),
-    password: `Temp${Math.random().toString(36).substring(2, 10)}!`,
+    password: "",
+    confirm_password: "",
+    create_account: true,
+    send_email: true,
     employee_code: generateRandomEmployeeCode(),
     tempId: Date.now().toString() + Math.random().toString(36).substring(2, 11),
   };

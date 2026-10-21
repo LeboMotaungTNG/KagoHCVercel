@@ -662,10 +662,13 @@ function AttendanceContent() {
 
 // ─── Export ───────────────────────────────────────────────────────────────────
 
-const AttendancePage: React.FC = () => (
-  <SharedLayout title="Attendance Tracker">
+const AttendancePage: React.FC<{ embedded?: boolean }> = ({ embedded = false }) =>
+  embedded ? (
     <AttendanceContent />
-  </SharedLayout>
-);
+  ) : (
+    <SharedLayout title="Attendance Tracker">
+      <AttendanceContent />
+    </SharedLayout>
+  );
 
 export default AttendancePage;

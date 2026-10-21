@@ -46,3 +46,38 @@ export const currentMonthRange = (): { start: string; end: string } => {
 /** Generate a SARS-style submission receipt. Pure client-side mock. */
 export const makeSarsReceipt = (): string =>
   `SARS-REC-${Date.now()}-${Math.random().toString(36).substring(2, 8).toUpperCase()}`;
+
+const COMPANY_CACHE_KEY = "kago.ownerCompanyDetails";
+
+/** Keep filled form values when the API omits a field or returns blanks. */
+export function keepFilledCompany<T extends Record<string, any>>(saved: T, incoming?: Partial<T> | null): T {
+  if (!incoming) return saved;
+  const merge = (a: any, b: any): any => {
+    if (a && typeof a === "object" && !Array.isArray(a) && b && typeof b === "object" && !Array.isArray(b)) {
+      const keys = new Set([...Object.keys(a), ...Object.keys(b)]);
+      const out: Record<string, unknown> = {};
+      keys.forEach((k) => { out[k] = merge(a[k], b[k]); });
+      return out;
+    }
+    if (typeof a === "boolean" || typeof b === "boolean") return Boolean(b) || Boolean(a);
+    if (typeof a === "number" || typeof b === "number") {
+      const n = Number(b);
+      return Number.isFinite(n) && n !== 0 ? n : (a ?? 0);
+    }
+    const next = String(b ?? "").trim();
+    const prev = String(a ?? "").trim();
+    return next || prev;
+  };
+  return merge(saved, incoming) as T;
+}
+
+export function cacheCompanyDetails(data: unknown): void {
+  try { localStorage.setItem(COMPANY_CACHE_KEY, JSON.stringify(data)); } catch { /* quota / private mode */ }
+}
+
+export function loadCachedCompanyDetails<T>(): T | null {
+  try {
+    const raw = localStorage.getItem(COMPANY_CACHE_KEY);
+    return raw ? JSON.parse(raw) as T : null;
+  } catch { return null; }
+}

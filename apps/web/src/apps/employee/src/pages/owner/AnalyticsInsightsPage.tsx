@@ -272,7 +272,7 @@ export default function AnalyticsInsightsPage({ employeeId, mode = 'owner' }: Pr
             mode === 'employee'
               ? 'No development-plan items yet. Your manager will accept interventions from team insights.'
               : filter === 'suggested'
-                ? 'No new suggestions — scores and goals look healthy, or items were already triage’d.'
+                ? 'No new suggestions — scores and goals look healthy, or items were already triaged.'
                 : 'Nothing in this view yet.'
           }
         />
