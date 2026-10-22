@@ -1,4 +1,5 @@
 import React, { useCallback, useEffect, useState } from "react";
+import { useNavigate, useParams } from "react-router-dom";
 import { Check, ChevronRight, Clock3, FileText, LockKeyhole, RefreshCw, ShieldCheck, UserRound, X } from "lucide-react";
 import AppShell from "../../shared/components/AppShell";
 import {
@@ -18,10 +19,15 @@ const teal = "#167d8d";
 const card: React.CSSProperties = { background: "#fff", border: `1px solid ${line}`, borderRadius: 10, padding: 18 };
 const smallButton: React.CSSProperties = { display: "inline-flex", alignItems: "center", gap: 6, border: `1px solid ${line}`, background: "#fff", color: ink, borderRadius: 7, padding: "8px 10px", fontSize: 12, fontWeight: 650, cursor: "pointer" };
 
+const VERIFICATION_PATH = "/manager/profile-verifications";
+
 const HrProfileVerificationPage: React.FC = () => {
+  // Opened from a notification as /manager/profile-verifications/<employeeId>.
+  const { id: routeId } = useParams<{ id?: string }>();
+  const navigate = useNavigate();
   const [rows, setRows] = useState<VerificationQueueEmployee[]>([]);
   const [counts, setCounts] = useState<Record<string, number>>({});
-  const [selectedId, setSelectedId] = useState("");
+  const [selectedId, setSelectedId] = useState(routeId || "");
   const [detail, setDetail] = useState<any>(null);
   const [documentUrls, setDocumentUrls] = useState<Record<string, string>>({});
   const [reasons, setReasons] = useState<Array<{ item: string; reason: string }>>([{ item: "general", reason: "" }]);
@@ -38,14 +44,28 @@ const HrProfileVerificationPage: React.FC = () => {
       const result = await fetchVerificationQueue(token());
       setRows(result.employees);
       setCounts(result.counts || {});
-      const nextSelected = keepSelection && result.employees.some(row => row.id === selectedId) ? selectedId : result.employees[0]?.id || "";
+      // Keep the current employee if they're still in the queue — or if they were
+      // opened from a link, even when they're no longer waiting (e.g. already reviewed).
+      const keepCurrent = keepSelection && selectedId && (result.employees.some(row => row.id === selectedId) || selectedId === routeId);
+      const nextSelected = keepCurrent ? selectedId : result.employees[0]?.id || "";
       setSelectedId(nextSelected);
     } catch (loadError) {
       setError(loadError instanceof Error ? loadError.message : "Could not load the verification queue.");
     } finally { setLoading(false); }
-  }, [selectedId]);
+  }, [selectedId, routeId]);
 
-  useEffect(() => { void reloadQueue(false); }, []);
+  useEffect(() => { void reloadQueue(Boolean(routeId)); }, []);
+
+  // Another notification clicked while this page is open: switch to that employee.
+  useEffect(() => {
+    if (routeId && routeId !== selectedId) setSelectedId(routeId);
+  }, [routeId]);
+
+  // Keep the address bar on the selected employee, so refresh and sharing the link work.
+  useEffect(() => {
+    const target = selectedId ? `${VERIFICATION_PATH}/${selectedId}` : VERIFICATION_PATH;
+    if ((routeId || "") !== (selectedId || "")) navigate(target, { replace: true });
+  }, [selectedId]);
 
   useEffect(() => {
     if (!selectedId) { setDetail(null); setDocumentUrls({}); return; }
@@ -104,8 +124,10 @@ const HrProfileVerificationPage: React.FC = () => {
   const updateReason = (index: number, key: "item" | "reason", value: string) => setReasons(previous => previous.map((row, i) => i === index ? { ...row, [key]: value } : row));
   const removeReason = (index: number) => setReasons(previous => previous.length > 1 ? previous.filter((_, i) => i !== index) : [{ item: "general", reason: "" }]);
 
+  // No role prop: AppShell shows the logged-in user's own menu
+  // (owner menu for owners, manager menu for admins and HR).
   return (
-    <AppShell title="Profile Verification" role="manager">
+    <AppShell title="Profile Verification">
       <div style={{ maxWidth: 1320, margin: "0 auto", padding: "24px 8px 60px" }}>
         <header style={{ display: "flex", justifyContent: "space-between", gap: 16, alignItems: "center", flexWrap: "wrap", marginBottom: 18 }}>
           <div><h1 style={{ color: ink, fontSize: 23, margin: 0 }}>Profile verification</h1><p style={{ color: muted, margin: "5px 0 0", fontSize: 13 }}>Review employee details and required documents before unlocking their modules.</p></div>
