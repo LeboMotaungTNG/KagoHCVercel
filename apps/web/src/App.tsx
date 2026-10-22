@@ -112,6 +112,8 @@ const App: React.FC = () => (
       <Route path="/manager/profile"          element={<Guard roles={ManagerArea}><EmployeeProfile /></Guard>} />
       <Route path="/manager/profile/:id"      element={<Guard roles={ManagerArea}><EmployeeProfile /></Guard>} />
       <Route path="/manager/profile-verifications" element={<Guard roles={VerificationHrArea}><HrProfileVerificationPage /></Guard>} />
+      {/* Notifications link straight to one employee: /manager/profile-verifications/<employeeId> */}
+      <Route path="/manager/profile-verifications/:id" element={<Guard roles={VerificationHrArea}><HrProfileVerificationPage /></Guard>} />
       <Route path="/manager/manage-employees" element={<Guard roles={ManagerArea}><ManageEmployees /></Guard>} />
       <Route path="/manager/employees"        element={<Guard roles={ManagerArea}><EmployeesPage /></Guard>} />
       <Route path="/manager/attendance"       element={<Guard roles={ManagerArea}><AttendancePage /></Guard>} />
