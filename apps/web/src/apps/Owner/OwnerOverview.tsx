@@ -2,11 +2,21 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import {
-  Award, Building2, Calendar, ChevronRight, Clock,
-  FileText, MessageCircle, PenTool, Plus, Search, Settings,
-  Sparkles, Star, Target, TrendingUp, Users, Zap,
+  Award, Building2, Cake, Calendar, ChevronRight, Clock,
+  FileText, GraduationCap, Megaphone, MessageCircle, PenTool, Pin, Plus, Search, Settings,
+  Sparkles, Star, Target, TrendingUp, Users, Video, Zap,
 } from "lucide-react";
-import { C as TOKENS } from "../../shared/utils/employee";
+import {
+  C as TOKENS,
+  PRESENCE_STYLES,
+  buildTeammateRoster,
+  daysUntilBirthday,
+  todayISO,
+  type BirthdayEntry,
+  type Colleague,
+  type PresenceState,
+  type Teammate,
+} from "../../shared/utils/employee";
 import { PageHero } from "../employee/src/components/PerformanceUI";
 import { isHrReviewStatus } from "../../shared/utils/LeaveUtils";
 import { formatMonthlyPrice, isActiveCompanyStatus, planFromHeadcount } from "../../shared/utils/ownerOrgNumbers";
@@ -638,6 +648,162 @@ const AIAssistantCard: React.FC = () => {
   );
 };
 
+/* ─── Who's around / notices / events ─────────────────────────────────────── */
+type NoticeKind = "POLICY" | "NOTICE" | "ACTION";
+const NOTICE_STYLES: Record<NoticeKind, { bg: string; color: string; icon: React.ReactNode }> = {
+  POLICY: { bg: C.accentBg, color: C.accent, icon: <Pin size={14} /> },
+  NOTICE: { bg: C.blueBg,   color: C.blue,   icon: <Megaphone size={14} /> },
+  ACTION: { bg: C.amberBg,  color: C.amber,  icon: <Target size={14} /> },
+};
+
+const OWNER_NOTICES: Array<{ kind: NoticeKind; title: string; body: string }> = [
+  { kind: "POLICY", title: "POPIA access logging", body: "Sensitive employee numbers are masked. Reveals are recorded." },
+  { kind: "NOTICE", title: "Keep SARS details current", body: "Income tax, PAYE and UIF references drive payroll and EMP201." },
+  { kind: "ACTION", title: "Review the live directory", body: "Headcount and plan follow people on file — offboard leavers promptly." },
+];
+
+const WhosAroundCard: React.FC<{ roster: Teammate[]; loading: boolean; onViewAll: () => void }> = ({ roster, loading, onViewAll }) => {
+  const preview = roster.slice(0, 8);
+  const counts = roster.reduce(
+    (a, r) => ((a[r.state]++), a),
+    { office: 0, remote: 0, leave: 0 } as Record<PresenceState, number>,
+  );
+  return (
+    <Card>
+      <SectionHead
+        title="Who's around"
+        subtitle={`${roster.length} people in the directory`}
+        right={(
+          <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 8 }}>
+            <div style={{ display: "flex", gap: 8, flexWrap: "wrap", justifyContent: "flex-end" }}>
+              {(Object.keys(PRESENCE_STYLES) as PresenceState[]).map(s => (
+                <span key={s} style={{ display: "inline-flex", alignItems: "center", gap: 4, fontSize: 11.5, fontWeight: 700, color: C.muted }}>
+                  <span style={{ width: 7, height: 7, borderRadius: "50%", background: PRESENCE_STYLES[s].dot }} />
+                  {counts[s]}
+                </span>
+              ))}
+            </div>
+            <button type="button" style={linkBtn} onClick={onViewAll}>View all</button>
+          </div>
+        )}
+      />
+      {loading ? (
+        <p style={{ margin: 0, color: C.faint, fontSize: 14 }}>Loading directory…</p>
+      ) : roster.length === 0 ? (
+        <p style={{ margin: 0, padding: "16px 0", textAlign: "center", color: C.faint, fontSize: 13 }}>
+          No people in the directory yet.
+        </p>
+      ) : (
+        <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+          {preview.map(m => {
+            const s = PRESENCE_STYLES[m.state];
+            return (
+              <div key={m.id} style={{ display: "flex", alignItems: "center", gap: 12, padding: "8px 6px" }}>
+                <div style={{ position: "relative", flexShrink: 0 }}>
+                  <Avatar name={m.name} size={36} />
+                  <span style={{ position: "absolute", right: -1, bottom: -1, width: 11, height: 11, borderRadius: "50%", background: s.dot, border: "2px solid #fff" }} />
+                </div>
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div style={{ fontSize: 13.5, fontWeight: 700, color: C.ink, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{m.name}</div>
+                  <div style={{ fontSize: 11.5, color: C.faint }}>{m.department}</div>
+                </div>
+                <div style={{ fontSize: 12, fontWeight: 600, color: s.color, flexShrink: 0 }}>{s.label}</div>
+              </div>
+            );
+          })}
+        </div>
+      )}
+    </Card>
+  );
+};
+
+const CompanyNoticesCard: React.FC<{ notices: Array<{ kind: NoticeKind; title: string; body: string }>; onViewAll: () => void }> = ({ notices, onViewAll }) => (
+  <Card>
+    <SectionHead
+      title="Company notices"
+      right={<button type="button" style={linkBtn} onClick={onViewAll}>All notices</button>}
+    />
+    <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(240px,1fr))", gap: 12 }}>
+      {notices.slice(0, 3).map((n, i) => {
+        const s = NOTICE_STYLES[n.kind];
+        return (
+          <div key={`${n.title}-${i}`} style={{ border: `1px solid ${C.line}`, borderRadius: R.lg, padding: 16, background: C.surfaceAlt }}>
+            <StatusPill bg={s.bg} color={s.color}>{s.icon}{n.kind}</StatusPill>
+            <div style={{ fontSize: 14, fontWeight: 800, color: C.ink, marginTop: 10 }}>{n.title}</div>
+            <div style={{ fontSize: 12.5, color: C.muted, marginTop: 4, lineHeight: 1.45 }}>{n.body}</div>
+          </div>
+        );
+      })}
+    </div>
+  </Card>
+);
+
+type AppEvent = { icon: React.ReactNode; bg: string; color: string; title: string; when: string };
+
+function buildOwnerEvents(birthdays: BirthdayEntry[]): AppEvent[] {
+  return [
+    ...birthdays.map<AppEvent>(b => ({
+      icon: <Cake size={18} />, bg: C.pinkBg, color: C.pink,
+      title: `${b.name}'s birthday`,
+      when: b.daysUntil === 0 ? "Today" : b.daysUntil === 1 ? "Tomorrow" : `In ${b.daysUntil} days`,
+    })),
+    { icon: <Users size={18} />, bg: C.blueBg, color: C.blue, title: "Leadership stand-up", when: "Fri · 9:00 AM" },
+    { icon: <GraduationCap size={18} />, bg: C.purpleBg, color: C.purple, title: "People ops workshop", when: "Next Mon" },
+    { icon: <Calendar size={18} />, bg: C.greenBg, color: C.green, title: "Payroll cut-off", when: "This month · 25th" },
+    { icon: <Video size={18} />, bg: C.accentBg, color: C.accent, title: "Organisation all-hands", when: "Last Friday · 3:00 PM" },
+  ];
+}
+
+const UpcomingEventsCard: React.FC<{ birthdays: BirthdayEntry[]; onViewAll: () => void }> = ({ birthdays, onViewAll }) => {
+  const events = buildOwnerEvents(birthdays).slice(0, 4);
+  return (
+    <Card>
+      <SectionHead title="Upcoming events" right={<button type="button" style={linkBtn} onClick={onViewAll}>View all</button>} />
+      <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+        {events.map((e, i) => (
+          <div key={`${e.title}-${i}`} style={{ display: "flex", alignItems: "center", gap: 12 }}>
+            <IconBubble bg={e.bg} color={e.color}>{e.icon}</IconBubble>
+            <div style={{ flex: 1, minWidth: 0 }}>
+              <div style={{ fontSize: 13.5, fontWeight: 700, color: C.ink, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{e.title}</div>
+              <div style={{ fontSize: 12, color: C.muted, marginTop: 2 }}>{e.when}</div>
+            </div>
+          </div>
+        ))}
+      </div>
+    </Card>
+  );
+};
+
+const SimpleModal: React.FC<{ open: boolean; title: string; onClose: () => void; children: React.ReactNode }> = ({ open, title, onClose, children }) => {
+  useEffect(() => {
+    if (!open) return;
+    const h = (e: KeyboardEvent) => { if (e.key === "Escape") onClose(); };
+    window.addEventListener("keydown", h);
+    return () => window.removeEventListener("keydown", h);
+  }, [open, onClose]);
+  if (!open) return null;
+  return (
+    <div
+      role="presentation"
+      style={{ position: "fixed", inset: 0, zIndex: 5000, background: "rgba(15,23,42,0.45)", display: "flex", alignItems: "center", justifyContent: "center", padding: 24 }}
+      onClick={onClose}
+    >
+      <div
+        role="dialog"
+        aria-modal="true"
+        style={{ background: C.surface, borderRadius: R.xl, maxWidth: 560, width: "100%", maxHeight: "88vh", overflow: "hidden", display: "flex", flexDirection: "column", boxShadow: "0 25px 80px rgba(0,0,0,0.18)" }}
+        onClick={e => e.stopPropagation()}
+      >
+        <div style={{ padding: "18px 22px", borderBottom: `1px solid ${C.line}`, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+          <h2 style={{ margin: 0, fontSize: 18, fontWeight: 800, color: C.ink }}>{title}</h2>
+          <button type="button" onClick={onClose} aria-label="Close" style={{ border: "none", background: "transparent", fontSize: 26, lineHeight: 1, cursor: "pointer", color: C.muted }}>×</button>
+        </div>
+        <div style={{ padding: 20, overflowY: "auto" }}>{children}</div>
+      </div>
+    </div>
+  );
+};
+
 /* ─── Main ───────────────────────────────────────────────────────────────── */
 interface Counts {
   employees: number; managers: number; departments: number;
@@ -652,10 +818,13 @@ export const OwnerOverview: React.FC = () => {
   const [deptStats, setDeptStats]     = useState<DeptStat[]>([]);
   const [managerList, setManagerList] = useState<ManagerEntry[]>([]);
   const [leaveList, setLeaveList]     = useState<OrgLeave[]>([]);
+  const [colleagues, setColleagues]   = useState<Colleague[]>([]);
+  const [birthdays, setBirthdays]     = useState<BirthdayEntry[]>([]);
   const [user, setUser]               = useState<any>(null);
   const [loading, setLoading]         = useState(true);
   const [leaveLoading, setLeaveLoading] = useState(true);
   const [companyStatus, setCompanyStatus] = useState("Active");
+  const [modal, setModal]             = useState<null | "events" | "notices" | "directory">(null);
 
   /* Auth guard */
   useEffect(() => {
@@ -729,6 +898,28 @@ export const OwnerOverview: React.FC = () => {
       setCounts({ employees: emps.length, managers: mgrs.length, departments: departments.length, presentToday: presentAndLate, pendingLeave, onPayroll, absent, late });
       setDeptStats(departments);
       setManagerList(mgrList);
+      setColleagues(emps.map((e: any, i: number) => ({
+        id: String(e._id || e.id || e.email || `emp-${i}`),
+        name: `${e.firstName || e.first_name || ""} ${e.lastName || e.last_name || ""}`.trim() || e.full_name || e.fullName || e.email || "Unknown",
+        department: typeof e.department === "object" ? (e.department?.name || "—") : String(e.department ?? e.departmentName ?? "—"),
+        email: e.email || undefined,
+      })));
+      setBirthdays(
+        emps
+          .filter((e: any) => e.dateOfBirth || e.dob || e.birthDate || e.date_of_birth)
+          .map((e: any) => {
+            const dob = e.dateOfBirth || e.dob || e.birthDate || e.date_of_birth;
+            const dept = typeof e.department === "object" ? (e.department?.name || "—") : String(e.department ?? e.departmentName ?? "—");
+            return {
+              name: `${e.firstName || e.first_name || ""} ${e.lastName || e.last_name || ""}`.trim() || e.full_name || "Unknown",
+              dob,
+              department: dept,
+              daysUntil: daysUntilBirthday(dob),
+            };
+          })
+          .filter((b: BirthdayEntry) => b.daysUntil <= 30)
+          .sort((a: BirthdayEntry, b: BirthdayEntry) => a.daysUntil - b.daysUntil),
+      );
     }).catch(console.error).finally(() => setLoading(false));
   }, []);
 
@@ -757,6 +948,47 @@ export const OwnerOverview: React.FC = () => {
 
   const firstName = user?.firstName || "Admin";
   const presentPct = counts.employees > 0 ? Math.round((counts.presentToday / counts.employees) * 100) : 0;
+  const today = todayISO();
+  const teamOnLeave = useMemo(() => leaveList
+    .filter(r => r.status === "approved")
+    .filter(r => {
+      const start = String(r.start_date || r.startDate || "").split("T")[0];
+      const days = Number(r.total_days ?? r.totalDays ?? r.days ?? 1) || 1;
+      if (!start) return false;
+      const end = new Date(start);
+      end.setDate(end.getDate() + Math.max(0, days - 1));
+      const endIso = end.toISOString().split("T")[0];
+      return start <= today && endIso >= today;
+    })
+    .map(r => ({
+      name: r.full_name ?? r.employee_name ?? r.employeeName ?? "Employee",
+      type: r.leave_type ?? r.type ?? r.leaveType ?? "Leave",
+      end_date: today,
+      daysLeft: 0,
+      department: String(r.department || "—"),
+    })), [leaveList, today]);
+  const roster = useMemo(
+    () => buildTeammateRoster(colleagues, teamOnLeave, user?.email, user ? `${user.firstName || ""} ${user.lastName || ""}`.trim() : undefined),
+    [colleagues, teamOnLeave, user],
+  );
+  const notices = useMemo(() => {
+    const live: Array<{ kind: NoticeKind; title: string; body: string }> = [];
+    if (counts.pendingLeave > 0) {
+      live.push({
+        kind: "ACTION",
+        title: `${counts.pendingLeave} leave request${counts.pendingLeave === 1 ? "" : "s"} awaiting HR`,
+        body: "Open Leave Requests to complete the second-stage review.",
+      });
+    }
+    if (counts.employees > 0 && counts.onPayroll < counts.employees) {
+      live.push({
+        kind: "ACTION",
+        title: "Payroll coverage gap",
+        body: `${counts.onPayroll} of ${counts.employees} people are on payroll.`,
+      });
+    }
+    return [...live, ...OWNER_NOTICES];
+  }, [counts.pendingLeave, counts.employees, counts.onPayroll]);
 
   return (
     <>
@@ -814,6 +1046,70 @@ export const OwnerOverview: React.FC = () => {
           <AIAssistantCard />
           <SubscriptionCard employeeCount={counts.employees} companyStatus={companyStatus} />
         </div>
+
+        {/* Who's around + upcoming events */}
+        <div className="own-row own-pair">
+          <WhosAroundCard roster={roster} loading={loading} onViewAll={() => setModal("directory")} />
+          <UpcomingEventsCard birthdays={birthdays} onViewAll={() => setModal("events")} />
+        </div>
+
+        <div className="own-row">
+          <CompanyNoticesCard notices={notices} onViewAll={() => setModal("notices")} />
+        </div>
+
+        <SimpleModal open={modal === "directory"} title="Who's around — full directory" onClose={() => setModal(null)}>
+          {roster.length === 0 ? (
+            <p style={{ margin: 0, color: C.faint, fontSize: 14 }}>No people to show.</p>
+          ) : (
+            <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+              {roster.map(m => {
+                const s = PRESENCE_STYLES[m.state];
+                return (
+                  <div key={m.id} style={{ display: "flex", alignItems: "center", gap: 12, padding: "10px 8px", borderBottom: `1px solid ${C.line}` }}>
+                    <div style={{ position: "relative", flexShrink: 0 }}>
+                      <Avatar name={m.name} size={36} />
+                      <span style={{ position: "absolute", right: -1, bottom: -1, width: 11, height: 11, borderRadius: "50%", background: s.dot, border: "2px solid #fff" }} />
+                    </div>
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <div style={{ fontSize: 14, fontWeight: 700, color: C.ink }}>{m.name}</div>
+                      <div style={{ fontSize: 12, color: C.muted }}>{m.department}</div>
+                    </div>
+                    <div style={{ fontSize: 12, fontWeight: 700, color: s.color }}>{s.label}</div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </SimpleModal>
+
+        <SimpleModal open={modal === "events"} title="Upcoming events" onClose={() => setModal(null)}>
+          <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+            {buildOwnerEvents(birthdays).map((e, i) => (
+              <div key={`${e.title}-${e.when}-${i}`} style={{ display: "flex", alignItems: "center", gap: 12 }}>
+                <IconBubble bg={e.bg} color={e.color}>{e.icon}</IconBubble>
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div style={{ fontSize: 14, fontWeight: 700, color: C.ink }}>{e.title}</div>
+                  <div style={{ fontSize: 12.5, color: C.muted, marginTop: 2 }}>{e.when}</div>
+                </div>
+              </div>
+            ))}
+          </div>
+        </SimpleModal>
+
+        <SimpleModal open={modal === "notices"} title="All company notices" onClose={() => setModal(null)}>
+          <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+            {notices.map((n, i) => {
+              const s = NOTICE_STYLES[n.kind];
+              return (
+                <div key={`${n.title}-${i}`} style={{ border: `1px solid ${C.line}`, borderRadius: R.lg, padding: 16, background: C.surfaceAlt }}>
+                  <StatusPill bg={s.bg} color={s.color}>{s.icon}{n.kind}</StatusPill>
+                  <div style={{ fontSize: 15, fontWeight: 800, color: C.ink, marginTop: 10 }}>{n.title}</div>
+                  <div style={{ fontSize: 13, color: C.muted, marginTop: 4, lineHeight: 1.5 }}>{n.body}</div>
+                </div>
+              );
+            })}
+          </div>
+        </SimpleModal>
 
         <p style={{ textAlign: "center", color: C.faint, fontSize: 12.5, margin: "8px 0 24px" }}>
           KagoHC · Crafted for happier teams
