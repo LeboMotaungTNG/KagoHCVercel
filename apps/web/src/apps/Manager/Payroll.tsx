@@ -5,7 +5,7 @@ import { useNavigate } from "react-router-dom";
 import SharedLayout from "./SharedLayout";
 import EditPayrollModal from './components/EditPayrollModal';
 import { C } from "../../shared/utils/employee";
-import { DollarSign } from "lucide-react";
+import { Banknote } from "lucide-react";
 import { FilterTabs, PageHero, PerformancePage } from "./managerUi";
 
 type PayrollStatus = "on_payroll" | "not_on_payroll" | "active" | "inactive";
@@ -433,7 +433,7 @@ Net Pay: ${formatCurrency(employee.netSalary || employee.basicSalary * 0.81)}
   return (
     <PerformancePage maxWidth={1280}>
       <PageHero
-        icon={<DollarSign size={24} color="#fff" />}
+        icon={<Banknote size={24} color="#fff" />}
         title="Payroll Management"
         subtitle="Who is on payroll, estimated costs, and run processing."
       />
