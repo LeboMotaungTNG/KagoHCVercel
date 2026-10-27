@@ -3,8 +3,8 @@ import {
   Building2,
   Calendar,
   ClipboardList,
+  Banknote,
   Clock,
-  DollarSign,
   FileSearch,
   Folder,
   Home,
@@ -101,7 +101,7 @@ const payrollOfficerNav: AppShellNav = {
       id: "people",
       label: "People",
       items: [
-        { kind: "link", to: "/employee/payroll", label: "Payroll", icon: DollarSign },
+        { kind: "link", to: "/employee/payroll", label: "Payroll", icon: Banknote },
       ],
     },
     {
@@ -124,7 +124,7 @@ const payrollOfficerNav: AppShellNav = {
   mobile: [
     { to: "/employee", label: "Home", icon: Home },
     { to: "/employee/overtime-approvals", label: "Approvals", icon: Clock },
-    { to: "/employee/payroll", label: "Payroll", icon: DollarSign },
+    { to: "/employee/payroll", label: "Payroll", icon: Banknote },
     { to: "/employee/performance", label: "Performance", icon: TrendingUp },
   ],
 };
@@ -200,7 +200,7 @@ const ownerNav: AppShellNav = {
         { kind: "link", to: "/owner", label: "Dashboard", icon: Home, exact: true },
         { kind: "link", to: "/owner/leave", label: "Leave Requests", icon: ClipboardList },
         { kind: "link", to: "/owner/attendance", label: "Attendance", icon: Calendar },
-        { kind: "link", to: "/owner/payroll", label: "Payroll", icon: DollarSign },
+        { kind: "link", to: "/owner/payroll", label: "Payroll", icon: Banknote },
         { kind: "link", to: "/delegations", label: "Delegations", icon: ShieldCheck },
       ],
     },

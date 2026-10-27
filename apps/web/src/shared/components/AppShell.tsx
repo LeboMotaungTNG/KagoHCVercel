@@ -17,7 +17,7 @@ import { navForRole } from "../nav/roleMenus";
 import { groupIsActive, pathIsActive, type NavGroupItem, type NavLinkItem } from "../nav/types";
 import { fetchProfileCompletion } from "../utils/profileVerification";
 // @ts-ignore
-import logoKago from "../../assets/images/logo-black-white.png";
+import logoKagoMark from "../../assets/images/kago-mark.png";
 
 export interface AppShellProps {
   children: React.ReactNode;
@@ -153,7 +153,7 @@ const AppSidebar: React.FC<{ role: string; onLogout: () => void }> = ({ role, on
         <div id="sidebar-menu">
           <div className="d-flex mb-4 kago-sidebar-logo" style={{ padding: "0 20px" }}>
             <div className="kago-sidebar-logo-mark">
-              <img src={logoKago} alt="Kago HC" style={{ width: "100%", height: "100%", objectFit: "contain", display: "block" }} />
+              <img src={logoKagoMark} alt="Kago HC" />
             </div>
           </div>
           <ul className="metismenu list-unstyled mt-2" id="side-menu-item">

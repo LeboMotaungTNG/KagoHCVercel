@@ -176,8 +176,15 @@ export const SidebarHoverStyle: React.FC = () => (
     }
 
     .kago-sidebar-logo-mark {
-      width: 148px;
-      height: 52px;
+      width: 48px;
+      height: 48px;
+      flex-shrink: 0;
+    }
+    .kago-sidebar-logo-mark img {
+      width: 100%;
+      height: 100%;
+      display: block;
+      object-fit: contain;
     }
 
     /* Collapsed (minimized) sidebar: keep a readable logo and icon-only groups. */
@@ -192,8 +199,8 @@ export const SidebarHoverStyle: React.FC = () => (
       justify-content: center;
     }
     body.vertical-collpsed .kago-sidebar .kago-sidebar-logo-mark {
-      width: 56px;
-      height: 56px;
+      width: 40px;
+      height: 40px;
     }
     body.vertical-collpsed .kago-sidebar #sidebar-menu > ul > li > a,
     body.vertical-collpsed .kago-sidebar #sidebar-menu > ul > li > .sb-group-toggle {
@@ -219,6 +226,32 @@ export const SidebarHoverStyle: React.FC = () => (
       width: 22px;
       height: 22px;
       flex-shrink: 0;
+      color: inherit !important;
+    }
+    /* Skote expands the row to ~260px and paints the icon primary-blue on
+       hover/click. Keep collapsed items icon-only inside the rail. */
+    body.vertical-collpsed .kago-sidebar #sidebar-menu > ul > li:hover > a,
+    body.vertical-collpsed .kago-sidebar #sidebar-menu > ul > li:focus-within > a,
+    body.vertical-collpsed .kago-sidebar #sidebar-menu > ul > li:hover > .sb-group-toggle,
+    body.vertical-collpsed .kago-sidebar #sidebar-menu > ul > li:focus-within > .sb-group-toggle {
+      width: 100% !important;
+      max-width: 100% !important;
+      position: relative !important;
+      color: #fff !important;
+      background: rgba(255,255,255,0.06) !important;
+    }
+    body.vertical-collpsed .kago-sidebar #sidebar-menu > ul > li:hover > a.sb-active,
+    body.vertical-collpsed .kago-sidebar #sidebar-menu > ul > li:hover > .sb-group-toggle.sb-active {
+      background: ${SIDEBAR_ACTIVE_BG} !important;
+    }
+    body.vertical-collpsed .kago-sidebar #sidebar-menu > ul > li:hover > a span,
+    body.vertical-collpsed .kago-sidebar #sidebar-menu > ul > li:focus-within > a span {
+      display: none !important;
+    }
+    body.vertical-collpsed .kago-sidebar #sidebar-menu > ul > li:hover > a svg,
+    body.vertical-collpsed .kago-sidebar #sidebar-menu > ul > li:focus-within > a svg,
+    body.vertical-collpsed .kago-sidebar #sidebar-menu > ul > li:hover > a i {
+      color: #fff !important;
     }
     body.vertical-collpsed .kago-sidebar #sidebar-menu > ul > li > .sub-menu {
       display: none !important;
