@@ -517,12 +517,13 @@ export function useEmployeeData() {
     setToday(prev => ({ ...prev, ...patch }));
 
   const clockIn = useCallback(async () => {
-    if (today.clock_in) return;
+    if (today.clock_in && !today.clock_out) return; // already clocked in
     const now = new Date();
     const hhmm = `${pad2(now.getHours())}:${pad2(now.getMinutes())}`;
-    setTodayPatch({ clock_in: hhmm, status: "present" });
+    // Clocking in again after a clock-out reopens the day and keeps the first clock-in time.
+    setTodayPatch(today.clock_in ? { clock_out: null } : { clock_in: hhmm, status: "present" });
     await safeJson(`${API_URL}/attendance/clock-in`, { method: "POST", headers });
-  }, [headers, today.clock_in]);
+  }, [headers, today.clock_in, today.clock_out]);
 
   const clockOut = useCallback(async () => {
     if (!today.clock_in || today.clock_out) return;

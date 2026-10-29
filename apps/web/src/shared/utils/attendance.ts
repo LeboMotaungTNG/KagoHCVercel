@@ -644,13 +644,15 @@ export function useEmployeeAttendance() {
       
       if (data.success) {
         const time = time24(new Date());
+        const resuming = Boolean(clock.clockInTime && clock.clockOutTime);
         setClock({
           clockedIn: true,
-          clockInTime: time,
+          // Clocking in again keeps the day's first clock-in time.
+          clockInTime: resuming ? clock.clockInTime : time,
           clockOutTime: null,
           sessionHours: null
         });
-        showAlert(`Clocked in at ${fmtTime(time)}`, "success");
+        showAlert(resuming ? `Clocked in again at ${fmtTime(time)}` : `Clocked in at ${fmtTime(time)}`, "success");
         fetchHistory();
         fetchTodayStatus();
       } else {

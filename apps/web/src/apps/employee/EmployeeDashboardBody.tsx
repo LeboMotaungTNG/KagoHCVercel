@@ -238,9 +238,9 @@ const TodaysSessionCard: React.FC<{
 
       {canClock ? (
         <div style={{ position: "relative", display: "flex", gap: 12, marginTop: 18, flexWrap: "wrap", alignItems: "center" }}>
-          {!today.clock_in ? (
+          {!today.clock_in || today.clock_out ? (
             <button onClick={onClockIn} style={btnPrimary}>
-              <Clock size={16} style={{ marginRight: 8 }} />Clock in
+              <Clock size={16} style={{ marginRight: 8 }} />{today.clock_out ? "Clock in again" : "Clock in"}
             </button>
           ) : (
             <button
