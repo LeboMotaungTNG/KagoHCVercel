@@ -3,8 +3,8 @@ import React, { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import {
   Award, Building2, Cake, Calendar, ChevronRight, Clock,
-  FileText, GraduationCap, Megaphone, MessageCircle, PenTool, Pin, Plus, Search, Settings,
-  Sparkles, Star, Target, TrendingUp, Users, Video, Zap,
+  FileText, Megaphone, MessageCircle, PenTool, Pin, Plus, Search, Settings,
+  Sparkles, Star, Target, TrendingUp, UserPlus, Users, Zap,
 } from "lucide-react";
 import {
   C as TOKENS,
@@ -662,23 +662,62 @@ const OWNER_NOTICES: Array<{ kind: NoticeKind; title: string; body: string }> = 
   { kind: "ACTION", title: "Review the live directory", body: "Headcount and plan follow people on file — offboard leavers promptly." },
 ];
 
-const WhosAroundCard: React.FC<{ roster: Teammate[]; loading: boolean; onViewAll: () => void }> = ({ roster, loading, onViewAll }) => {
+/* Live presence for the owner's view. "Not in yet" is local to this page so the
+   employee dashboards, which share PRESENCE_STYLES, are unaffected. */
+type OwnerPresence = PresenceState | "out";
+type OwnerTeammate = Omit<Teammate, "state"> & { state: OwnerPresence; clockIn?: string };
+const OWNER_PRESENCE_STYLES: Record<OwnerPresence, { dot: string; label: string; color: string }> = {
+  ...PRESENCE_STYLES,
+  out: { dot: "#CBD5E1", label: "Not in yet", color: C.faint },
+};
+const PRESENCE_ORDER: OwnerPresence[] = ["office", "remote", "leave", "out"];
+
+type AroundTodayEntry = { employee_id?: string; email?: string; status?: string; clock_in?: string };
+
+/** Today's attendance decides the status: clocked in → In office (or Remote), approved leave → On leave, otherwise Not in yet. */
+function withLivePresence(roster: Teammate[], aroundToday: AroundTodayEntry[]): OwnerTeammate[] {
+  const byId = new Map<string, AroundTodayEntry>();
+  const byEmail = new Map<string, AroundTodayEntry>();
+  for (const a of aroundToday) {
+    if (a.employee_id) byId.set(String(a.employee_id), a);
+    if (a.email) byEmail.set(a.email.toLowerCase(), a);
+  }
+  return roster
+    .map<OwnerTeammate>(m => {
+      const record = byId.get(m.id) || (m.email ? byEmail.get(m.email.toLowerCase()) : undefined);
+      if (record) return { ...m, state: record.status === "remote" ? "remote" : "office", clockIn: record.clock_in };
+      return { ...m, state: m.state === "leave" ? "leave" : "out" };
+    })
+    .sort((a, b) => PRESENCE_ORDER.indexOf(a.state) - PRESENCE_ORDER.indexOf(b.state) || a.name.localeCompare(b.name));
+}
+
+const clockInLabel = (m: OwnerTeammate) => {
+  const s = OWNER_PRESENCE_STYLES[m.state];
+  if (!m.clockIn || (m.state !== "office" && m.state !== "remote")) return s.label;
+  const time = new Date(m.clockIn);
+  return Number.isNaN(time.getTime())
+    ? s.label
+    : `${s.label} · ${time.toLocaleTimeString("en-ZA", { hour: "2-digit", minute: "2-digit" })}`;
+};
+
+const WhosAroundCard: React.FC<{ roster: OwnerTeammate[]; loading: boolean; onViewAll: () => void }> = ({ roster, loading, onViewAll }) => {
   const preview = roster.slice(0, 8);
   const counts = roster.reduce(
     (a, r) => ((a[r.state]++), a),
-    { office: 0, remote: 0, leave: 0 } as Record<PresenceState, number>,
+    { office: 0, remote: 0, leave: 0, out: 0 } as Record<OwnerPresence, number>,
   );
+  const inToday = counts.office + counts.remote;
   return (
     <Card>
       <SectionHead
         title="Who's around"
-        subtitle={`${roster.length} people in the directory`}
+        subtitle={`${inToday} of ${roster.length} in today`}
         right={(
           <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 8 }}>
             <div style={{ display: "flex", gap: 8, flexWrap: "wrap", justifyContent: "flex-end" }}>
-              {(Object.keys(PRESENCE_STYLES) as PresenceState[]).map(s => (
-                <span key={s} style={{ display: "inline-flex", alignItems: "center", gap: 4, fontSize: 11.5, fontWeight: 700, color: C.muted }}>
-                  <span style={{ width: 7, height: 7, borderRadius: "50%", background: PRESENCE_STYLES[s].dot }} />
+              {PRESENCE_ORDER.map(s => (
+                <span key={s} title={OWNER_PRESENCE_STYLES[s].label} style={{ display: "inline-flex", alignItems: "center", gap: 4, fontSize: 11.5, fontWeight: 700, color: C.muted }}>
+                  <span style={{ width: 7, height: 7, borderRadius: "50%", background: OWNER_PRESENCE_STYLES[s].dot }} />
                   {counts[s]}
                 </span>
               ))}
@@ -696,7 +735,7 @@ const WhosAroundCard: React.FC<{ roster: Teammate[]; loading: boolean; onViewAll
       ) : (
         <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
           {preview.map(m => {
-            const s = PRESENCE_STYLES[m.state];
+            const s = OWNER_PRESENCE_STYLES[m.state];
             return (
               <div key={m.id} style={{ display: "flex", alignItems: "center", gap: 12, padding: "8px 6px" }}>
                 <div style={{ position: "relative", flexShrink: 0 }}>
@@ -707,7 +746,7 @@ const WhosAroundCard: React.FC<{ roster: Teammate[]; loading: boolean; onViewAll
                   <div style={{ fontSize: 13.5, fontWeight: 700, color: C.ink, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{m.name}</div>
                   <div style={{ fontSize: 11.5, color: C.faint }}>{m.department}</div>
                 </div>
-                <div style={{ fontSize: 12, fontWeight: 600, color: s.color, flexShrink: 0 }}>{s.label}</div>
+                <div style={{ fontSize: 12, fontWeight: 600, color: s.color, flexShrink: 0 }}>{clockInLabel(m)}</div>
               </div>
             );
           })}
@@ -738,27 +777,74 @@ const CompanyNoticesCard: React.FC<{ notices: Array<{ kind: NoticeKind; title: s
   </Card>
 );
 
-type AppEvent = { icon: React.ReactNode; bg: string; color: string; title: string; when: string };
+type AppEvent = { icon: React.ReactNode; bg: string; color: string; title: string; when: string; daysUntil: number };
 
-function buildOwnerEvents(birthdays: BirthdayEntry[]): AppEvent[] {
+/** Work anniversaries and new starters in the next 30 days, from employees' start dates. */
+type Milestone = { kind: "anniversary" | "starter"; name: string; daysUntil: number; years?: number };
+
+const EVENT_WINDOW_DAYS = 30;
+const whenLabel = (days: number) => (days === 0 ? "Today" : days === 1 ? "Tomorrow" : `In ${days} days`);
+
+function buildMilestones(emps: any[]): Milestone[] {
+  const today = new Date(); today.setHours(0, 0, 0, 0);
+  const out: Milestone[] = [];
+  for (const e of emps) {
+    const raw = e?.startDate || e?.start_date || e?.hireDate || e?.hire_date;
+    if (!raw) continue;
+    const start = new Date(raw);
+    if (Number.isNaN(start.getTime())) continue;
+    const name = `${e.firstName || e.first_name || ""} ${e.lastName || e.last_name || ""}`.trim() || e.full_name || "An employee";
+    const startDay = new Date(start.getFullYear(), start.getMonth(), start.getDate());
+    const daysToStart = Math.round((startDay.getTime() - today.getTime()) / 86400000);
+    if (daysToStart >= 0) {
+      if (daysToStart <= EVENT_WINDOW_DAYS) out.push({ kind: "starter", name, daysUntil: daysToStart });
+      continue;
+    }
+    const daysUntil = daysUntilBirthday(raw); // same "next yearly date" maths as birthdays
+    if (daysUntil > EVENT_WINDOW_DAYS) continue;
+    const next = new Date(today.getTime() + daysUntil * 86400000);
+    const years = next.getFullYear() - start.getFullYear();
+    if (years >= 1) out.push({ kind: "anniversary", name, daysUntil, years });
+  }
+  return out;
+}
+
+function buildOwnerEvents(birthdays: BirthdayEntry[], milestones: Milestone[]): AppEvent[] {
   return [
     ...birthdays.map<AppEvent>(b => ({
       icon: <Cake size={18} />, bg: C.pinkBg, color: C.pink,
       title: `${b.name}'s birthday`,
-      when: b.daysUntil === 0 ? "Today" : b.daysUntil === 1 ? "Tomorrow" : `In ${b.daysUntil} days`,
+      when: whenLabel(b.daysUntil),
+      daysUntil: b.daysUntil,
     })),
-    { icon: <Users size={18} />, bg: C.blueBg, color: C.blue, title: "Leadership stand-up", when: "Fri · 9:00 AM" },
-    { icon: <GraduationCap size={18} />, bg: C.purpleBg, color: C.purple, title: "People ops workshop", when: "Next Mon" },
-    { icon: <Calendar size={18} />, bg: C.greenBg, color: C.green, title: "Payroll cut-off", when: "This month · 25th" },
-    { icon: <Video size={18} />, bg: C.accentBg, color: C.accent, title: "Organisation all-hands", when: "Last Friday · 3:00 PM" },
-  ];
+    ...milestones.map<AppEvent>(m => m.kind === "starter"
+      ? {
+          icon: <UserPlus size={18} />, bg: C.greenBg, color: C.green,
+          title: `${m.name} joins the team`,
+          when: m.daysUntil === 0 ? "Starts today" : `Starts ${whenLabel(m.daysUntil).toLowerCase()}`,
+          daysUntil: m.daysUntil,
+        }
+      : {
+          icon: <Award size={18} />, bg: C.purpleBg, color: C.purple,
+          title: `${m.name} — ${m.years} year${m.years === 1 ? "" : "s"} at the company`,
+          when: whenLabel(m.daysUntil),
+          daysUntil: m.daysUntil,
+        }),
+  ].sort((a, b) => a.daysUntil - b.daysUntil);
 }
 
-const UpcomingEventsCard: React.FC<{ birthdays: BirthdayEntry[]; onViewAll: () => void }> = ({ birthdays, onViewAll }) => {
-  const events = buildOwnerEvents(birthdays).slice(0, 4);
+const NoEvents: React.FC = () => (
+  <p style={{ margin: 0, padding: "16px 0", textAlign: "center", color: C.faint, fontSize: 13 }}>
+    No birthdays, work anniversaries or new starters in the next {EVENT_WINDOW_DAYS} days.
+  </p>
+);
+
+const UpcomingEventsCard: React.FC<{ birthdays: BirthdayEntry[]; milestones: Milestone[]; onViewAll: () => void }> = ({ birthdays, milestones, onViewAll }) => {
+  const events = buildOwnerEvents(birthdays, milestones).slice(0, 4);
   return (
     <Card>
       <SectionHead title="Upcoming events" right={<button type="button" style={linkBtn} onClick={onViewAll}>View all</button>} />
+      {events.length === 0 && <NoEvents />}
       <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
         {events.map((e, i) => (
           <div key={`${e.title}-${i}`} style={{ display: "flex", alignItems: "center", gap: 12 }}>
@@ -820,7 +906,9 @@ export const OwnerOverview: React.FC = () => {
   const [leaveList, setLeaveList]     = useState<OrgLeave[]>([]);
   const [colleagues, setColleagues]   = useState<Colleague[]>([]);
   const [birthdays, setBirthdays]     = useState<BirthdayEntry[]>([]);
-  const [user, setUser]               = useState<any>(null);
+  const [milestones, setMilestones]   = useState<Milestone[]>([]);
+  const [aroundToday, setAroundToday] = useState<AroundTodayEntry[]>([]);
+  const [user, setUser]              = useState<any>(null);
   const [loading, setLoading]         = useState(true);
   const [leaveLoading, setLeaveLoading] = useState(true);
   const [companyStatus, setCompanyStatus] = useState("Active");
@@ -852,7 +940,9 @@ export const OwnerOverview: React.FC = () => {
       fetch(`${API_URL}/leave/stats`, { headers }).then(r => r.json()),
       fetch(`${API_URL}/attendance`,  { headers }).then(r => r.json()),
       fetch(`${API_URL}/owner/company/settings`, { headers }).then(r => r.json()).catch(() => null),
-    ]).then(([empData, leaveData, attData, companyData]) => {
+      // Who has clocked in today, with clock-in times.
+      fetch(`${API_URL}/attendance/around-today`, { headers }).then(r => (r.ok ? r.json() : null)).catch(() => null),
+    ]).then(([empData, leaveData, attData, companyData, aroundData]) => {
       const emps = toArr(empData,  ["data.data","data","data.rows"]);
       const att  = toArr(attData,  ["data.data","data","data.records","data.attendance","data.rows"]);
       const ls   = leaveData?.data?.data ?? leaveData?.data ?? leaveData;
@@ -861,6 +951,20 @@ export const OwnerOverview: React.FC = () => {
 
       // Attendance today
       const todayAtt  = att.filter((r: any) => String(r?.date ?? r?.attendanceDate ?? "").split("T")[0] === today);
+
+      // Who's around: prefer the around-today endpoint; otherwise use today's clocked-in attendance rows.
+      const around = aroundData?.data?.teammates ?? aroundData?.teammates ?? aroundData?.data;
+      setAroundToday(Array.isArray(around) && around.length > 0
+        ? around
+        : todayAtt
+            .filter((r: any) => (r?.clock_in ?? r?.clockIn) && !["absent", "on_leave", "on-leave", "leave"].includes(String(r?.status ?? "").toLowerCase()))
+            .map((r: any) => ({
+              employee_id: String(r.employee_id ?? r.employeeId ?? r.employee?._id ?? r.employee?.id ?? ""),
+              email: r.email ?? r.employee?.email,
+              status: String(r.status ?? ""),
+              clock_in: r.clock_in ?? r.clockIn,
+            })));
+      setMilestones(buildMilestones(emps));
       const present   = todayAtt.filter((r: any) => ["present","half_day","half-day"].includes(String(r?.status ?? ""))).length;
       const late      = todayAtt.filter((r: any) => String(r?.status ?? "") === "late").length;
       const presentAndLate = present + late;
@@ -968,8 +1072,11 @@ export const OwnerOverview: React.FC = () => {
       department: String(r.department || "—"),
     })), [leaveList, today]);
   const roster = useMemo(
-    () => buildTeammateRoster(colleagues, teamOnLeave, user?.email, user ? `${user.firstName || ""} ${user.lastName || ""}`.trim() : undefined),
-    [colleagues, teamOnLeave, user],
+    () => withLivePresence(
+      buildTeammateRoster(colleagues, teamOnLeave, user?.email, user ? `${user.firstName || ""} ${user.lastName || ""}`.trim() : undefined),
+      aroundToday,
+    ),
+    [colleagues, teamOnLeave, user, aroundToday],
   );
   const notices = useMemo(() => {
     const live: Array<{ kind: NoticeKind; title: string; body: string }> = [];
@@ -1050,7 +1157,7 @@ export const OwnerOverview: React.FC = () => {
         {/* Who's around + upcoming events */}
         <div className="own-row own-pair">
           <WhosAroundCard roster={roster} loading={loading} onViewAll={() => setModal("directory")} />
-          <UpcomingEventsCard birthdays={birthdays} onViewAll={() => setModal("events")} />
+          <UpcomingEventsCard birthdays={birthdays} milestones={milestones} onViewAll={() => setModal("events")} />
         </div>
 
         <div className="own-row">
@@ -1063,7 +1170,7 @@ export const OwnerOverview: React.FC = () => {
           ) : (
             <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
               {roster.map(m => {
-                const s = PRESENCE_STYLES[m.state];
+                const s = OWNER_PRESENCE_STYLES[m.state];
                 return (
                   <div key={m.id} style={{ display: "flex", alignItems: "center", gap: 12, padding: "10px 8px", borderBottom: `1px solid ${C.line}` }}>
                     <div style={{ position: "relative", flexShrink: 0 }}>
@@ -1074,7 +1181,7 @@ export const OwnerOverview: React.FC = () => {
                       <div style={{ fontSize: 14, fontWeight: 700, color: C.ink }}>{m.name}</div>
                       <div style={{ fontSize: 12, color: C.muted }}>{m.department}</div>
                     </div>
-                    <div style={{ fontSize: 12, fontWeight: 700, color: s.color }}>{s.label}</div>
+                    <div style={{ fontSize: 12, fontWeight: 700, color: s.color }}>{clockInLabel(m)}</div>
                   </div>
                 );
               })}
@@ -1083,8 +1190,9 @@ export const OwnerOverview: React.FC = () => {
         </SimpleModal>
 
         <SimpleModal open={modal === "events"} title="Upcoming events" onClose={() => setModal(null)}>
+          {buildOwnerEvents(birthdays, milestones).length === 0 && <NoEvents />}
           <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
-            {buildOwnerEvents(birthdays).map((e, i) => (
+            {buildOwnerEvents(birthdays, milestones).map((e, i) => (
               <div key={`${e.title}-${e.when}-${i}`} style={{ display: "flex", alignItems: "center", gap: 12 }}>
                 <IconBubble bg={e.bg} color={e.color}>{e.icon}</IconBubble>
                 <div style={{ flex: 1, minWidth: 0 }}>

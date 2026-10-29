@@ -194,8 +194,10 @@ const ClockPanel: React.FC<ClockPanelProps> = ({ state, onClockIn, onClockOut, l
   }, [state.clockedIn, state.clockInTime]);
 
   const active    = state.clockedIn;
+  // Clocked out earlier today: they can clock in again (e.g. after clocking out by
+  // mistake); the backend records the time away as an unpaid break.
   const done      = !active && state.clockOutTime !== null;
-  const disabled  = loading || done || (active && onBreak);
+  const disabled  = loading || (active && onBreak);
 
   return (
     <div style={{
@@ -298,7 +300,7 @@ const ClockPanel: React.FC<ClockPanelProps> = ({ state, onClockIn, onClockOut, l
             Processing¦
           </>
         ) : done ? (
-          "Session complete for today"
+          <><Icon.Login /> Clock in again</>
         ) : active ? (
           <><Icon.Logout /> Clock Out</>
         ) : (
