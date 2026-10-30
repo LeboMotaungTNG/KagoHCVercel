@@ -136,7 +136,8 @@ const managerNav: AppShellNav = {
       label: "Work",
       items: [
         { kind: "link", to: "/manager", label: "Dashboard", icon: Home, exact: true },
-        { kind: "link", to: "/manager/attendance", label: "Attendance", icon: Calendar },
+        { kind: "link", to: "/manager/my-attendance", label: "My Attendance", icon: Clock },
+        { kind: "link", to: "/manager/attendance", label: "Team Attendance", icon: Calendar },
         { kind: "link", to: "/manager/leave-requests", label: "Leave Requests", icon: ClipboardList },
       ],
     },
@@ -168,6 +169,7 @@ const managerNav: AppShellNav = {
           label: "Performance",
           icon: TrendingUp,
           children: [
+            { to: "/manager/my-performance", label: "My performance" },
             { to: "/manager/performance", label: "Team reviews", match: ["/manager/moderate"] },
             { to: "/manager/team-goals", label: "Team goals" },
             { to: "/manager/insights", label: "Insights" },
@@ -199,7 +201,8 @@ const ownerNav: AppShellNav = {
       items: [
         { kind: "link", to: "/owner", label: "Dashboard", icon: Home, exact: true },
         { kind: "link", to: "/owner/leave", label: "Leave Requests", icon: ClipboardList },
-        { kind: "link", to: "/owner/attendance", label: "Attendance", icon: Calendar },
+        { kind: "link", to: "/owner/my-attendance", label: "My Attendance", icon: Clock },
+        { kind: "link", to: "/owner/attendance", label: "Team Attendance", icon: Calendar },
         { kind: "link", to: "/owner/payroll", label: "Payroll", icon: Banknote },
         { kind: "link", to: "/delegations", label: "Delegations", icon: ShieldCheck },
       ],

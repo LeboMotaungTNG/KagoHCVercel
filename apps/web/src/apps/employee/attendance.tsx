@@ -749,10 +749,14 @@ const EmployeeAttendanceContent: React.FC = () => {
 };
 
 
-const EmployeeAttendancePage: React.FC = () => (
-  <SharedLayout title="My Attendance">
-    <EmployeeAttendanceContent />
-  </SharedLayout>
-);
+const EmployeeAttendancePage: React.FC<{ embedded?: boolean }> = ({ embedded = false }) => {
+  const content = <EmployeeAttendanceContent />;
+  if (embedded) return content;
+  return (
+    <SharedLayout title="My Attendance">
+      {content}
+    </SharedLayout>
+  );
+};
 
 export default EmployeeAttendancePage;

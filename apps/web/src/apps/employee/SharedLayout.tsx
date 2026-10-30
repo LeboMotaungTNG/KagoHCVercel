@@ -11,7 +11,14 @@ function shellRole(): string {
   try {
     const stored = JSON.parse(localStorage.getItem("user") || "{}");
     const role = normalizeAppRole(stored.role) || "employee";
-    if (role === "payroll_officer" || role === "line_manager" || role === "manager") return role;
+    if (
+      role === "payroll_officer" ||
+      role === "line_manager" ||
+      role === "manager" ||
+      role === "owner" ||
+      role === "admin" ||
+      role === "hr"
+    ) return role;
     return "employee";
   } catch {
     return "employee";

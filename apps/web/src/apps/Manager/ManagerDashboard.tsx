@@ -19,6 +19,7 @@ import {
   avatarBg, getInitials,
 } from "../../shared/utils/employee";
 import { PageHero } from "../employee/src/components/PerformanceUI";
+import MyClockCard from "../../shared/components/MyClockCard";
 import { isManagerReviewStatus, leaveApiMessage } from "../../shared/utils/LeaveUtils";
 
 const token = () => localStorage.getItem("token") || "";
@@ -437,9 +438,11 @@ const QuickActionsCard: React.FC = () => {
   const actions = [
     { label: "Add Employee",   path: "/manager/manage-employees", icon: <Plus size={18} />,     bg: C.coralBg,  color: C.coral  },
     { label: "All Employees",  path: "/manager/employees",        icon: <Users size={18} />,    bg: C.blueBg,   color: C.blue   },
-    { label: "Attendance",     path: "/manager/attendance",       icon: <Clock size={18} />,    bg: C.greenBg,  color: C.green  },
+    { label: "Clock in",       path: "/manager/my-attendance",    icon: <Clock size={18} />,    bg: C.greenBg,  color: C.green  },
+    { label: "Team attendance", path: "/manager/attendance",      icon: <Clock size={18} />,    bg: C.blueBg,   color: C.blue   },
     { label: "Leave Requests", path: "/manager/leave-requests",   icon: <Calendar size={18} />, bg: C.warnBg,   color: C.amber  },
     { label: "Payroll",        path: "/manager/payroll",          icon: <Target size={18} />,   bg: C.purpleBg, color: C.purple },
+    { label: "Self-review",    path: "/manager/my-performance/self-review", icon: <TrendingUp size={18} />, bg: C.coralBg, color: C.coral },
     { label: "Emp. Profile",   path: "/manager/profile",          icon: <Star size={18} />,     bg: "#f1f5f9",  color: C.muted  },
   ];
   return (
@@ -644,6 +647,8 @@ const ManagerDashboard: React.FC = () => {
           <TeamOpsCard counts={counts} loading={loading} />
           <TeamHealthCard rate={presentPct} pendingLeave={counts.pendingLeave} />
         </div>
+
+        <MyClockCard historyTo="/manager/my-attendance" />
 
         <div className="mgr-kpi">
           <StatTile label="Total Employees" value={loading ? "…" : counts.employees}    sub="In your team"          icon={<Users size={20} />}    iconBg={C.blueBg}   iconColor={C.blue}   onClick={() => navigate("/manager/employees")}     />

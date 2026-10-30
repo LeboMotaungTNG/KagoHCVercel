@@ -31,16 +31,16 @@ const TabLink: React.FC<{ to: string; label: string }> = ({ to, label }) => {
   );
 };
 
-const PerformanceShell: React.FC<{ children: React.ReactNode }> = ({ children }) => (
+const PerformanceShell: React.FC<{ children: React.ReactNode; basePath: string }> = ({ children, basePath }) => (
   <SharedLayout title="Performance">
     <Helmet>
       <title>Performance | Kago HC</title>
     </Helmet>
     <div className="mb-4 d-flex flex-wrap gap-2">
-      <TabLink to="/employee/performance/reviews" label="My reviews" />
-      <TabLink to="/employee/performance/self-review" label="Self-review" />
-      <TabLink to="/employee/performance/goals" label="My goals" />
-      <TabLink to="/employee/performance/insights" label="Development plan" />
+      <TabLink to={`${basePath}/reviews`} label="My reviews" />
+      <TabLink to={`${basePath}/self-review`} label="Self-review" />
+      <TabLink to={`${basePath}/goals`} label="My goals" />
+      <TabLink to={`${basePath}/insights`} label="Development plan" />
     </div>
     {children}
   </SharedLayout>
@@ -81,14 +81,18 @@ function EmployeeInsights() {
   return <AnalyticsInsightsPage employeeId={employeeId} mode="employee" />;
 }
 
-export default function EmployeePerformance() {
+export default function EmployeePerformance({
+  basePath = "/employee/performance",
+}: {
+  basePath?: string;
+}) {
   return (
     <Routes>
       <Route index element={<Navigate to="reviews" replace />} />
       <Route
         path="reviews"
         element={
-          <PerformanceShell>
+          <PerformanceShell basePath={basePath}>
             <ResultsPage />
           </PerformanceShell>
         }
@@ -96,7 +100,7 @@ export default function EmployeePerformance() {
       <Route
         path="self-review"
         element={
-          <PerformanceShell>
+          <PerformanceShell basePath={basePath}>
             <SelfReviewPage />
           </PerformanceShell>
         }
@@ -104,7 +108,7 @@ export default function EmployeePerformance() {
       <Route
         path="goals"
         element={
-          <PerformanceShell>
+          <PerformanceShell basePath={basePath}>
             <GoalsPage />
           </PerformanceShell>
         }
@@ -112,7 +116,7 @@ export default function EmployeePerformance() {
       <Route
         path="insights"
         element={
-          <PerformanceShell>
+          <PerformanceShell basePath={basePath}>
             <EmployeeInsights />
           </PerformanceShell>
         }
