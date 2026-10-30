@@ -3,14 +3,14 @@ import React, { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import {
   Award, Building2, Cake, Calendar, ChevronRight, Clock,
-  FileText, Megaphone, MessageCircle, PenTool, Pin, Plus, Search, Settings,
+  FileText, Megaphone, MessageCircle, PenTool, Pin, Plane, Plus, Search, Settings,
   Sparkles, Star, Target, TrendingUp, UserPlus, Users, Zap,
 } from "lucide-react";
 import {
   C as TOKENS,
   PRESENCE_STYLES,
   buildTeammateRoster,
-  daysUntilBirthday,
+  daysUntilBirthday, fetchCompanyBirthdays, birthdaysToShow,
   todayISO,
   type BirthdayEntry,
   type Colleague,
@@ -18,7 +18,7 @@ import {
   type Teammate,
 } from "../../shared/utils/employee";
 import { PageHero } from "../employee/src/components/PerformanceUI";
-import { isHrReviewStatus } from "../../shared/utils/LeaveUtils";
+import { isHrReviewStatus, LEAVE_TYPE_LABELS } from "../../shared/utils/LeaveUtils";
 import { formatMonthlyPrice, isActiveCompanyStatus, planFromHeadcount } from "../../shared/utils/ownerOrgNumbers";
 
 /* ─── Design tokens ──────────────────────────────────────────────────────── */
@@ -384,6 +384,7 @@ interface OrgLeave {
   employee_name?: string; employeeName?: string; full_name?: string;
   type?: string; leaveType?: string; leave_type?: string;
   start_date?: string; startDate?: string;
+  end_date?: string; endDate?: string;
   days?: number; total_days?: number; totalDays?: number;
   status?: string;
   department?: string;
@@ -809,12 +810,72 @@ function buildMilestones(emps: any[]): Milestone[] {
   return out;
 }
 
-function buildOwnerEvents(birthdays: BirthdayEntry[], milestones: Milestone[]): AppEvent[] {
+/** Date of birth from the profile (flat or under personal_info), else from a 13-digit SA ID (YYMMDD…). */
+function dobOf(e: any): string | null {
+  const direct = e?.dateOfBirth || e?.dob || e?.birthDate || e?.date_of_birth
+    || e?.personal_info?.date_of_birth || e?.personalInfo?.dateOfBirth || e?.personal?.dateOfBirth;
+  if (direct && !Number.isNaN(new Date(direct).getTime())) return String(direct);
+  const id = String(e?.idNumber || e?.id_number || e?.personal_info?.id_number || "").replace(/\s/g, "");
+  if (!/^\d{13}$/.test(id)) return null; // missing or masked
+  const yy = Number(id.slice(0, 2)), mm = Number(id.slice(2, 4)), dd = Number(id.slice(4, 6));
+  const year = yy + (yy > new Date().getFullYear() % 100 ? 1900 : 2000);
+  const d = new Date(year, mm - 1, dd);
+  if (d.getMonth() !== mm - 1 || d.getDate() !== dd) return null;
+  return `${year}-${String(mm).padStart(2, "0")}-${String(dd).padStart(2, "0")}T00:00:00`;
+}
+
+const isoDay = (d: Date) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+const leaveStartISO = (r: OrgLeave) => String(r.start_date || r.startDate || "").split("T")[0];
+/** Prefer the stored end date: total_days counts working days, so start + days overshoots weekends. */
+function leaveEndISO(r: OrgLeave): string {
+  const stored = String(r.end_date || r.endDate || "").split("T")[0];
+  if (stored) return stored;
+  const start = leaveStartISO(r);
+  if (!start) return "";
+  const end = new Date(`${start}T00:00:00`);
+  end.setDate(end.getDate() + Math.max(0, (Number(r.total_days ?? r.totalDays ?? r.days ?? 1) || 1) - 1));
+  return isoDay(end);
+}
+const leaveName = (r: OrgLeave) => r.full_name ?? r.employee_name ?? r.employeeName ?? "Employee";
+const leaveTypeLabel = (r: OrgLeave) => {
+  const raw = String(r.leave_type ?? r.type ?? r.leaveType ?? "").toLowerCase();
+  return LEAVE_TYPE_LABELS[raw]?.toLowerCase() || (raw ? `${raw} leave` : "leave");
+};
+const shortDate = (iso: string) => new Date(`${iso}T00:00:00`).toLocaleDateString("en-ZA", { day: "numeric", month: "short" });
+
+/** Approved leave happening now or starting in the next 30 days. */
+function buildLeaveEvents(leaves: OrgLeave[]): AppEvent[] {
+  const today = new Date(); today.setHours(0, 0, 0, 0);
+  const todayIso = isoDay(today);
+  const out: AppEvent[] = [];
+  for (const r of leaves) {
+    if (r.status !== "approved") continue;
+    const start = leaveStartISO(r), end = leaveEndISO(r);
+    if (!start || !end || end < todayIso) continue;
+    const daysToStart = Math.round((new Date(`${start}T00:00:00`).getTime() - today.getTime()) / 86400000);
+    if (daysToStart > EVENT_WINDOW_DAYS) continue;
+    const onNow = daysToStart <= 0;
+    out.push({
+      icon: <Plane size={18} />, bg: C.amberBg, color: C.amber,
+      title: onNow ? `${leaveName(r)} is on ${leaveTypeLabel(r)}` : `${leaveName(r)} — ${leaveTypeLabel(r)}`,
+      when: onNow
+        ? `Back after ${shortDate(end)}`
+        : `${whenLabel(daysToStart)} · ${shortDate(start)}${end !== start ? ` – ${shortDate(end)}` : ""}`,
+      daysUntil: Math.max(0, daysToStart),
+    });
+  }
+  return out;
+}
+
+function buildOwnerEvents(birthdays: BirthdayEntry[], milestones: Milestone[], leaves: OrgLeave[] = []): AppEvent[] {
   return [
     ...birthdays.map<AppEvent>(b => ({
       icon: <Cake size={18} />, bg: C.pinkBg, color: C.pink,
       title: `${b.name}'s birthday`,
-      when: whenLabel(b.daysUntil),
+      // Beyond the 30-day window (shown when nothing is sooner): give the date instead.
+      when: b.daysUntil > EVENT_WINDOW_DAYS && b.dob
+        ? `On ${new Date(b.dob).toLocaleDateString("en-ZA", { day: "numeric", month: "long" })}`
+        : whenLabel(b.daysUntil),
       daysUntil: b.daysUntil,
     })),
     ...milestones.map<AppEvent>(m => m.kind === "starter"
@@ -830,17 +891,18 @@ function buildOwnerEvents(birthdays: BirthdayEntry[], milestones: Milestone[]): 
           when: whenLabel(m.daysUntil),
           daysUntil: m.daysUntil,
         }),
+    ...buildLeaveEvents(leaves),
   ].sort((a, b) => a.daysUntil - b.daysUntil);
 }
 
 const NoEvents: React.FC = () => (
   <p style={{ margin: 0, padding: "16px 0", textAlign: "center", color: C.faint, fontSize: 13 }}>
-    No birthdays, work anniversaries or new starters in the next {EVENT_WINDOW_DAYS} days.
+    No birthdays, leave, work anniversaries or new starters in the next {EVENT_WINDOW_DAYS} days.
   </p>
 );
 
-const UpcomingEventsCard: React.FC<{ birthdays: BirthdayEntry[]; milestones: Milestone[]; onViewAll: () => void }> = ({ birthdays, milestones, onViewAll }) => {
-  const events = buildOwnerEvents(birthdays, milestones).slice(0, 4);
+const UpcomingEventsCard: React.FC<{ birthdays: BirthdayEntry[]; milestones: Milestone[]; leaves: OrgLeave[]; onViewAll: () => void }> = ({ birthdays, milestones, leaves, onViewAll }) => {
+  const events = buildOwnerEvents(birthdays, milestones, leaves).slice(0, 4);
   return (
     <Card>
       <SectionHead title="Upcoming events" right={<button type="button" style={linkBtn} onClick={onViewAll}>View all</button>} />
@@ -1008,22 +1070,20 @@ export const OwnerOverview: React.FC = () => {
         department: typeof e.department === "object" ? (e.department?.name || "—") : String(e.department ?? e.departmentName ?? "—"),
         email: e.email || undefined,
       })));
-      setBirthdays(
-        emps
-          .filter((e: any) => e.dateOfBirth || e.dob || e.birthDate || e.date_of_birth)
-          .map((e: any) => {
-            const dob = e.dateOfBirth || e.dob || e.birthDate || e.date_of_birth;
-            const dept = typeof e.department === "object" ? (e.department?.name || "—") : String(e.department ?? e.departmentName ?? "—");
-            return {
-              name: `${e.firstName || e.first_name || ""} ${e.lastName || e.last_name || ""}`.trim() || e.full_name || "Unknown",
-              dob,
-              department: dept,
-              daysUntil: daysUntilBirthday(dob),
-            };
-          })
-          .filter((b: BirthdayEntry) => b.daysUntil <= 30)
-          .sort((a: BirthdayEntry, b: BirthdayEntry) => a.daysUntil - b.daysUntil),
-      );
+      const localBirthdays: BirthdayEntry[] = emps
+        .filter((e: any) => dobOf(e))
+        .map((e: any) => {
+          const dob = dobOf(e) as string;
+          const dept = typeof e.department === "object" ? (e.department?.name || "—") : String(e.department ?? e.departmentName ?? "—");
+          return {
+            name: `${e.firstName || e.first_name || ""} ${e.lastName || e.last_name || ""}`.trim() || e.full_name || "Unknown",
+            dob,
+            department: dept,
+            daysUntil: daysUntilBirthday(dob),
+          };
+        });
+      // Same source as the employee dashboards; falls back to the local list on an older backend.
+      fetchCompanyBirthdays(headers).then(company => setBirthdays(birthdaysToShow(company ?? localBirthdays)));
     }).catch(console.error).finally(() => setLoading(false));
   }, []);
 
@@ -1034,19 +1094,25 @@ export const OwnerOverview: React.FC = () => {
     const extract = (d: any): OrgLeave[] =>
       Array.isArray(d?.data?.data) ? d.data.data : Array.isArray(d?.data) ? d.data : Array.isArray(d) ? d : [];
 
-    fetch(`${API_URL}/leave?limit=100&page=1`, { headers })
-      .then(r => r.json()).then(d => {
-        const items = extract(d).map((item: any) => ({ ...item, id: item._id || item.id || String(item.leave_id) }));
-        setLeaveList(items);
-        setCounts(prev => ({ ...prev, pendingLeave: items.length }));
-      })
-      .catch(() =>
-        fetch(`${API_URL}/leave/requests?limit=100&page=1`, { headers }).then(r => r.json()).then(d => {
-          const items = extract(d).map((item: any) => ({ ...item, id: item._id || item.id || String(item.leave_id) }));
-          setLeaveList(items);
-          setCounts(prev => ({ ...prev, pendingLeave: items.length }));
-        })
-      )
+    const load = (path: string) => fetch(`${API_URL}${path}`, { headers })
+      .then(r => (r.ok ? r.json() : null))
+      .then(d => extract(d).map((item: any) => ({
+        ...item,
+        id: item._id || item.id || String(item.leave_id),
+        full_name: item.full_name ?? item.employee_name ?? item.employeeName
+          ?? ([item.employee?.firstName, item.employee?.lastName].filter(Boolean).join(" ") || undefined),
+      })));
+    const apply = (items: OrgLeave[]) => {
+      setLeaveList(items);
+      // Same rule as the Leave overview card: only requests still waiting on HR count as pending.
+      setCounts(prev => ({ ...prev, pendingLeave: items.filter(r => !r.status || isHrReviewStatus(r.status) || r.status === "pending").length }));
+    };
+
+    // An error response or an empty list falls back to /leave/requests.
+    load("/leave?limit=100&page=1")
+      .catch(() => [] as OrgLeave[])
+      .then(items => (items.length ? items : load("/leave/requests?limit=100&page=1").catch(() => [] as OrgLeave[])))
+      .then(apply)
       .finally(() => setLeaveLoading(false));
   }, []);
 
@@ -1056,16 +1122,11 @@ export const OwnerOverview: React.FC = () => {
   const teamOnLeave = useMemo(() => leaveList
     .filter(r => r.status === "approved")
     .filter(r => {
-      const start = String(r.start_date || r.startDate || "").split("T")[0];
-      const days = Number(r.total_days ?? r.totalDays ?? r.days ?? 1) || 1;
-      if (!start) return false;
-      const end = new Date(start);
-      end.setDate(end.getDate() + Math.max(0, days - 1));
-      const endIso = end.toISOString().split("T")[0];
-      return start <= today && endIso >= today;
+      const start = leaveStartISO(r);
+      return Boolean(start) && start <= today && leaveEndISO(r) >= today;
     })
     .map(r => ({
-      name: r.full_name ?? r.employee_name ?? r.employeeName ?? "Employee",
+      name: leaveName(r),
       type: r.leave_type ?? r.type ?? r.leaveType ?? "Leave",
       end_date: today,
       daysLeft: 0,
@@ -1157,7 +1218,7 @@ export const OwnerOverview: React.FC = () => {
         {/* Who's around + upcoming events */}
         <div className="own-row own-pair">
           <WhosAroundCard roster={roster} loading={loading} onViewAll={() => setModal("directory")} />
-          <UpcomingEventsCard birthdays={birthdays} milestones={milestones} onViewAll={() => setModal("events")} />
+          <UpcomingEventsCard birthdays={birthdays} milestones={milestones} leaves={leaveList} onViewAll={() => setModal("events")} />
         </div>
 
         <div className="own-row">
@@ -1190,9 +1251,9 @@ export const OwnerOverview: React.FC = () => {
         </SimpleModal>
 
         <SimpleModal open={modal === "events"} title="Upcoming events" onClose={() => setModal(null)}>
-          {buildOwnerEvents(birthdays, milestones).length === 0 && <NoEvents />}
+          {buildOwnerEvents(birthdays, milestones, leaveList).length === 0 && <NoEvents />}
           <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
-            {buildOwnerEvents(birthdays, milestones).map((e, i) => (
+            {buildOwnerEvents(birthdays, milestones, leaveList).map((e, i) => (
               <div key={`${e.title}-${e.when}-${i}`} style={{ display: "flex", alignItems: "center", gap: 12 }}>
                 <IconBubble bg={e.bg} color={e.color}>{e.icon}</IconBubble>
                 <div style={{ flex: 1, minWidth: 0 }}>

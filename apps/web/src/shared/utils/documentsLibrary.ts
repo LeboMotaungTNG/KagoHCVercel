@@ -71,6 +71,9 @@ export const loadOrgDocumentsAsync = async (): Promise<OrgDocument[]> => {
         ? `${doc.uploadedBy.firstName} ${doc.uploadedBy.lastName}`
         : "HR",
       audience: "all",
+      requiresSignature: !!doc.requiresSignature,
+      signatureDueDate: doc.signatureDueDate || null,
+      mySignature: doc.mySignature || null,
     }));
   } catch (error) {
     console.error("[documentsLibrary] Error loading employee documents:", error);
@@ -131,6 +134,9 @@ export const loadOrgDocumentsOwner = async (): Promise<OrgDocument[]> => {
         ? `${doc.uploadedBy.firstName} ${doc.uploadedBy.lastName}`
         : "System",
       audience: "all",
+      requiresSignature: !!doc.requiresSignature,
+      signatureDueDate: doc.signatureDueDate || null,
+      signedCount: doc.signedCount ?? 0,
     }));
   } catch (error) {
     console.error("[documentsLibrary] Error loading documents:", error);
@@ -143,12 +149,17 @@ export const uploadDocument = async (
   title: string,
   description: string,
   category: DocCategory,
+  options: { requiresSignature?: boolean; signatureDueDate?: string } = {},
 ): Promise<OrgDocument> => {
   const formData = new FormData();
   formData.append("file", file);
   formData.append("title", title);
   formData.append("description", description || "");
   formData.append("category", category);
+  if (options.requiresSignature) {
+    formData.append("requiresSignature", "true");
+    if (options.signatureDueDate) formData.append("signatureDueDate", options.signatureDueDate);
+  }
 
   const token = getToken();
   const response = await fetch(`${API_URL}/documents/upload`, {
@@ -178,8 +189,73 @@ export const uploadDocument = async (
     uploadedAt: doc.uploadedAt || doc.createdAt,
     uploadedBy: "You",
     audience: "all",
+    requiresSignature: !!doc.requiresSignature,
+    signatureDueDate: doc.signatureDueDate || null,
+    signedCount: 0,
   };
 };
+
+/* ─── Document signing ─────────────────────────────────────────────────────── */
+
+/** Employee signs a document: typed full name + drawn signature (PNG data URL). */
+export const signDocument = async (
+  id: string,
+  payload: { signerName: string; signatureImage: string; agree: boolean },
+): Promise<{ signedAt: string; signerName: string }> => {
+  const token = getToken();
+  const response = await fetch(`${API_URL}/documents/employee/${id}/sign`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...(token ? { Authorization: `Bearer ${token}` } : {}) },
+    body: JSON.stringify(payload),
+  });
+  const body = await response.json().catch(() => ({}));
+  if (!response.ok) throw new Error(body.message || "Signing failed. Please try again.");
+  return body.data;
+};
+
+/** Download a file from the API (e.g. a PDF) using the logged-in user's token. */
+const downloadFromApi = async (endpoint: string, fallbackName: string): Promise<void> => {
+  const token = getToken();
+  const response = await fetch(`${API_URL}${endpoint}`, {
+    headers: token ? { Authorization: `Bearer ${token}` } : {},
+  });
+  if (!response.ok) {
+    const body = await response.json().catch(() => ({}));
+    throw new Error(body.message || "Download failed.");
+  }
+  const blob = await response.blob();
+  const disposition = response.headers.get("Content-Disposition") || "";
+  const match = /filename="?([^";]+)"?/i.exec(disposition);
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = match?.[1] || fallbackName;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
+};
+
+/** Employee: download the signing certificate for a document they signed. */
+export const downloadMySignatureCertificate = (documentId: string) =>
+  downloadFromApi(`/documents/employee/${documentId}/signature-certificate`, "signature-certificate.pdf");
+
+export interface DocumentSignatureSummary {
+  requiresSignature: boolean;
+  dueDate: string | null;
+  signed: Array<{ id: string; employeeId: string; employeeName: string; department?: string; signerName: string; signedAt: string }>;
+  pending: Array<{ employeeId: string; employeeName: string; department?: string; email?: string }>;
+}
+
+/** HR: who has signed a document and who still needs to. */
+export const loadDocumentSignatures = async (documentId: string): Promise<DocumentSignatureSummary> => {
+  const result = await apiRequest(`/documents/${documentId}/signatures`);
+  return result.data;
+};
+
+/** HR: download any signer's certificate. */
+export const downloadSignatureCertificate = (documentId: string, signatureId: string) =>
+  downloadFromApi(`/documents/${documentId}/signatures/${signatureId}/certificate`, "signature-certificate.pdf");
 
 export const deleteDocument = async (id: string): Promise<boolean> => {
   try {
@@ -220,6 +296,13 @@ export interface OrgDocument {
   uploadedBy?: string;
   /** Reserved for future per-employee scoping. Defaults to "all". */
   audience?: "all";
+  /** Employees must sign this document. */
+  requiresSignature?: boolean;
+  signatureDueDate?: string | null;
+  /** Employee view: when the logged-in employee signed it, if they have. */
+  mySignature?: { signedAt: string; signerName: string } | null;
+  /** HR view: how many employees have signed it. */
+  signedCount?: number;
 }
 
 import type { PayslipData } from "./payslipPdf";

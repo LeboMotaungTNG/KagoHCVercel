@@ -14,13 +14,14 @@
 import React, { useMemo, useRef, useState } from "react";
 import {
   FaCloudUploadAlt, FaSearch, FaPlus, FaTrash, FaPencilAlt,
-  FaDownload, FaEye, FaFileAlt, FaTimes, FaCheckCircle,
+  FaDownload, FaEye, FaFileAlt, FaTimes, FaCheckCircle, FaPenNib,
 } from "react-icons/fa";
 import {
   ACCEPTED_MIME, CATEGORY_META, CATEGORY_ORDER, MAX_FILE_BYTES,
   type DocCategory, type OrgDocument,
   downloadDataUrl, formatBytes, formatDate,
   loadOrgDocumentsOwner, uploadDocument, deleteDocument,
+  loadDocumentSignatures, downloadSignatureCertificate, type DocumentSignatureSummary,
 } from "../../shared/utils/documentsLibrary";
 import { C } from "../../shared/utils/employee";
 import { DocumentPreviewModal } from "../../shared/components/DocumentPreviewModal";
@@ -72,6 +73,10 @@ interface EditorState {
   category: DocCategory;
   file: File | null;
   keepExistingFile: boolean;
+  /** Employees must sign this document. */
+  requiresSignature: boolean;
+  signatureDueDate: string; // "YYYY-MM-DD" or ""
+
   existingFileName?: string;
   existingSize?: number;
 }
@@ -83,6 +88,8 @@ const emptyEditor: EditorState = {
   category: "Employment",
   file: null,
   keepExistingFile: false,
+  requiresSignature: false,
+  signatureDueDate: "",
 };
 
 const DocumentEditor: React.FC<{
@@ -193,6 +200,26 @@ const DocumentEditor: React.FC<{
               onChange={e => setState(s => ({ ...s, description: e.target.value }))} />
           </div>
 
+          <div style={{ border: `1px solid ${LINE}`, borderRadius: 10, padding: "10px 12px" }}>
+            <label style={{ display: "flex", alignItems: "flex-start", gap: 10, cursor: "pointer", fontSize: 13.5, color: INK }}>
+              <input type="checkbox" checked={state.requiresSignature} style={{ marginTop: 3 }}
+                onChange={e => setState(s => ({ ...s, requiresSignature: e.target.checked }))} />
+              <span>
+                <strong>Employees must sign this document</strong>
+                <span style={{ display: "block", fontSize: 12, color: MUTED, marginTop: 2 }}>
+                  Every employee who can see it will be asked to read and sign it. Changing the file later creates a new version that must be signed again.
+                </span>
+              </span>
+            </label>
+            {state.requiresSignature && (
+              <div style={{ marginTop: 10, marginLeft: 26 }}>
+                <label style={label}>Sign by (optional)</label>
+                <input type="date" style={input} value={state.signatureDueDate}
+                  onChange={e => setState(s => ({ ...s, signatureDueDate: e.target.value }))} />
+              </div>
+            )}
+          </div>
+
           <div>
             <label style={label}>File {!state.id && <span style={{ color: "#EF4444" }}>*</span>}</label>
             <div
@@ -268,6 +295,7 @@ const DocumentsLibraryTab: React.FC = () => {
   });
   const [toast, setToast] = useState<string | null>(null);
   const [previewDoc, setPreviewDoc] = useState<OrgDocument | null>(null);
+  const [signaturesDoc, setSignaturesDoc] = useState<OrgDocument | null>(null);
 
   const persist = (next: OrgDocument[], msg?: string) => {
     setDocs(next);
@@ -319,10 +347,14 @@ const DocumentsLibraryTab: React.FC = () => {
         keepExistingFile: true,
         existingFileName: doc.fileName,
         existingSize: doc.size,
+        requiresSignature: !!doc.requiresSignature,
+        signatureDueDate: doc.signatureDueDate ? String(doc.signatureDueDate).slice(0, 10) : "",
       },
     });
 
   const handleSave = async (stateDoc: EditorState) => {
+    // Signing settings apply to new uploads and to edits (which re-upload the file).
+    const signingOptions = { requiresSignature: stateDoc.requiresSignature, signatureDueDate: stateDoc.signatureDueDate || undefined };
     setEditor({ open: false, initial: emptyEditor });
     try {
       // Editing existing document
@@ -351,7 +383,7 @@ const DocumentsLibraryTab: React.FC = () => {
           return;
         }
 
-        const created = await uploadDocument(fileToUpload, stateDoc.title.trim(), stateDoc.description.trim(), stateDoc.category);
+        const created = await uploadDocument(fileToUpload, stateDoc.title.trim(), stateDoc.description.trim(), stateDoc.category, signingOptions);
         // Remove old doc if present on backend
         if (existing && (existing._id || existing.id)) {
           await deleteDocument(existing._id || existing.id);
@@ -367,7 +399,7 @@ const DocumentsLibraryTab: React.FC = () => {
         window.alert("Please attach a file to upload.");
         return;
       }
-      const created = await uploadDocument(stateDoc.file, stateDoc.title.trim(), stateDoc.description.trim(), stateDoc.category);
+      const created = await uploadDocument(stateDoc.file, stateDoc.title.trim(), stateDoc.description.trim(), stateDoc.category, signingOptions);
       persist([created, ...docs], "Document uploaded");
     } catch (err) {
       console.error(err);
@@ -482,6 +514,7 @@ const DocumentsLibraryTab: React.FC = () => {
               onDelete={() => handleDelete(d)}
               onView={() => handleView(d)}
               onDownload={() => downloadDataUrl(d.dataUrl, d.fileName)}
+              onSignatures={() => setSignaturesDoc(d)}
             />
           ))}
         </div>
@@ -506,6 +539,7 @@ const DocumentsLibraryTab: React.FC = () => {
         onSave={handleSave}
       />
       <DocumentPreviewModal doc={previewDoc} onClose={() => setPreviewDoc(null)} />
+      <SignaturesModal doc={signaturesDoc} onClose={() => setSignaturesDoc(null)} />
     </div>
   );
 };
@@ -544,7 +578,8 @@ const DocumentCard: React.FC<{
   onDelete: () => void;
   onView: () => void;
   onDownload: () => void;
-}> = ({ doc, onEdit, onDelete, onView, onDownload }) => {
+  onSignatures: () => void;
+}> = ({ doc, onEdit, onDelete, onView, onDownload, onSignatures }) => {
   const meta = CATEGORY_META[doc.category];
   const Icon = meta.icon;
   return (
@@ -582,6 +617,16 @@ const DocumentCard: React.FC<{
           <div style={{ fontSize: 11.5, color: MUTED, marginTop: 2 }}>
             {meta.label} · {formatDate(doc.uploadedAt)}
           </div>
+          {doc.requiresSignature && (
+            <button type="button" onClick={onSignatures} title="See who has signed"
+              style={{
+                display: "inline-flex", alignItems: "center", gap: 5, marginTop: 6,
+                padding: "3px 9px", borderRadius: 999, border: "none", cursor: "pointer",
+                background: "#ECFDF5", color: "#065F46", fontSize: 11, fontWeight: 700,
+              }}>
+              <FaPenNib size={10} /> {doc.signedCount ?? 0} signed · view
+            </button>
+          )}
         </div>
       </div>
 
@@ -608,6 +653,90 @@ const DocumentCard: React.FC<{
           <IconBtn title="Edit"    onClick={onEdit}><FaPencilAlt size={11} /></IconBtn>
           <IconBtn title="Delete"  onClick={onDelete} danger><FaTrash size={11} /></IconBtn>
         </div>
+      </div>
+    </div>
+  );
+};
+
+/* ─────────────────────────────────────────────────────────────────────
+ * Who has signed a document
+ * ────────────────────────────────────────────────────────────────── */
+
+const SignaturesModal: React.FC<{ doc: OrgDocument | null; onClose: () => void }> = ({ doc, onClose }) => {
+  const [data, setData] = useState<DocumentSignatureSummary | null>(null);
+  const [error, setError] = useState<string | null>(null);
+
+  React.useEffect(() => {
+    if (!doc) return;
+    setData(null);
+    setError(null);
+    loadDocumentSignatures(doc.id)
+      .then(setData)
+      .catch(err => setError(err instanceof Error ? err.message : "Could not load signatures."));
+  }, [doc?.id]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  if (!doc) return null;
+  const when = (iso: string) => new Date(iso).toLocaleString("en-ZA", { day: "numeric", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit" });
+
+  return (
+    <div role="dialog" aria-modal="true" aria-label={`Signatures for ${doc.title}`}
+      onClick={e => { if (e.target === e.currentTarget) onClose(); }}
+      style={{ position: "fixed", inset: 0, zIndex: 1000, background: "rgba(17,24,39,0.45)", display: "flex", alignItems: "center", justifyContent: "center", padding: 16 }}>
+      <div style={{ width: "100%", maxWidth: 560, maxHeight: "88vh", overflowY: "auto", background: "#fff", borderRadius: 14, padding: 20, boxShadow: "0 24px 60px rgba(0,0,0,0.25)" }}>
+        <div style={{ display: "flex", justifyContent: "space-between", gap: 12, alignItems: "flex-start" }}>
+          <div>
+            <div style={{ fontSize: 11, fontWeight: 800, letterSpacing: 0.6, color: "#065F46", textTransform: "uppercase" }}>Signatures</div>
+            <h3 style={{ margin: "4px 0 0", fontSize: 17, color: INK }}>{doc.title}</h3>
+          </div>
+          <button type="button" onClick={onClose} aria-label="Close" style={{ border: "none", background: "transparent", cursor: "pointer", color: MUTED }}><FaTimes /></button>
+        </div>
+
+        {error && <p style={{ color: "#B91C1C", fontSize: 13 }}>{error}</p>}
+        {!data && !error && <p style={{ color: MUTED, fontSize: 13 }}>Loading…</p>}
+
+        {data && (
+          <>
+            <p style={{ margin: "10px 0 14px", fontSize: 13, color: MUTED }}>
+              {data.signed.length} signed · {data.pending.length} still to sign
+              {data.dueDate ? ` · due ${formatDate(data.dueDate)}` : ""}
+            </p>
+
+            <div style={{ fontSize: 12, fontWeight: 800, color: INK, marginBottom: 6 }}>Signed</div>
+            {data.signed.length === 0 ? (
+              <p style={{ fontSize: 13, color: MUTED, margin: "0 0 14px" }}>Nobody has signed yet.</p>
+            ) : (
+              <div style={{ display: "flex", flexDirection: "column", gap: 6, marginBottom: 16 }}>
+                {data.signed.map(s => (
+                  <div key={s.id} style={{ display: "flex", alignItems: "center", gap: 10, padding: "8px 10px", border: `1px solid ${LINE}`, borderRadius: 8 }}>
+                    <FaCheckCircle color="#059669" />
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <div style={{ fontSize: 13, fontWeight: 700, color: INK }}>{s.employeeName}</div>
+                      <div style={{ fontSize: 11.5, color: MUTED }}>Signed as "{s.signerName}" · {when(s.signedAt)}</div>
+                    </div>
+                    <button type="button"
+                      onClick={() => { downloadSignatureCertificate(doc.id, s.id).catch(err => setError(err instanceof Error ? err.message : "Download failed.")); }}
+                      style={{ padding: "6px 10px", borderRadius: 999, border: `1px solid ${LINE}`, background: "#fff", cursor: "pointer", fontSize: 12, fontWeight: 600 }}>
+                      Certificate
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            <div style={{ fontSize: 12, fontWeight: 800, color: INK, marginBottom: 6 }}>Still to sign</div>
+            {data.pending.length === 0 ? (
+              <p style={{ fontSize: 13, color: "#059669", margin: 0 }}>Everyone has signed.</p>
+            ) : (
+              <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+                {data.pending.map(p => (
+                  <div key={p.employeeId} style={{ fontSize: 13, color: INK, padding: "6px 10px", background: "#F9FAFB", borderRadius: 8 }}>
+                    {p.employeeName}{p.department ? <span style={{ color: MUTED }}> · {p.department}</span> : null}
+                  </div>
+                ))}
+              </div>
+            )}
+          </>
+        )}
       </div>
     </div>
   );
