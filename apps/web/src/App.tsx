@@ -27,6 +27,7 @@ import EmployeeProfile from "./apps/Manager/EmployeeProfile";
 import ManageEmployees from "./apps/Manager/ManageEmployees";
 import EmployeesPage from "./apps/Manager/EmployeesPage";
 import AttendancePage from "./apps/Manager/AttendancePage";
+import ManagerMyAttendance from "./apps/Manager/ManagerMyAttendance";
 import LeavePage from "./apps/Manager/leave";
 import Payroll from "./apps/Manager/Payroll";
 import PlatformAdminPage from "./apps/Platform/PlatformAdminPage";
@@ -115,11 +116,14 @@ const App: React.FC = () => (
       <Route path="/manager/manage-employees" element={<Guard roles={ManagerArea}><ManageEmployees /></Guard>} />
       <Route path="/manager/employees"        element={<Guard roles={ManagerArea}><EmployeesPage /></Guard>} />
       <Route path="/manager/attendance"       element={<Guard roles={ManagerArea}><AttendancePage /></Guard>} />
+      <Route path="/manager/my-attendance"    element={<Guard roles={ManagerArea}><ManagerMyAttendance /></Guard>} />
       <Route path="/manager/leave-requests"   element={<Guard roles={LeaveReviewArea}><LeavePage /></Guard>} />
       <Route path="/manager/payroll"          element={<Guard roles={ManagerArea}><Payroll /></Guard>} />
       <Route path="/manager/overtime-approvals" element={<Guard roles={ManagerArea}><OvertimeApprovalsPage /></Guard>} />
       <Route path="/manager/team-overtime"      element={<Guard roles={ManagerArea}><TeamOvertimePage /></Guard>} />
       <Route path="/manager/performance"     element={<Guard roles={ManagerArea}><ManagerReviewPage /></Guard>} />
+      <Route path="/manager/my-performance/*" element={<Guard roles={ManagerArea}><EmployeePerformance basePath="/manager/my-performance" /></Guard>} />
+      <Route path="/manager/self-review"     element={<Navigate to="/manager/my-performance/self-review" replace />} />
       <Route path="/manager/team-goals"      element={<Guard roles={ManagerArea}><ManagerTeamGoalsPage /></Guard>} />
       <Route path="/manager/insights"        element={<Guard roles={ManagerArea}><ManagerAnalyticsPage /></Guard>} />
       <Route path="/manager/moderate/:id"    element={<Guard roles={ManagerArea}><ManagerModerationPage /></Guard>} />

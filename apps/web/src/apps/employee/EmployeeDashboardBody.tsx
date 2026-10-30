@@ -989,7 +989,7 @@ const EmployeeDashboardBody: React.FC<Props> = ({
   );
 
   const onLeave = !!activeLeave || today.status === "leave";
-  const canClock = mode === "employee";
+  const canClock = mode === "employee" || mode === "manager" || mode === "owner";
   const canApplyLeave = mode === "employee";
   const teamPresence = useMemo(() => {
     const online = teammateRoster.filter((member) => member.state === "office" || member.state === "remote").length;

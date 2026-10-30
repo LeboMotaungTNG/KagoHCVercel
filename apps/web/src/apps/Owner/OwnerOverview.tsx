@@ -20,6 +20,7 @@ import {
 import { PageHero } from "../employee/src/components/PerformanceUI";
 import { isHrReviewStatus } from "../../shared/utils/LeaveUtils";
 import { formatMonthlyPrice, isActiveCompanyStatus, planFromHeadcount } from "../../shared/utils/ownerOrgNumbers";
+import MyClockCard from "../../shared/components/MyClockCard";
 
 /* ─── Design tokens ──────────────────────────────────────────────────────── */
 const C = TOKENS;
@@ -584,7 +585,8 @@ const QuickActionsCard: React.FC = () => {
     { label: "Subscriptions",  path: "/owner/subscriptions",         icon: <Award size={18} />,     bg: C.amberBg,  color: C.amber   },
     { label: "Onboarding",     path: "/owner/onboarding",            icon: <Plus size={18} />,      bg: C.purpleBg, color: C.purple  },
     { label: "Full onboarding", path: "/owner/manage-employees",     icon: <Building2 size={18} />, bg: "#f1f5f9",  color: C.muted   },
-    { label: "Attendance",     path: "/owner/attendance",            icon: <Clock size={18} />,     bg: C.greenBg,  color: C.green   },
+    { label: "Clock in",       path: "/owner/my-attendance",         icon: <Clock size={18} />,     bg: C.greenBg,  color: C.green   },
+    { label: "Team attendance", path: "/owner/attendance",           icon: <Clock size={18} />,     bg: C.blueBg,   color: C.blue    },
     { label: "Payroll",        path: "/owner/payroll",               icon: <Target size={18} />,    bg: C.tealBg,   color: C.teal    },
   ];
   return (
@@ -1019,6 +1021,8 @@ export const OwnerOverview: React.FC = () => {
           />
           <OrgGrowthCard pendingLeave={counts.pendingLeave} onPayroll={counts.onPayroll} employees={counts.employees} />
         </div>
+
+        <MyClockCard historyTo="/owner/my-attendance" />
 
         {/* KPIs */}
         <div className="own-kpi">
