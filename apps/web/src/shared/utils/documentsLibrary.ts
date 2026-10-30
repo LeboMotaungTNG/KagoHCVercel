@@ -137,6 +137,7 @@ export const loadOrgDocumentsOwner = async (): Promise<OrgDocument[]> => {
       requiresSignature: !!doc.requiresSignature,
       signatureDueDate: doc.signatureDueDate || null,
       signedCount: doc.signedCount ?? 0,
+      recipientEmployeeIds: Array.isArray(doc.recipientEmployeeIds) ? doc.recipientEmployeeIds.map(String) : [],
     }));
   } catch (error) {
     console.error("[documentsLibrary] Error loading documents:", error);
@@ -149,13 +150,17 @@ export const uploadDocument = async (
   title: string,
   description: string,
   category: DocCategory,
-  options: { requiresSignature?: boolean; signatureDueDate?: string } = {},
+  options: { requiresSignature?: boolean; signatureDueDate?: string; employeeIds?: string[] } = {},
 ): Promise<OrgDocument> => {
   const formData = new FormData();
   formData.append("file", file);
   formData.append("title", title);
   formData.append("description", description || "");
   formData.append("category", category);
+  if (options.employeeIds?.length) {
+    // Only these employees will see the document (and be asked to sign it).
+    formData.append("employeeIds", JSON.stringify(options.employeeIds));
+  }
   if (options.requiresSignature) {
     formData.append("requiresSignature", "true");
     if (options.signatureDueDate) formData.append("signatureDueDate", options.signatureDueDate);
@@ -192,7 +197,25 @@ export const uploadDocument = async (
     requiresSignature: !!doc.requiresSignature,
     signatureDueDate: doc.signatureDueDate || null,
     signedCount: 0,
+    recipientEmployeeIds: Array.isArray(doc.recipientEmployeeIds) ? doc.recipientEmployeeIds.map(String) : [],
   };
+};
+
+export interface DocumentRecipientOption { id: string; name: string; department: string; email?: string }
+
+/** HR: employees to choose from when sending a document to selected people. */
+export const loadDocumentRecipientOptions = async (): Promise<DocumentRecipientOption[]> => {
+  const result = await apiRequest("/employees");
+  const list: any[] = Array.isArray(result?.data) ? result.data : Array.isArray(result) ? result : [];
+  return list
+    .filter(e => e && (e._id || e.id) && e.employmentStatus !== "terminated")
+    .map(e => ({
+      id: String(e._id || e.id),
+      name: `${e.firstName || ""} ${e.lastName || ""}`.trim() || e.email || "Employee",
+      department: typeof e.department === "object" ? (e.department?.name || "") : String(e.department || ""),
+      email: e.email,
+    }))
+    .sort((a, b) => a.name.localeCompare(b.name));
 };
 
 /* ─── Document signing ─────────────────────────────────────────────────────── */
@@ -303,6 +326,8 @@ export interface OrgDocument {
   mySignature?: { signedAt: string; signerName: string } | null;
   /** HR view: how many employees have signed it. */
   signedCount?: number;
+  /** HR view: sent only to these employees (empty = everyone). */
+  recipientEmployeeIds?: string[];
 }
 
 import type { PayslipData } from "./payslipPdf";
