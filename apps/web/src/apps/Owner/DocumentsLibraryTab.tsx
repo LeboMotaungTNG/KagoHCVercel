@@ -22,6 +22,7 @@ import {
   downloadDataUrl, formatBytes, formatDate,
   loadOrgDocumentsOwner, uploadDocument, deleteDocument,
   loadDocumentSignatures, downloadSignatureCertificate, type DocumentSignatureSummary,
+  loadDocumentRecipientOptions, type DocumentRecipientOption,
 } from "../../shared/utils/documentsLibrary";
 import { C } from "../../shared/utils/employee";
 import { DocumentPreviewModal } from "../../shared/components/DocumentPreviewModal";
@@ -76,6 +77,9 @@ interface EditorState {
   /** Employees must sign this document. */
   requiresSignature: boolean;
   signatureDueDate: string; // "YYYY-MM-DD" or ""
+  /** Who receives it: everyone in the company, or only the selected employees. */
+  audience: "all" | "selected";
+  recipientIds: string[];
 
   existingFileName?: string;
   existingSize?: number;
@@ -90,6 +94,8 @@ const emptyEditor: EditorState = {
   keepExistingFile: false,
   requiresSignature: false,
   signatureDueDate: "",
+  audience: "all",
+  recipientIds: [],
 };
 
 const DocumentEditor: React.FC<{
@@ -123,6 +129,9 @@ const DocumentEditor: React.FC<{
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!state.title.trim()) { setError("Please provide a title."); return; }
+    if (state.audience === "selected" && state.recipientIds.length === 0) {
+      setError("Choose at least one employee, or send it to everyone."); return;
+    }
     if (!state.file && !state.keepExistingFile) {
       setError("Please attach a file."); return;
     }
@@ -200,12 +209,34 @@ const DocumentEditor: React.FC<{
               onChange={e => setState(s => ({ ...s, description: e.target.value }))} />
           </div>
 
+          <div>
+            <label style={label}>Who receives this document?</label>
+            <div style={{ display: "flex", gap: 16, flexWrap: "wrap", fontSize: 13.5, color: INK }}>
+              <label style={{ display: "inline-flex", alignItems: "center", gap: 6, cursor: "pointer" }}>
+                <input type="radio" name="audience" checked={state.audience === "all"}
+                  onChange={() => setState(s => ({ ...s, audience: "all" }))} />
+                Everyone in the company
+              </label>
+              <label style={{ display: "inline-flex", alignItems: "center", gap: 6, cursor: "pointer" }}>
+                <input type="radio" name="audience" checked={state.audience === "selected"}
+                  onChange={() => setState(s => ({ ...s, audience: "selected" }))} />
+                Selected employees
+              </label>
+            </div>
+            {state.audience === "selected" && (
+              <RecipientPicker
+                selected={state.recipientIds}
+                onChange={ids => setState(s => ({ ...s, recipientIds: ids }))}
+              />
+            )}
+          </div>
+
           <div style={{ border: `1px solid ${LINE}`, borderRadius: 10, padding: "10px 12px" }}>
             <label style={{ display: "flex", alignItems: "flex-start", gap: 10, cursor: "pointer", fontSize: 13.5, color: INK }}>
               <input type="checkbox" checked={state.requiresSignature} style={{ marginTop: 3 }}
                 onChange={e => setState(s => ({ ...s, requiresSignature: e.target.checked }))} />
               <span>
-                <strong>Employees must sign this document</strong>
+                <strong>{state.audience === "selected" ? "The selected employees must sign this document" : "Employees must sign this document"}</strong>
                 <span style={{ display: "block", fontSize: 12, color: MUTED, marginTop: 2 }}>
                   Every employee who can see it will be asked to read and sign it. Changing the file later creates a new version that must be signed again.
                 </span>
@@ -349,12 +380,18 @@ const DocumentsLibraryTab: React.FC = () => {
         existingSize: doc.size,
         requiresSignature: !!doc.requiresSignature,
         signatureDueDate: doc.signatureDueDate ? String(doc.signatureDueDate).slice(0, 10) : "",
+        audience: doc.recipientEmployeeIds?.length ? "selected" : "all",
+        recipientIds: doc.recipientEmployeeIds ?? [],
       },
     });
 
   const handleSave = async (stateDoc: EditorState) => {
     // Signing settings apply to new uploads and to edits (which re-upload the file).
-    const signingOptions = { requiresSignature: stateDoc.requiresSignature, signatureDueDate: stateDoc.signatureDueDate || undefined };
+    const signingOptions = {
+      requiresSignature: stateDoc.requiresSignature,
+      signatureDueDate: stateDoc.signatureDueDate || undefined,
+      employeeIds: stateDoc.audience === "selected" ? stateDoc.recipientIds : undefined,
+    };
     setEditor({ open: false, initial: emptyEditor });
     try {
       // Editing existing document
@@ -617,6 +654,11 @@ const DocumentCard: React.FC<{
           <div style={{ fontSize: 11.5, color: MUTED, marginTop: 2 }}>
             {meta.label} · {formatDate(doc.uploadedAt)}
           </div>
+          {doc.recipientEmployeeIds && doc.recipientEmployeeIds.length > 0 && (
+            <div style={{ fontSize: 11, color: "#1D4ED8", fontWeight: 700, marginTop: 4 }}>
+              Sent to {doc.recipientEmployeeIds.length} employee{doc.recipientEmployeeIds.length === 1 ? "" : "s"}
+            </div>
+          )}
           {doc.requiresSignature && (
             <button type="button" onClick={onSignatures} title="See who has signed"
               style={{
@@ -661,6 +703,65 @@ const DocumentCard: React.FC<{
 /* ─────────────────────────────────────────────────────────────────────
  * Who has signed a document
  * ────────────────────────────────────────────────────────────────── */
+
+/* ─────────────────────────────────────────────────────────────────────
+ * Choose the employees a document is sent to
+ * ────────────────────────────────────────────────────────────────── */
+
+const RecipientPicker: React.FC<{ selected: string[]; onChange: (ids: string[]) => void }> = ({ selected, onChange }) => {
+  const [options, setOptions] = useState<DocumentRecipientOption[] | null>(null);
+  const [failed, setFailed] = useState(false);
+  const [search, setSearch] = useState("");
+
+  React.useEffect(() => {
+    loadDocumentRecipientOptions().then(setOptions).catch(() => setFailed(true));
+  }, []);
+
+  const chosen = new Set(selected);
+  const q = search.trim().toLowerCase();
+  const shown = (options ?? []).filter(o =>
+    !q || o.name.toLowerCase().includes(q) || o.department.toLowerCase().includes(q) || (o.email || "").toLowerCase().includes(q));
+  const toggle = (id: string) => onChange(chosen.has(id) ? selected.filter(x => x !== id) : [...selected, id]);
+  const allShownChosen = shown.length > 0 && shown.every(o => chosen.has(o.id));
+  const toggleAllShown = () => onChange(allShownChosen
+    ? selected.filter(id => !shown.some(o => o.id === id))
+    : [...new Set([...selected, ...shown.map(o => o.id)])]);
+
+  return (
+    <div style={{ marginTop: 10, border: `1px solid ${LINE}`, borderRadius: 10, padding: 10 }}>
+      <div style={{ display: "flex", gap: 8, alignItems: "center", marginBottom: 8 }}>
+        <input style={{ ...input, flex: 1 }} placeholder="Search by name, department or email"
+          value={search} onChange={e => setSearch(e.target.value)} />
+        <span style={{ fontSize: 12, fontWeight: 700, color: INK, whiteSpace: "nowrap" }}>{selected.length} selected</span>
+      </div>
+      {failed && <p style={{ margin: 0, fontSize: 13, color: "#B91C1C" }}>Could not load employees. Close and try again.</p>}
+      {!options && !failed && <p style={{ margin: 0, fontSize: 13, color: MUTED }}>Loading employees…</p>}
+      {options && (
+        <>
+          <label style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 12.5, color: MUTED, padding: "4px 2px", cursor: "pointer" }}>
+            <input type="checkbox" checked={allShownChosen} onChange={toggleAllShown} />
+            {q ? `Select all ${shown.length} matching` : `Select all ${shown.length}`}
+          </label>
+          <div style={{ maxHeight: 200, overflowY: "auto", display: "flex", flexDirection: "column", gap: 2 }}>
+            {shown.length === 0 && <p style={{ margin: "6px 2px", fontSize: 13, color: MUTED }}>No employees match.</p>}
+            {shown.map(o => (
+              <label key={o.id} style={{
+                display: "flex", alignItems: "center", gap: 8, padding: "6px 8px", borderRadius: 8, cursor: "pointer",
+                background: chosen.has(o.id) ? "#EFF6FF" : "transparent", fontSize: 13, color: INK,
+              }}>
+                <input type="checkbox" checked={chosen.has(o.id)} onChange={() => toggle(o.id)} />
+                <span style={{ flex: 1, minWidth: 0 }}>
+                  {o.name}
+                  {o.department ? <span style={{ color: MUTED }}> · {o.department}</span> : null}
+                </span>
+              </label>
+            ))}
+          </div>
+        </>
+      )}
+    </div>
+  );
+};
 
 const SignaturesModal: React.FC<{ doc: OrgDocument | null; onClose: () => void }> = ({ doc, onClose }) => {
   const [data, setData] = useState<DocumentSignatureSummary | null>(null);
