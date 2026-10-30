@@ -16,6 +16,7 @@ import { Helmet } from "react-helmet-async";
 import {
   Search, Download, Eye, Receipt, Inbox, ArrowRight,
   Calendar, TrendingUp, History, ShieldCheck, ChevronRight,
+  PenLine, CheckCircle2, FileCheck,
 } from "lucide-react";
 import SharedLayout from "./SharedLayout";
 import {
@@ -23,11 +24,12 @@ import {
 } from "../../shared/utils/employee";
 import { PageHero } from "./src/components/PerformanceUI";
 import { DocumentPreviewModal } from "../../shared/components/DocumentPreviewModal";
+import { SignDocumentModal } from "../../shared/components/SignDocumentModal";
 import {
   CATEGORY_META, CATEGORY_ORDER,
   type DocCategory, type OrgDocument, type PayslipMeta,
   demoPayslip, downloadDataUrl, formatBytes, formatDate, formatMoney,
-  loadLatestPayslipAsync, loadOrgDocumentsAsync,
+  loadLatestPayslipAsync, loadOrgDocumentsAsync, downloadMySignatureCertificate,
 } from "../../shared/utils/documentsLibrary";
 import {
   buildPayslipObjectUrl, downloadPayslipPdf,
@@ -67,6 +69,19 @@ const EmployeeDocumentsPage: React.FC = () => {
   const [query, setQuery] = useState("");
   const [filter, setFilter] = useState<DocCategory | "All">("All");
   const [previewDoc, setPreviewDoc] = useState<OrgDocument | null>(null);
+  const [signDoc, setSignDoc] = useState<OrgDocument | null>(null);
+  const [signNotice, setSignNotice] = useState<string | null>(null);
+
+  // Signed: mark it locally straight away (no reload needed).
+  const handleSigned = (doc: OrgDocument, signedAt: string) => {
+    setDocs(prev => prev.map(d => d.id === doc.id ? { ...d, mySignature: { signedAt, signerName: employeeName } } : d));
+    setSignDoc(null);
+    setSignNotice(`You signed "${doc.title}". You can download your signing certificate from the document card.`);
+  };
+  const handleCertificate = (doc: OrgDocument) => {
+    downloadMySignatureCertificate(doc.id).catch(err => setSignNotice(err instanceof Error ? err.message : "Download failed."));
+  };
+  const toSign = docs.filter(d => d.requiresSignature && !d.mySignature);
 
   useEffect(() => {
     const loadData = async () => {
@@ -179,6 +194,29 @@ const EmployeeDocumentsPage: React.FC = () => {
           </div>
         </div>
 
+        {/* Documents waiting for this employee's signature */}
+        {(toSign.length > 0 || signNotice) && (
+          <section style={{
+            background: toSign.length > 0 ? "#FFFBEB" : "#F0FDF4",
+            border: `1px solid ${toSign.length > 0 ? "#FDE68A" : "#BBF7D0"}`,
+            borderRadius: R.lg, padding: "12px 16px", marginBottom: 16,
+            display: "flex", flexWrap: "wrap", alignItems: "center", gap: 10,
+          }}>
+            {toSign.length > 0 ? <PenLine size={18} color="#92400E" /> : <CheckCircle2 size={18} color="#166534" />}
+            <div style={{ flex: "1 1 240px", fontSize: 13.5, color: C.ink }}>
+              {toSign.length > 0
+                ? <><strong>{toSign.length} document{toSign.length === 1 ? "" : "s"} need{toSign.length === 1 ? "s" : ""} your signature.</strong>{signNotice ? ` ${signNotice}` : ""}</>
+                : signNotice}
+            </div>
+            {toSign.length > 0 && (
+              <button type="button" onClick={() => setSignDoc(toSign[0])}
+                style={{ padding: "8px 14px", borderRadius: 999, border: "none", background: "#0F766E", color: "#fff", fontWeight: 700, fontSize: 12.5, cursor: "pointer" }}>
+                Sign {toSign.length === 1 ? "now" : "next"}
+              </button>
+            )}
+          </section>
+        )}
+
         {/* Filter bar */}
         <section
           style={{
@@ -243,6 +281,8 @@ const EmployeeDocumentsPage: React.FC = () => {
               category={group.category}
               items={group.items}
               onPreview={setPreviewDoc}
+              onSign={setSignDoc}
+              onCertificate={handleCertificate}
             />
           ))
         )}
@@ -252,6 +292,7 @@ const EmployeeDocumentsPage: React.FC = () => {
         </p>
       </div>
       <DocumentPreviewModal doc={previewDoc} onClose={() => setPreviewDoc(null)} />
+      <SignDocumentModal doc={signDoc} defaultName={employeeName} onClose={() => setSignDoc(null)} onSigned={handleSigned} />
     </SharedLayout>
   );
 };
@@ -549,8 +590,10 @@ const CategoryGroup: React.FC<{
   category: DocCategory;
   items: OrgDocument[];
   onPreview: (doc: OrgDocument) => void;
+  onSign: (doc: OrgDocument) => void;
+  onCertificate: (doc: OrgDocument) => void;
 }> = ({
-  category, items, onPreview,
+  category, items, onPreview, onSign, onCertificate,
 }) => {
   const meta = CATEGORY_META[category];
   const Icon = meta.icon;
@@ -581,13 +624,14 @@ const CategoryGroup: React.FC<{
         </span>
       </div>
       <div className="kg-doc-list">
-        {items.map(d => <DocCard key={d.id} doc={d} onPreview={() => onPreview(d)} />)}
+        {items.map(d => <DocCard key={d.id} doc={d} onPreview={() => onPreview(d)} onSign={() => onSign(d)} onCertificate={() => onCertificate(d)} />)}
       </div>
     </section>
   );
 };
 
-const DocCard: React.FC<{ doc: OrgDocument; onPreview: () => void }> = ({ doc, onPreview }) => {
+const DocCard: React.FC<{ doc: OrgDocument; onPreview: () => void; onSign: () => void; onCertificate: () => void }> = ({ doc, onPreview, onSign, onCertificate }) => {
+  const needsSignature = !!doc.requiresSignature && !doc.mySignature;
   const meta = CATEGORY_META[doc.category];
   const Icon = meta.icon;
   return (
@@ -635,6 +679,18 @@ const DocCard: React.FC<{ doc: OrgDocument; onPreview: () => void }> = ({ doc, o
           <div style={{ fontSize: 11.5, color: C.faint, marginTop: 3 }}>
             {formatDate(doc.uploadedAt)} · {formatBytes(doc.size)}
           </div>
+          {doc.requiresSignature && (
+            <div style={{
+              display: "inline-flex", alignItems: "center", gap: 5, marginTop: 6,
+              padding: "3px 9px", borderRadius: 999, fontSize: 11, fontWeight: 700,
+              background: needsSignature ? "#FEF3C7" : "#DCFCE7",
+              color: needsSignature ? "#92400E" : "#166534",
+            }}>
+              {needsSignature
+                ? <><PenLine size={11} /> Signature required{doc.signatureDueDate ? ` · by ${formatDate(doc.signatureDueDate)}` : ""}</>
+                : <><CheckCircle2 size={11} /> Signed {doc.mySignature ? formatDate(doc.mySignature.signedAt) : ""}</>}
+            </div>
+          )}
         </div>
       </div>
 
@@ -657,6 +713,38 @@ const DocCard: React.FC<{ doc: OrgDocument; onPreview: () => void }> = ({ doc, o
         display: "flex", alignItems: "center", justifyContent: "space-between",
         gap: 8, marginTop: "auto", paddingTop: 10, borderTop: `1px solid ${C.line}`,
       }}>
+        <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
+        {needsSignature && (
+          <button
+            type="button"
+            onClick={onSign}
+            style={{
+              display: "inline-flex", alignItems: "center", gap: 6,
+              padding: "8px 14px", borderRadius: 999,
+              background: "#0F766E", color: "#fff",
+              border: "none", cursor: "pointer",
+              fontSize: 12.5, fontWeight: 700,
+            }}
+          >
+            <PenLine size={13} /> Sign
+          </button>
+        )}
+        {doc.requiresSignature && doc.mySignature && (
+          <button
+            type="button"
+            onClick={onCertificate}
+            title="Download your signing certificate"
+            style={{
+              display: "inline-flex", alignItems: "center", gap: 6,
+              padding: "8px 12px", borderRadius: 999,
+              background: "#DCFCE7", color: "#166534",
+              border: "none", cursor: "pointer",
+              fontSize: 12.5, fontWeight: 700,
+            }}
+          >
+            <FileCheck size={13} /> Certificate
+          </button>
+        )}
         <button
           type="button"
           onClick={onPreview}
@@ -673,6 +761,7 @@ const DocCard: React.FC<{ doc: OrgDocument; onPreview: () => void }> = ({ doc, o
         >
           <Eye size={13} /> Quick look
         </button>
+        </div>
         <button
           type="button"
           onClick={() => downloadDataUrl(doc.dataUrl, doc.fileName)}

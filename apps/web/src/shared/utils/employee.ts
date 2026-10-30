@@ -167,6 +167,60 @@ export const daysRemaining = (end: string) => {
   return Math.max(0, Math.round((new Date(end).getTime() - t.getTime()) / 86400000));
 };
 
+/**
+ * An employee's date of birth: the saved one, or — when none is saved, which is
+ * common because onboarding doesn't ask for it — read from their South African
+ * ID number, whose first six digits are the birth date (YYMMDD).
+ * Returns "YYYY-MM-DD" or null.
+ */
+export const birthDateOf = (e: any): string | null => {
+  const saved = e?.dateOfBirth || e?.dob || e?.birthDate || e?.date_of_birth || e?.profileData?.dateOfBirth || e?.profileData?.date_of_birth;
+  if (saved && !Number.isNaN(new Date(saved).getTime())) return String(saved);
+
+  const raw = e?.idNumber || e?.id_number || e?.rsaIdNumber || e?.profileData?.idNumber || e?.profileData?.id_number;
+  const id = String(raw ?? "").replace(/\D/g, "");
+  if (id.length !== 13) return null;
+  const yy = Number(id.slice(0, 2)), mm = Number(id.slice(2, 4)), dd = Number(id.slice(4, 6));
+  const currentYY = new Date().getFullYear() % 100;
+  const year = yy <= currentYY ? 2000 + yy : 1900 + yy;
+  const date = new Date(Date.UTC(year, mm - 1, dd));
+  if (date.getUTCFullYear() !== year || date.getUTCMonth() !== mm - 1 || date.getUTCDate() !== dd) return null;
+  return `${year}-${String(mm).padStart(2, "0")}-${String(dd).padStart(2, "0")}`;
+};
+
+/** Show birthdays coming up in this many days. */
+export const BIRTHDAY_WINDOW_DAYS = 30;
+
+/**
+ * Upcoming birthdays for the whole company from GET /employees/birthdays, which
+ * any logged-in user may read (name, department and next date only — no birth
+ * year). Returns null if the endpoint isn't available (older backend).
+ */
+export async function fetchCompanyBirthdays(headers: HeadersInit): Promise<BirthdayEntry[] | null> {
+  try {
+    const res = await fetch(`${API_URL}/employees/birthdays`, { headers });
+    if (!res.ok) return null;
+    const body = await res.json();
+    const list = Array.isArray(body?.data) ? body.data : null;
+    if (!list) return null;
+    return list.map((b: any) => ({
+      name: String(b.name || "Employee"),
+      dob: String(b.date || ""), // the NEXT birthday's date, never the birth year
+      department: String(b.department || "—"),
+      daysUntil: Number(b.daysUntil) || 0,
+    }));
+  } catch {
+    return null;
+  }
+}
+
+/** Birthdays in the next 30 days — or, when there are none, the next three coming up. */
+export function birthdaysToShow(all: BirthdayEntry[]): BirthdayEntry[] {
+  const sorted = [...all].sort((a, b) => a.daysUntil - b.daysUntil);
+  const soon = sorted.filter(b => b.daysUntil <= BIRTHDAY_WINDOW_DAYS);
+  return soon.length ? soon : sorted.slice(0, 3);
+}
+
 export const daysUntilBirthday = (dob: string) => {
   const t = new Date(); t.setHours(0, 0, 0, 0);
   const b = new Date(dob);
@@ -486,20 +540,21 @@ export function useEmployeeData() {
     else if (isDemo) setColleagues(DEMO_COLLEAGUES);
     else setColleagues([]);
 
-    const list: BirthdayEntry[] = emps
-      .filter((e: any) => e.dateOfBirth || e.dob || e.birthDate)
+    // Everyone's birthdays come from /employees/birthdays: the employee list only
+    // returns an employee's own record, so they'd otherwise only see their own.
+    const local: BirthdayEntry[] = emps
+      .filter((e: any) => birthDateOf(e))
       .map((e: any) => {
-        const dob = e.dateOfBirth || e.dob || e.birthDate;
+        const dob = birthDateOf(e)!;
         const dept = typeof e.department === "object" ? e.department?.name : e.department || "—";
         return {
           name: `${e.firstName || ""} ${e.lastName || ""}`.trim() || e.full_name || "Unknown",
           dob, department: dept,
           daysUntil: daysUntilBirthday(dob),
         };
-      })
-      .filter(b => b.daysUntil <= 30)
-      .sort((a, b) => a.daysUntil - b.daysUntil);
-    setBirthdays(list);
+      });
+    const company = await fetchCompanyBirthdays(headers);
+    setBirthdays(birthdaysToShow(company ?? local));
   }, [headers]);
 
   const reload = useCallback(async () => {
