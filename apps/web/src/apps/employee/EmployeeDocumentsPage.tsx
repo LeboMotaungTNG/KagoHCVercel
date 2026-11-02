@@ -631,7 +631,10 @@ const CategoryGroup: React.FC<{
 };
 
 const DocCard: React.FC<{ doc: OrgDocument; onPreview: () => void; onSign: () => void; onCertificate: () => void }> = ({ doc, onPreview, onSign, onCertificate }) => {
-  const needsSignature = !!doc.requiresSignature && !doc.mySignature;
+  // Any document can be signed and submitted to the owner; "requiresSignature"
+  // means HR asked for it (shown as a badge and in the banner).
+  const signed = !!doc.mySignature;
+  const needsSignature = !!doc.requiresSignature && !signed;
   const meta = CATEGORY_META[doc.category];
   const Icon = meta.icon;
   return (
@@ -679,7 +682,7 @@ const DocCard: React.FC<{ doc: OrgDocument; onPreview: () => void; onSign: () =>
           <div style={{ fontSize: 11.5, color: C.faint, marginTop: 3 }}>
             {formatDate(doc.uploadedAt)} · {formatBytes(doc.size)}
           </div>
-          {doc.requiresSignature && (
+          {(doc.requiresSignature || signed) && (
             <div style={{
               display: "inline-flex", alignItems: "center", gap: 5, marginTop: 6,
               padding: "3px 9px", borderRadius: 999, fontSize: 11, fontWeight: 700,
@@ -714,10 +717,11 @@ const DocCard: React.FC<{ doc: OrgDocument; onPreview: () => void; onSign: () =>
         gap: 8, marginTop: "auto", paddingTop: 10, borderTop: `1px solid ${C.line}`,
       }}>
         <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
-        {needsSignature && (
+        {!signed && (
           <button
             type="button"
             onClick={onSign}
+            title={needsSignature ? "HR asked you to sign this document" : "Sign and submit this document to HR"}
             style={{
               display: "inline-flex", alignItems: "center", gap: 6,
               padding: "8px 14px", borderRadius: 999,
@@ -726,10 +730,10 @@ const DocCard: React.FC<{ doc: OrgDocument; onPreview: () => void; onSign: () =>
               fontSize: 12.5, fontWeight: 700,
             }}
           >
-            <PenLine size={13} /> Sign
+            <PenLine size={13} /> {needsSignature ? "Sign" : "Sign & submit"}
           </button>
         )}
-        {doc.requiresSignature && doc.mySignature && (
+        {signed && (
           <button
             type="button"
             onClick={onCertificate}
