@@ -659,7 +659,7 @@ const DocumentCard: React.FC<{
               Sent to {doc.recipientEmployeeIds.length} employee{doc.recipientEmployeeIds.length === 1 ? "" : "s"}
             </div>
           )}
-          {doc.requiresSignature && (
+          {(doc.requiresSignature || (doc.signedCount ?? 0) > 0) && (
             <button type="button" onClick={onSignatures} title="See who has signed"
               style={{
                 display: "inline-flex", alignItems: "center", gap: 5, marginTop: 6,

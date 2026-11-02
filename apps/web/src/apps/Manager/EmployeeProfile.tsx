@@ -9,7 +9,7 @@ import { useNavigate, useParams, useLocation } from "react-router-dom";
 import SharedLayout from "./SharedLayout";
 import { API_URL, C, normalizeEmployeeList, unwrapArray, unwrapSuccessData } from "../../shared/utils/employee";
 import SensitiveReveal from "../../shared/components/SensitiveReveal";
-import { loadOrgDocumentsAsync } from "../../shared/utils/documentsLibrary";
+import { loadDocumentsForEmployee } from "../../shared/utils/documentsLibrary";
 import { STATUS_LABELS } from "../../shared/utils/LeaveUtils";
 import { Users } from "lucide-react";
 import { PageHero } from "./managerUi";
@@ -472,7 +472,10 @@ function EmployeeProfileContent() {
   const [activeTab, setActiveTab] = useState('personal-info');
   const [relatedLeave, setRelatedLeave] = useState<any[]>([]);
   const [relatedAttendance, setRelatedAttendance] = useState<any[]>([]);
-  const [relatedDocs, setRelatedDocs] = useState<{ title: string; category?: string; uploadedAt?: string }[]>([]);
+  const [relatedDocs, setRelatedDocs] = useState<{
+    title: string; category?: string; uploadedAt?: string;
+    requiresSignature?: boolean; mySignature?: { signedAt: string } | null;
+  }[]>([]);
   const [isEditMode, setIsEditMode] = useState(false);
   const [editForm, setEditForm] = useState<EditForm>({
     fullName: '', email: '', phone: '', position: '', department: '',
@@ -717,7 +720,8 @@ function EmployeeProfileContent() {
         if (!cancelled) setRelatedAttendance([]);
       }
       try {
-        const docs = await loadOrgDocumentsAsync();
+        // This employee's documents (not the logged-in user's), with their signing status.
+        const docs = await loadDocumentsForEmployee(employee.id);
         if (!cancelled) setRelatedDocs(docs.slice(0, 20));
       } catch {
         if (!cancelled) setRelatedDocs([]);
@@ -1836,6 +1840,16 @@ function EmployeeProfileContent() {
                                   <div style={{ fontSize: 12, color: "#667085", marginTop: 4 }}>
                                     {[doc.category, doc.uploadedAt ? formatDate(doc.uploadedAt) : ""].filter(Boolean).join(" · ")}
                                   </div>
+                                  {(doc.requiresSignature || doc.mySignature) && (
+                                    <div style={{
+                                      display: "inline-block", marginTop: 6, padding: "2px 8px", borderRadius: 999,
+                                      fontSize: 11, fontWeight: 700,
+                                      background: doc.mySignature ? "#DCFCE7" : "#FEF3C7",
+                                      color: doc.mySignature ? "#166534" : "#92400E",
+                                    }}>
+                                      {doc.mySignature ? `Signed ${formatDate(doc.mySignature.signedAt)}` : "Not signed yet"}
+                                    </div>
+                                  )}
                                 </div>
                               ))}
                             </div>

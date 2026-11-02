@@ -53,6 +53,39 @@ const apiRequest = async (endpoint: string, options: RequestInit = {}): Promise<
   return response.json();
 };
 
+/**
+ * HR / owner / manager: the documents a specific employee can see (sent to them,
+ * or to everyone), with that employee's signing status.
+ * Not the same as loadOrgDocumentsAsync, which returns the logged-in user's own documents.
+ */
+export const loadDocumentsForEmployee = async (employeeId: string): Promise<OrgDocument[]> => {
+  try {
+    const result = await apiRequest(`/documents/employee/${encodeURIComponent(employeeId)}/documents`);
+    return (result.data || []).map((doc: any): OrgDocument => ({
+      id: doc._id || doc.id,
+      _id: doc._id,
+      title: doc.title,
+      description: doc.description,
+      category: doc.category || "Other",
+      fileName: doc.fileName,
+      mimeType: doc.mimeType,
+      size: doc.fileSize || doc.size || 0,
+      dataUrl: doc.dataUrl || "",
+      uploadedAt: doc.uploadedAt || doc.createdAt,
+      uploadedBy: doc.uploadedBy?.firstName
+        ? `${doc.uploadedBy.firstName} ${doc.uploadedBy.lastName}`
+        : "HR",
+      audience: "all",
+      requiresSignature: !!doc.requiresSignature,
+      signatureDueDate: doc.signatureDueDate || null,
+      mySignature: doc.mySignature || null,
+    }));
+  } catch (error) {
+    console.error("[documentsLibrary] Error loading documents for employee:", error);
+    return [];
+  }
+};
+
 export const loadOrgDocumentsAsync = async (): Promise<OrgDocument[]> => {
   try {
     const result = await apiRequest("/documents/employee");
