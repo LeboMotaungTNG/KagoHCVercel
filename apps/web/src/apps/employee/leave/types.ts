@@ -27,6 +27,8 @@ export interface LeavePolicy {
   entitlementDays?: number;
   total?: number;
   color?: string;
+  /** Half-day requests allowed for this leave type. */
+  allowHalfDays?: boolean;
 }
 
 export interface LeaveBalanceEntry {
@@ -43,6 +45,12 @@ export interface LeaveFormData {
   endDate: string;
   days: number;
   reason: string;
+  /** One-day request: full day, or the morning / afternoon only. */
+  dayPart: "full" | "morning" | "afternoon";
+  /** Longer request: "afternoon" = the first day is a half day. */
+  startDayPart: "full" | "afternoon";
+  /** Longer request: "morning" = the last day is a half day. */
+  endDayPart: "full" | "morning";
 }
 
 export type StatusFilter = "all" | "pending" | "pending_hr" | "approved" | "rejected" | "cancelled";
