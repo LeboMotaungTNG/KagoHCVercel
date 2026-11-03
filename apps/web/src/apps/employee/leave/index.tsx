@@ -44,6 +44,9 @@ const EmployeeLeavePage: React.FC = () => {
     endDate: "",
     days: 1,
     reason: "",
+    dayPart: "full",
+    startDayPart: "full",
+    endDayPart: "full",
   });
 
   const [loading, setLoading] = useState(true);
@@ -51,17 +54,37 @@ const EmployeeLeavePage: React.FC = () => {
   const [message, setMessage] = useState<{ text: string; type: "success" | "error" } | null>(null);
   const [selectedRequest, setSelectedRequest] = useState<LeaveRequest | null>(null);
 
+  // Working days (Mon–Fri) with half days. The server makes the final count and
+  // also skips public holidays, so this is a preview.
   useEffect(() => {
-    if (formData.startDate && formData.endDate) {
-      const start = new Date(formData.startDate);
-      const end = new Date(formData.endDate);
-      if (!isNaN(start.getTime()) && !isNaN(end.getTime())) {
-        const diffTime = Math.abs(end.getTime() - start.getTime());
-        const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24)) + 1;
-        setFormData(prev => ({ ...prev, days: diffDays > 0 ? diffDays : 1 }));
-      }
+    if (!formData.startDate || !formData.endDate) return;
+    const start = new Date(`${formData.startDate}T00:00:00Z`);
+    const end = new Date(`${formData.endDate}T00:00:00Z`);
+    if (isNaN(start.getTime()) || isNaN(end.getTime()) || end < start) {
+      setFormData(prev => ({ ...prev, days: 0 }));
+      return;
     }
-  }, [formData.startDate, formData.endDate]);
+    const isWeekday = (d: Date) => d.getUTCDay() !== 0 && d.getUTCDay() !== 6;
+    let days = 0;
+    for (let t = start.getTime(); t <= end.getTime(); t += 86400000) if (isWeekday(new Date(t))) days++;
+    if (start.getTime() === end.getTime()) {
+      if (days && formData.dayPart !== "full") days = 0.5;
+    } else {
+      if (formData.startDayPart === "afternoon" && isWeekday(start)) days -= 0.5;
+      if (formData.endDayPart === "morning" && isWeekday(end)) days -= 0.5;
+    }
+    setFormData(prev => ({ ...prev, days: Math.max(0, days) }));
+  }, [formData.startDate, formData.endDate, formData.dayPart, formData.startDayPart, formData.endDayPart]);
+
+  // Switching to a leave type without half days resets the half-day choices.
+  useEffect(() => {
+    const selected = availableLeaveTypes.find(t => t.type === formData.leaveType);
+    if (selected && selected.allowHalfDays === false) {
+      setFormData(prev => (prev.dayPart === "full" && prev.startDayPart === "full" && prev.endDayPart === "full")
+        ? prev
+        : { ...prev, dayPart: "full", startDayPart: "full", endDayPart: "full" });
+    }
+  }, [formData.leaveType, availableLeaveTypes]);
 
   const fetchAvailableLeaveTypes = async (token: string) => {
     try {
@@ -109,7 +132,11 @@ const EmployeeLeavePage: React.FC = () => {
               color = policy.color || C.primary;
           }
 
-          return { type: policy.type, label, total, color };
+          // Half days: as the company's policy says; maternity/parental never allow them.
+          const allowHalfDays = typeof policy.allowHalfDays === "boolean"
+            ? policy.allowHalfDays
+            : !["maternity", "parental", "adoption"].includes(policy.type);
+          return { type: policy.type, label, total, color, allowHalfDays };
         });
 
         setAvailableLeaveTypes(leaveTypes);
@@ -270,6 +297,10 @@ const EmployeeLeavePage: React.FC = () => {
     setFormData(prev => ({ ...prev, [name]: value }));
   };
 
+  const setFormField = (name: keyof LeaveFormData, value: string) => {
+    setFormData(prev => ({ ...prev, [name]: value }));
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setSubmitting(true);
@@ -304,6 +335,18 @@ const EmployeeLeavePage: React.FC = () => {
         return;
       }
 
+      if (formData.endDate < formData.startDate) {
+        setMessage({ text: "The end date must be on or after the start date.", type: "error" });
+        return;
+      }
+
+      if (formData.days <= 0) {
+        setMessage({ text: "Those dates fall on a weekend — choose at least one working day.", type: "error" });
+        return;
+      }
+
+      const singleDay = formData.startDate === formData.endDate;
+
       const response = await fetch(`${API_URL}/leave`, {
         method: "POST",
         headers: {
@@ -314,21 +357,34 @@ const EmployeeLeavePage: React.FC = () => {
           leave_type: formData.leaveType,
           start_date: formData.startDate,
           end_date: formData.endDate,
-          total_days: formData.days,
+          total_days: formData.days, // the server recounts (working days, public holidays, half days)
           reason: formData.reason,
+          ...(singleDay
+            ? { day_part: formData.dayPart }
+            : { start_day_part: formData.startDayPart, end_day_part: formData.endDayPart }),
         }),
       });
 
       const data = await response.json();
 
       if (response.ok && data.success !== false) {
-        setMessage({ text: "Leave request submitted. Your manager will review it first.", type: "success" });
+        const savedDays = Number(data?.data?.total_days ?? data?.data?.totalDays ?? formData.days);
+        const dayText = `${savedDays} day${savedDays === 1 ? "" : "s"}`;
+        setMessage({
+          text: data?.warning
+            ? `Leave request submitted for ${dayText}. ${data.warning}`
+            : `Leave request submitted for ${dayText}. Your manager will review it first.`,
+          type: "success",
+        });
         setFormData({
           leaveType: availableLeaveTypes[0]?.type || "",
           startDate: "",
           endDate: "",
           days: 1,
           reason: "",
+          dayPart: "full",
+          startDayPart: "full",
+          endDayPart: "full",
         });
         await fetchLeaveRequests(employee._id, token);
       } else {
@@ -412,6 +468,7 @@ const EmployeeLeavePage: React.FC = () => {
             submitting={submitting}
             onChange={handleInputChange}
             onSubmit={handleSubmit}
+            onSetField={setFormField}
           />
         </div>
 

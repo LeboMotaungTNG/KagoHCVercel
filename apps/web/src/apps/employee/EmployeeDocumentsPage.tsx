@@ -631,8 +631,7 @@ const CategoryGroup: React.FC<{
 };
 
 const DocCard: React.FC<{ doc: OrgDocument; onPreview: () => void; onSign: () => void; onCertificate: () => void }> = ({ doc, onPreview, onSign, onCertificate }) => {
-  // Any document can be signed and submitted to the owner; "requiresSignature"
-  // means HR asked for it (shown as a badge and in the banner).
+  // Only documents the owner marked "must sign" can be signed.
   const signed = !!doc.mySignature;
   const needsSignature = !!doc.requiresSignature && !signed;
   const meta = CATEGORY_META[doc.category];
@@ -717,11 +716,11 @@ const DocCard: React.FC<{ doc: OrgDocument; onPreview: () => void; onSign: () =>
         gap: 8, marginTop: "auto", paddingTop: 10, borderTop: `1px solid ${C.line}`,
       }}>
         <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
-        {!signed && (
+        {needsSignature && (
           <button
             type="button"
             onClick={onSign}
-            title={needsSignature ? "HR asked you to sign this document" : "Sign and submit this document to HR"}
+            title="Sign and submit this document"
             style={{
               display: "inline-flex", alignItems: "center", gap: 6,
               padding: "8px 14px", borderRadius: 999,
@@ -730,7 +729,7 @@ const DocCard: React.FC<{ doc: OrgDocument; onPreview: () => void; onSign: () =>
               fontSize: 12.5, fontWeight: 700,
             }}
           >
-            <PenLine size={13} /> {needsSignature ? "Sign" : "Sign & submit"}
+            <PenLine size={13} /> Sign
           </button>
         )}
         {signed && (
