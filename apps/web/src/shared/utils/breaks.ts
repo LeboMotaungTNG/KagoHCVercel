@@ -127,8 +127,44 @@ async function breakRequest(path: string, body?: unknown): Promise<void> {
   });
 
   if (!response.ok) {
-    const message = await response.text();
+    const text = await response.text();
+    let message = text;
+    try { message = JSON.parse(text)?.message || JSON.parse(text)?.error || text; } catch { /* plain text */ }
     throw new Error(message || `Break request failed (${response.status})`);
+  }
+}
+
+function fromBackendBreakType(type: unknown): BreakType {
+  if (type === "lunch") return "lunch";
+  if (type === "short" || type === "tea") return "tea";
+  return "other";
+}
+
+/**
+ * Today's breaks as the server has them — the single source of truth shared by
+ * every device. Returns null if the server can't be reached (keep the cache then).
+ */
+async function fetchServerBreaks(): Promise<BreakSession[] | null> {
+  try {
+    const response = await fetch(`${API_BASE_URL}/attendance/today`, { headers: authHeaders() });
+    if (!response.ok) return null;
+    const body = await response.json();
+    const record = body?.data;
+    if (!record) return []; // not clocked in today
+    const list: any[] = Array.isArray(record.breaks) ? record.breaks : [];
+    return list
+      .filter(b => b && b.start)
+      .map(b => {
+        const startedAt = new Date(b.start).toISOString();
+        return {
+          id: `srv-${new Date(b.start).getTime()}`,
+          type: fromBackendBreakType(b.type),
+          startedAt,
+          endedAt: b.end ? new Date(b.end).toISOString() : null,
+        };
+      });
+  } catch {
+    return null;
   }
 }
 
@@ -217,6 +253,7 @@ export interface BreakSessionState {
  *   sync when both are open in different tabs.
  */
 export function useBreakSession(): BreakSessionState {
+  // The cached list shows instantly; the server's list replaces it as soon as it loads.
   const [breaks, setBreaks] = useState<BreakSession[]>(() => loadBreaks());
   const [, forceTick] = useState(0);
 
@@ -228,6 +265,35 @@ export function useBreakSession(): BreakSessionState {
     return () => window.clearInterval(id);
   }, [active]);
 
+  /** Load today's breaks from the server and make them the truth on this device. */
+  const sync = useCallback(async (): Promise<BreakSession[] | null> => {
+    const server = await fetchServerBreaks();
+    if (server) {
+      persistBreaks(server);
+      setBreaks(server);
+    }
+    return server;
+  }, []);
+
+  // Stay in step with other devices: on open, every 30 seconds while visible,
+  // and whenever the tab/app comes back into focus or the connection returns.
+  useEffect(() => {
+    void sync();
+    const whenVisible = () => { if (document.visibilityState !== "hidden") void sync(); };
+    const always = () => { void sync(); }; // focus / back online: the page is in use
+    const id = window.setInterval(whenVisible, 30_000);
+    document.addEventListener("visibilitychange", whenVisible);
+    window.addEventListener("focus", always);
+    window.addEventListener("online", always);
+    return () => {
+      window.clearInterval(id);
+      document.removeEventListener("visibilitychange", whenVisible);
+      window.removeEventListener("focus", always);
+      window.removeEventListener("online", always);
+    };
+  }, [sync]);
+
+  // Other tabs in this browser.
   useEffect(() => {
     const handler = (e: StorageEvent) => {
       if (!e.key || !e.key.startsWith("kagohc.breaks.")) return;
@@ -238,65 +304,60 @@ export function useBreakSession(): BreakSessionState {
   }, []);
 
   const startBreak = useCallback(async (type: BreakType) => {
-    console.log("startBreak called", { type, breaks });
-    const latestBreaks = loadBreaks();
-    if (latestBreaks.some(b => !b.endedAt)) {
-      setBreaks(latestBreaks);
-      return;
-    }
-
+    // Always ask the server — another device may have changed things.
     try {
       await breakRequest("start", { type: backendBreakType(type) });
     } catch (error) {
-      console.error("Unable to start break:", error);
+      await sync(); // e.g. a break already started on another device: show it
       throw error;
     }
-
-    setBreaks(prev => {
-      if (prev.some(b => !b.endedAt)) return prev;
-      const next: BreakSession[] = [
-        ...prev,
-        { id: genId(), type, startedAt: new Date().toISOString() },
-      ];
-      persistBreaks(next);
-      return next;
-    });
-  }, [breaks]);
+    const server = await sync();
+    if (!server) {
+      // Server unreachable for the refresh: show the break we just started.
+      setBreaks(prev => {
+        if (prev.some(b => !b.endedAt)) return prev;
+        const next: BreakSession[] = [...prev, { id: genId(), type, startedAt: new Date().toISOString() }];
+        persistBreaks(next);
+        return next;
+      });
+    }
+  }, [sync]);
 
   const endBreak = useCallback(async () => {
-    console.log("endBreak called", { breaks });
-    const latestBreaks = loadBreaks();
-    if (!latestBreaks.some(b => !b.endedAt)) {
-      setBreaks(latestBreaks);
-      return;
-    }
-
+    // Always ask the server — the break may have been started on another device.
     try {
       await breakRequest("end");
     } catch (error) {
-      console.error("Unable to end break:", error);
+      await sync(); // e.g. already ended on another device
       throw error;
     }
+    const server = await sync();
+    if (!server) {
+      setBreaks(prev => {
+        const idx = prev.findIndex(b => !b.endedAt);
+        if (idx === -1) return prev;
+        const next = prev.slice();
+        next[idx] = { ...next[idx], endedAt: new Date().toISOString() };
+        persistBreaks(next);
+        return next;
+      });
+    }
+  }, [sync]);
 
-    setBreaks(prev => {
-      const idx = prev.findIndex(b => !b.endedAt);
-      if (idx === -1) return prev;
-      const next = prev.slice();
-      next[idx] = { ...next[idx], endedAt: new Date().toISOString() };
-      persistBreaks(next);
-      return next;
-    });
-  }, [breaks]);
-
+  /**
+   * Only removes breaks that never reached the server. Recorded breaks stay,
+   * because they count towards worked hours; a manager corrects those.
+   */
   const removeBreak = useCallback((id: string) => {
     setBreaks(prev => {
+      if (id.startsWith("srv-")) return prev;
       const next = prev.filter(b => b.id !== id);
       persistBreaks(next);
       return next;
     });
   }, []);
 
-  const refresh = useCallback(() => setBreaks(loadBreaks()), []);
+  const refresh = useCallback(() => { void sync(); }, [sync]);
 
   const totalMs = totalBreakMs(breaks);
 
