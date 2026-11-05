@@ -588,6 +588,8 @@ const QuickActionsCard: React.FC = () => {
     { label: "Full onboarding", path: "/owner/manage-employees",     icon: <Building2 size={18} />, bg: "#f1f5f9",  color: C.muted   },
     { label: "Clock in",       path: "/owner/my-attendance",         icon: <Clock size={18} />,     bg: C.greenBg,  color: C.green   },
     { label: "Team attendance", path: "/owner/attendance",           icon: <Clock size={18} />,     bg: C.blueBg,   color: C.blue    },
+    { label: "Request leave",  path: "/owner/my-leave",              icon: <Calendar size={18} />,  bg: C.warnBg,   color: C.amber   },
+    { label: "Team leave",     path: "/owner/leave",                 icon: <Calendar size={18} />,  bg: C.blueBg,   color: C.blue    },
     { label: "Payroll",        path: "/owner/payroll",               icon: <Target size={18} />,    bg: C.tealBg,   color: C.teal    },
   ];
   return (

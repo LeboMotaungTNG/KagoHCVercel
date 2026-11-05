@@ -138,7 +138,8 @@ const managerNav: AppShellNav = {
         { kind: "link", to: "/manager", label: "Dashboard", icon: Home, exact: true },
         { kind: "link", to: "/manager/my-attendance", label: "My Attendance", icon: Clock },
         { kind: "link", to: "/manager/attendance", label: "Team Attendance", icon: Calendar },
-        { kind: "link", to: "/manager/leave-requests", label: "Leave Requests", icon: ClipboardList },
+        { kind: "link", to: "/manager/my-leave", label: "My Leave", icon: Calendar },
+        { kind: "link", to: "/manager/leave-requests", label: "Team Leave", icon: ClipboardList },
       ],
     },
     {
@@ -200,7 +201,8 @@ const ownerNav: AppShellNav = {
       label: "Work",
       items: [
         { kind: "link", to: "/owner", label: "Dashboard", icon: Home, exact: true },
-        { kind: "link", to: "/owner/leave", label: "Leave Requests", icon: ClipboardList },
+        { kind: "link", to: "/owner/my-leave", label: "My Leave", icon: Calendar },
+        { kind: "link", to: "/owner/leave", label: "Team Leave", icon: ClipboardList },
         { kind: "link", to: "/owner/my-attendance", label: "My Attendance", icon: Clock },
         { kind: "link", to: "/owner/attendance", label: "Team Attendance", icon: Calendar },
         { kind: "link", to: "/owner/payroll", label: "Payroll", icon: Banknote },
