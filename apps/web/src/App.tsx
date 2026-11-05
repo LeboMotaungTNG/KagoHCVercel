@@ -29,6 +29,7 @@ import EmployeesPage from "./apps/Manager/EmployeesPage";
 import AttendancePage from "./apps/Manager/AttendancePage";
 import ManagerMyAttendance from "./apps/Manager/ManagerMyAttendance";
 import LeavePage from "./apps/Manager/leave";
+import ManagerMyLeave from "./apps/Manager/ManagerMyLeave";
 import Payroll from "./apps/Manager/Payroll";
 import PlatformAdminPage from "./apps/Platform/PlatformAdminPage";
 import AcceptInvitePage from "./apps/Platform/AcceptInvitePage";
@@ -118,6 +119,7 @@ const App: React.FC = () => (
       <Route path="/manager/attendance"       element={<Guard roles={ManagerArea}><AttendancePage /></Guard>} />
       <Route path="/manager/my-attendance"    element={<Guard roles={ManagerArea}><ManagerMyAttendance /></Guard>} />
       <Route path="/manager/leave-requests"   element={<Guard roles={LeaveReviewArea}><LeavePage /></Guard>} />
+      <Route path="/manager/my-leave"         element={<Guard roles={ManagerArea}><ManagerMyLeave /></Guard>} />
       <Route path="/manager/payroll"          element={<Guard roles={ManagerArea}><Payroll /></Guard>} />
       <Route path="/manager/overtime-approvals" element={<Guard roles={ManagerArea}><OvertimeApprovalsPage /></Guard>} />
       <Route path="/manager/team-overtime"      element={<Guard roles={ManagerArea}><TeamOvertimePage /></Guard>} />

@@ -20,8 +20,8 @@ import {
 
 const API_URL = import.meta.env.VITE_API_URL || "https://employee-evaluation-kago-e63baae4d822.herokuapp.com/api/v1";
 
-const PageSkeleton: React.FC = () => (
-  <SharedLayout>
+const PageSkeleton: React.FC<{ embedded?: boolean }> = ({ embedded }) => {
+  const inner = (
     <div style={{ maxWidth: 1100, margin: "0 auto" }}>
       <div style={{ ...heroStyle, minHeight: 140, opacity: 0.7 }} />
       <div style={{ display: "grid", gridTemplateColumns: "minmax(0,1fr) minmax(0,1.1fr)", gap: 24 }}>
@@ -29,10 +29,11 @@ const PageSkeleton: React.FC = () => (
         <div style={{ height: 420, borderRadius: 22, background: C.line }} />
       </div>
     </div>
-  </SharedLayout>
-);
+  );
+  return embedded ? inner : <SharedLayout>{inner}</SharedLayout>;
+};
 
-const EmployeeLeavePage: React.FC = () => {
+const EmployeeLeavePage: React.FC<{ embedded?: boolean }> = ({ embedded = false }) => {
   const [employee, setEmployee] = useState<any>(null);
   const [leaveRequests, setLeaveRequests] = useState<LeaveRequest[]>([]);
   const [availableLeaveTypes, setAvailableLeaveTypes] = useState<LeavePolicy[]>([]);
@@ -130,14 +131,25 @@ const EmployeeLeavePage: React.FC = () => {
     return [];
   };
 
-  const fetchLeaveRequestsInternal = async (_employeeId: string, token: string): Promise<LeaveRequest[]> => {
+  const fetchLeaveRequestsInternal = async (employeeId: string, token: string): Promise<LeaveRequest[]> => {
     try {
       const response = await fetch(`${API_URL}/leave/requests`, {
         headers: { Authorization: `Bearer ${token}` },
       });
       const data = await response.json();
 
-      return unwrapLeaveRows(data).map(mapLeaveRequest);
+      // Managers and owners reuse this page as "My Leave"; the API may return
+      // their team's requests too, so keep only rows that belong to this employee.
+      const ownerOf = (row: any): string | undefined => {
+        const ref = row?.employee_id ?? row?.employeeId ?? row?.employee;
+        return ref && typeof ref === "object" ? ref._id ?? ref.id : ref;
+      };
+      return unwrapLeaveRows(data)
+        .filter((row: any) => {
+          const owner = ownerOf(row);
+          return !owner || !employeeId || String(owner) === String(employeeId);
+        })
+        .map(mapLeaveRequest);
     } catch (error) {
       console.error("Error fetching leave requests:", error);
       return [];
@@ -319,7 +331,11 @@ const EmployeeLeavePage: React.FC = () => {
         }),
       });
 
-      const data = await response.json();
+      // Server errors aren't always JSON; don't report them as a network failure.
+      const data = await response.json().catch(() => ({
+        success: false,
+        message: `Request failed (${response.status}). Please try again.`,
+      }));
 
       if (response.ok && data.success !== false) {
         setMessage({ text: "Leave request submitted. Your manager will review it first.", type: "success" });
@@ -342,10 +358,10 @@ const EmployeeLeavePage: React.FC = () => {
     }
   };
 
-  if (loading) return <PageSkeleton />;
+  if (loading) return <PageSkeleton embedded={embedded} />;
 
-  return (
-    <SharedLayout>
+  const content = (
+    <>
       <Helmet>
         <title>Leave Management | Kago HC</title>
         <meta name="description" content="Employee leave management" />
@@ -428,8 +444,10 @@ const EmployeeLeavePage: React.FC = () => {
           }
         }
       `}</style>
-    </SharedLayout>
+    </>
   );
+
+  return embedded ? content : <SharedLayout>{content}</SharedLayout>;
 };
 
 export default EmployeeLeavePage;
