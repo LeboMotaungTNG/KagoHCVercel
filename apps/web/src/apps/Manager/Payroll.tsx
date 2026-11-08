@@ -6,6 +6,8 @@ import SharedLayout from "./SharedLayout";
 import EditPayrollModal from './components/EditPayrollModal';
 import { C } from "../../shared/utils/employee";
 import { Banknote } from "lucide-react";
+import { loadEmployeePayslipsForOwner } from "../../shared/utils/documentsLibrary";
+import { downloadPayslipPdf } from "../../shared/utils/payslipPdf";
 import { FilterTabs, PageHero, PerformancePage } from "./managerUi";
 
 type PayrollStatus = "on_payroll" | "not_on_payroll" | "active" | "inactive";
@@ -225,34 +227,25 @@ Total Payable: R${totalPAYE + totalUIF + totalSDL}
     URL.revokeObjectURL(url);
   };
 
-  // Download payslip for employee
-  const downloadPayslip = (employee: PayrollEmployee) => {
-    const payslip = `
-PAYSLIP
-=======
-Employee: ${employee.fullName}
-Employee ID: ${employee.employeeCode}
-Department: ${employee.department}
-Position: ${employee.position}
-Period: ${new Date().toLocaleString('default', { month: 'long', year: 'numeric' })}
-
-Earnings:
-  Basic Salary: ${formatCurrency(employee.basicSalary)}
-
-Deductions:
-  PAYE (18%): ${formatCurrency(employee.basicSalary * 0.18)}
-  UIF (1%): ${formatCurrency(employee.basicSalary * 0.01)}
-
-Net Pay: ${formatCurrency(employee.netSalary || employee.basicSalary * 0.81)}
-    `;
-    
-    const blob = new Blob([payslip], { type: 'text/plain' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `payslip-${employee.employeeCode}-${new Date().toISOString().split('T')[0]}.txt`;
-    a.click();
-    URL.revokeObjectURL(url);
+  // Download an employee's payslip: their latest stored payslip, rendered with the
+  // same PDF template employees get on their Documents page.
+  const [payslipBusyId, setPayslipBusyId] = useState<string | null>(null);
+  const downloadPayslip = async (employee: PayrollEmployee) => {
+    setPayslipBusyId(employee.id);
+    try {
+      const payslips = await loadEmployeePayslipsForOwner(employee.id);
+      const latest = payslips[0];
+      if (!latest?.data) {
+        alert(`There is no payslip for ${employee.fullName} yet. Payslips are created when a payroll run is approved.`);
+        return;
+      }
+      await downloadPayslipPdf(latest.data, latest.fileName);
+    } catch (error) {
+      console.error("Payslip download failed:", error);
+      alert(error instanceof Error ? error.message : "The payslip could not be downloaded.");
+    } finally {
+      setPayslipBusyId(null);
+    }
   };
 
   const fetchEmployees = () => {
@@ -1928,7 +1921,8 @@ Net Pay: ${formatCurrency(employee.netSalary || employee.basicSalary * 0.81)}
                           <td style={{ padding: "8px 12px", textAlign: "center" }}>
                             <button
                               type="button"
-                              onClick={() => downloadPayslip(emp)}
+                              onClick={() => void downloadPayslip(emp)}
+                              disabled={payslipBusyId === emp.id}
                               style={{
                                 borderRadius: 999,
                                 border: "none",
@@ -1940,7 +1934,7 @@ Net Pay: ${formatCurrency(employee.netSalary || employee.basicSalary * 0.81)}
                                 cursor: "pointer",
                               }}
                             >
-                              Payslip
+                              {payslipBusyId === emp.id ? "Preparing…" : "Payslip"}
                             </button>
                           </td>
                         </tr>

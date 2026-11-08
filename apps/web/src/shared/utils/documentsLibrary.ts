@@ -540,63 +540,95 @@ export const saveLatestPayslip = (slip: PayslipMeta | null): void => {
   }
 };
 
+/**
+ * A stored payslip (from the API) → the data the payslip PDF template needs.
+ * Used by the employee's Documents page AND the owner/manager Payroll page,
+ * so both produce exactly the same payslip.
+ */
+export const payslipDocToMeta = (doc: any): PayslipMeta => {
+  const line = (label: string, amount: unknown) => ({ label, amount: Number(amount) || 0 });
+  // "2026-11" → "November 2026"; names like "October" or "November 2026" are kept.
+  const ym = /^(\d{4})-(\d{2})$/.exec(String(doc.period || ""));
+  const periodLabel = ym
+    ? new Date(Date.UTC(+ym[1], +ym[2] - 1, 15)).toLocaleString("en-ZA", { month: "long", year: "numeric", timeZone: "UTC" })
+    : doc.period;
+  const otherAllowances = Number(doc.allowances?.other) || 0;
+  const overtime = Number(doc.overtime?.amount) || 0;
+  const extraWork = Number(doc.bonus) || 0;
+  const earnings = [
+    line("Basic Salary", doc.basicSalary),
+    line("Housing Allowance", doc.allowances?.housing),
+    line("Transport Allowance", doc.allowances?.transport),
+    line("Medical Allowance", doc.allowances?.medical),
+    // Only shown when there is something to show.
+    ...(otherAllowances ? [line("Other Allowances", otherAllowances)] : []),
+    ...(overtime ? [line(`Overtime (${Number(doc.overtime?.hours) || 0} h)`, overtime)] : []),
+    ...(extraWork ? [line("Weekend & Public Holiday Work", extraWork)] : []),
+  ];
+  const deductions = [
+    line("PAYE", doc.deductions?.paye),
+    line("UIF", doc.deductions?.uif),
+    ...(Number(doc.deductions?.pension) ? [line("Pension", doc.deductions.pension)] : []),
+    ...(Number(doc.deductions?.medicalAid) ? [line("Medical Aid", doc.deductions.medicalAid)] : []),
+    ...(Number(doc.deductions?.other) ? [line("Other Deductions", doc.deductions.other)] : []),
+  ];
+  return {
+    id: doc._id || doc.id,
+    period: doc.period || "",
+    issueDate: doc.payDate || doc.createdAt || new Date().toISOString(),
+    gross: doc.grossEarnings || doc.gross || 0,
+    net: doc.netPay || doc.net || 0,
+    currency: doc.currency || "R",
+    fileName: `Payslip_${doc.employeeSnapshot?.employeeNumber ? `${doc.employeeSnapshot.employeeNumber}_` : ""}${doc.period || "current"}.pdf`,
+    data: {
+      reference: doc._id,
+      period: periodLabel,
+      periodStart: doc.periodStart,
+      periodEnd: doc.periodEnd,
+      payDate: doc.payDate,
+      currency: doc.currency || "R",
+      employer: doc.employerSnapshot || {
+        name: "Kago Human Capital",
+        registrationNo: "",
+        payeReference: "",
+        address: "",
+      },
+      employee: doc.employeeSnapshot || {
+        name: "Employee",
+        employeeNumber: "",
+        idNumber: "",
+        department: "",
+        position: "",
+        bank: "",
+        accountLast4: "",
+        paymentMethod: "EFT",
+      },
+      earnings,
+      deductions,
+      ytd: doc.ytd || { gross: 0, tax: 0, net: 0 },
+      leaveBalances: [],
+      notes: "This is a computer-generated payslip.",
+    },
+  } as PayslipMeta;
+};
+
 export const loadLatestPayslipAsync = async (): Promise<PayslipMeta | null> => {
   try {
     const result = await apiRequest("/payroll/employee/payslips/latest");
     const doc = result.data;
     if (!doc) return null;
-
-    return {
-      id: doc._id || doc.id,
-      period: doc.period || "",
-      issueDate: doc.payDate || doc.createdAt || new Date().toISOString(),
-      gross: doc.grossEarnings || doc.gross || 0,
-      net: doc.netPay || doc.net || 0,
-      currency: doc.currency || "R",
-      fileName: `Payslip_${doc.period || 'current'}.pdf`,
-      data: {
-        reference: doc._id,
-        period: doc.period,
-        periodStart: doc.periodStart,
-        periodEnd: doc.periodEnd,
-        payDate: doc.payDate,
-        currency: doc.currency || "R",
-        employer: doc.employerSnapshot || {
-          name: "Kago Human Capital",
-          registrationNo: "",
-          payeReference: "",
-          address: ""
-        },
-        employee: doc.employeeSnapshot || {
-          name: "Employee",
-          employeeNumber: "",
-          idNumber: "",
-          department: "",
-          position: "",
-          bank: "",
-          accountLast4: "",
-          paymentMethod: "EFT"
-        },
-        earnings: [
-          { label: "Basic Salary", amount: doc.basicSalary || 0 },
-          { label: "Housing Allowance", amount: doc.allowances?.housing || 0 },
-          { label: "Transport Allowance", amount: doc.allowances?.transport || 0 },
-          { label: "Medical Allowance", amount: doc.allowances?.medical || 0 }
-        ],
-        deductions: [
-          { label: "PAYE", amount: doc.deductions?.paye || 0 },
-          { label: "UIF", amount: doc.deductions?.uif || 0 },
-          { label: "Pension", amount: doc.deductions?.pension || 0 }
-        ],
-        ytd: doc.ytd || { gross: 0, tax: 0, net: 0 },
-        leaveBalances: [],
-        notes: "This is a computer-generated payslip."
-      }
-    } as PayslipMeta;
+    return payslipDocToMeta(doc);
   } catch (error) {
     console.error("[documentsLibrary] Error loading latest payslip:", error);
     return null;
   }
+};
+
+/** Owner / payroll / HR: an employee's stored payslips, newest first, ready for the PDF template. */
+export const loadEmployeePayslipsForOwner = async (employeeId: string): Promise<PayslipMeta[]> => {
+  const result = await apiRequest(`/payroll/payslips?employeeId=${encodeURIComponent(employeeId)}`);
+  const list: any[] = Array.isArray(result?.data) ? result.data : [];
+  return list.map(payslipDocToMeta);
 };
 
 /* ─────────────────────────────────────────────────────────────────────────

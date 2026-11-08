@@ -35,12 +35,18 @@ export const jsonHeaders = (): Record<string, string> => ({
   "Content-Type": "application/json",
 });
 
-/** First and last day of the current month, as `YYYY-MM-DD`. */
+/**
+ * This calendar month as "YYYY-MM-DD" strings. Built from local date parts —
+ * toISOString() would convert to UTC and shift the dates a day earlier in
+ * South Africa (e.g. 31 Oct – 29 Nov for November).
+ */
 export const currentMonthRange = (): { start: string; end: string } => {
   const now = new Date();
-  const start = new Date(now.getFullYear(), now.getMonth(), 1).toISOString().slice(0, 10);
-  const end   = new Date(now.getFullYear(), now.getMonth() + 1, 0).toISOString().slice(0, 10);
-  return { start, end };
+  const y = now.getFullYear();
+  const m = now.getMonth();
+  const pad = (n: number) => String(n).padStart(2, "0");
+  const lastDay = new Date(y, m + 1, 0).getDate();
+  return { start: `${y}-${pad(m + 1)}-01`, end: `${y}-${pad(m + 1)}-${pad(lastDay)}` };
 };
 
 /** Generate a SARS-style submission receipt. Pure client-side mock. */

@@ -260,7 +260,7 @@ const drawEmployerStrip = (d: jsPDF, data: PayslipData, y: number): number => {
   setText(d, C.muted);
   d.setFontSize(8.5); d.setFont("helvetica", "normal");
   d.text(
-    `Cycle: ${shortDate(data.periodStart)} → ${shortDate(data.periodEnd)}`,
+    `Cycle: ${shortDate(data.periodStart)} – ${shortDate(data.periodEnd)}`, // "→" isn't in the PDF's built-in font
     PAGE_W - M, y + 17, { align: "right" },
   );
 
@@ -400,7 +400,7 @@ const drawNetPayHero = (d: jsPDF, data: PayslipData, y: number, net: number): nu
   d.text("NET PAY", M + 8, y + 10);
   d.setFontSize(8.5); d.setFont("helvetica", "normal");
   setText(d, [255, 226, 220]);
-  d.text(`For period ${shortDate(data.periodStart)} → ${shortDate(data.periodEnd)}`, M + 8, y + 16);
+  d.text(`For period ${shortDate(data.periodStart)} – ${shortDate(data.periodEnd)}`, M + 8, y + 16);
   d.text("Deposited via " + (data.employee.paymentMethod || "EFT"), M + 8, y + 21);
 
   setText(d, C.white);
