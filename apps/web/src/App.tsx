@@ -123,8 +123,9 @@ const App: React.FC = () => (
       <Route path="/manager/leave-requests"   element={<Guard roles={LeaveReviewArea}><LeavePage /></Guard>} />
       <Route path="/manager/my-leave"         element={<Guard roles={ManagerArea}><ManagerMyLeave /></Guard>} />
       <Route path="/manager/payroll"          element={<Guard roles={ManagerArea}><Payroll /></Guard>} />
-      <Route path="/manager/overtime-approvals" element={<Guard roles={ManagerArea}><OvertimeApprovalsPage /></Guard>} />
-      <Route path="/manager/team-overtime"      element={<Guard roles={ManagerArea}><TeamOvertimePage /></Guard>} />
+      {/* Overtime is approved by HR or the owner, so owners and HR managers can open these too. */}
+      <Route path="/manager/overtime-approvals" element={<Guard roles={[...ManagerArea, "owner", "hr_manager"]}><OvertimeApprovalsPage /></Guard>} />
+      <Route path="/manager/team-overtime"      element={<Guard roles={[...ManagerArea, "owner", "hr_manager"]}><TeamOvertimePage /></Guard>} />
       <Route path="/manager/performance"     element={<Guard roles={ManagerArea}><ManagerReviewPage /></Guard>} />
       <Route path="/manager/my-performance/*" element={<Guard roles={ManagerArea}><EmployeePerformance basePath="/manager/my-performance" /></Guard>} />
       <Route path="/manager/self-review"     element={<Navigate to="/manager/my-performance/self-review" replace />} />

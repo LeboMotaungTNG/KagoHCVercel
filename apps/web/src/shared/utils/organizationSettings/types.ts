@@ -136,8 +136,12 @@ export interface OvertimeRequest {
   hours: number;
   rate?: number;
   reason: string;
-  status: "pending" | "approved" | "rejected";
+  status: "pending" | "approved" | "rejected" | "cancelled";
   notes?: string;
+  /** Why HR or the owner rejected it. */
+  rejectionReason?: string;
+  /** "automatic" = recorded at clock-out for time past the standard hours. */
+  source?: "manual" | "automatic";
 }
 
 export interface PayrollRun {

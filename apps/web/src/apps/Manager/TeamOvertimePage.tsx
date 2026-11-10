@@ -1,9 +1,9 @@
 import React, { useMemo, useState } from "react";
-import SharedLayout from "./SharedLayout";
+import AppShell from "../../shared/components/AppShell";
 import { C } from "../../shared/utils/employee";
 import {
   CARD, INPUT, TD, TH, ErrorBanner, LoadingBlock, PageHeader, PersonCell,
-  StatTiles, overtimeStatusPill, useOvertimeRequests,
+  StatTiles, overtimeStatusPill, overtimeNotes, useOvertimeRequests,
 } from "../../shared/components/overtimeUi";
 import type { OvertimeRequest } from "../../shared/utils/organizationSettings";
 import { PerformancePage } from "./managerUi";
@@ -69,7 +69,7 @@ export const TeamOvertimeContent: React.FC = () => {
             <table style={{ width: "100%", minWidth: 680, borderCollapse: "collapse" }}>
               <thead>
                 <tr style={{ background: "#f9fafb", borderBottom: "1px solid #e4e7ec" }}>
-                  {["Employee", "Date", "Hours", "Rate", "Reason", "Status"].map((h) => (
+                  {["Employee", "Date", "Hours", "Rate", "Reason", "Status", "Notes"].map((h) => (
                     <th key={h} style={TH}>{h}</th>
                   ))}
                 </tr>
@@ -77,7 +77,7 @@ export const TeamOvertimeContent: React.FC = () => {
               <tbody>
                 {filtered.length === 0 ? (
                   <tr>
-                    <td colSpan={6} style={{ padding: "48px 16px", textAlign: "center", fontSize: 14, color: "#9ca3af" }}>
+                    <td colSpan={7} style={{ padding: "48px 16px", textAlign: "center", fontSize: 14, color: "#9ca3af" }}>
                       No overtime records match your filters
                     </td>
                   </tr>
@@ -91,6 +91,7 @@ export const TeamOvertimeContent: React.FC = () => {
                     <td style={TD}>{request.rate}x</td>
                     <td style={TD}>{request.reason || "—"}</td>
                     <td style={TD}>{overtimeStatusPill(request.status)}</td>
+                    <td style={{ ...TD, maxWidth: 260, color: request.status === "rejected" ? "#B42318" : C.muted }}>{overtimeNotes(request)}</td>
                   </tr>
                 ))}
               </tbody>
@@ -103,9 +104,10 @@ export const TeamOvertimeContent: React.FC = () => {
 };
 
 const TeamOvertimePage: React.FC = () => (
-  <SharedLayout title="Team Overtime">
+  // No role prop: each user keeps their own menu (owner, admin/HR, manager).
+  <AppShell title="Team Overtime">
     <TeamOvertimeContent />
-  </SharedLayout>
+  </AppShell>
 );
 
 export default TeamOvertimePage;
