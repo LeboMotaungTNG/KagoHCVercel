@@ -427,7 +427,7 @@ function AttendanceContent() {
     departments, stats,
     noClockInList, showNoClockIn, setShowNoClockIn,
     filters, setSearch, setStatus, setDateRange, setDept, clearFilters,
-    filtered,
+    filtered, emptyMessage,
     quickFilterPresent, quickFilterAbsent, quickFilterWeek,
     handleRefresh, handleExportCSV, handlePrint, handleExportRecord,
     selectedRow, setSelectedRow,
@@ -609,7 +609,7 @@ function AttendanceContent() {
                     </tr></thead>
                     <tbody>
                       {filtered.length === 0 ? (
-                        <tr><td colSpan={5} style={{ padding: "36px 16px", textAlign: "center", fontSize: 14, color: "#9ca3af" }}>No records match your filters.</td></tr>
+                        <tr><td colSpan={5} style={{ padding: "36px 16px", textAlign: "center", fontSize: 14, color: "#9ca3af" }}>{emptyMessage}</td></tr>
                       ) : filtered.map(row => (
                         <tr key={row.attendance_id} onClick={() => setSelectedRow(row)} style={{ borderBottom: "1px solid #f2f4f7", cursor: "pointer" }}
                           onMouseEnter={e => { (e.currentTarget as HTMLTableRowElement).style.background = "#f9fafb"; }}

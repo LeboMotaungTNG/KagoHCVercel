@@ -13,6 +13,7 @@ import {
   fmtTime,
   pad2,
   exportEmployeeCSV,
+  matchesDateRange,
   useEmployeeAttendance,
 } from "../../shared/utils/attendance";
 import BreakControls from "../../shared/components/BreakControls";
@@ -553,23 +554,11 @@ const HistoryTable: React.FC<HistoryTableProps> = ({ records, onSelect }) => {
   const [status, setStatus] = useState<AttendanceStatus | "">("");
   const [range,  setRange]  = useState("month");
 
+  // Same date rules as the team page ("This Week" = Monday to today).
   const filtered = useMemo(() => records.filter(r => {
     if (status && r.status !== status)      return false;
     if (search && !r.date.includes(search)) return false;
-    const d   = new Date(r.date);
-    const now = new Date();
-    if (range === "week") {
-      const wk = new Date(); wk.setDate(now.getDate() - 7);
-      if (d < wk) return false;
-    } else if (range === "month") {
-      if (d.getMonth() !== now.getMonth() || d.getFullYear() !== now.getFullYear()) return false;
-    } else if (range === "last_month") {
-      const lm = new Date(now.getFullYear(), now.getMonth() - 1, 1);
-      if (d.getMonth() !== lm.getMonth() || d.getFullYear() !== lm.getFullYear()) return false;
-    } else if (range === "year") {
-      if (d.getFullYear() !== now.getFullYear()) return false;
-    }
-    return true;
+    return matchesDateRange(r.date, range);
   }), [records, status, search, range]);
 
   const exportCSV = () => exportEmployeeCSV(filtered);

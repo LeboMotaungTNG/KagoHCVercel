@@ -330,10 +330,22 @@ export function isCurrentMonth(dateStr: string): boolean {
   return d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear();
 }
 
-function matchesDateRange(dateStr: string, range: DateRangeKey): boolean {
-  const d = new Date(dateStr), now = new Date();
+/**
+ * Does a "YYYY-MM-DD" date fall in the chosen range? Shared by the personal and
+ * team attendance pages so they always agree. Compared as calendar days.
+ */
+export function matchesDateRange(dateStr: string, range: DateRangeKey | string): boolean {
+  if (!dateStr) return range === "all";
+  const [y, m, day] = dateStr.split("-").map(Number);
+  const d = new Date(y, (m || 1) - 1, day || 1); // local calendar day
+  const now = new Date();
   if (range === "today")      return dateStr === todayISO();
-  if (range === "week")       return d >= addDays(now, -7);
+  if (range === "week") {
+    // This week: Monday to today (not "the last 7 days").
+    const monday = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    monday.setDate(monday.getDate() - ((monday.getDay() + 6) % 7));
+    return dateStr >= toLocalDateStr(monday) && dateStr <= todayISO();
+  }
   if (range === "month")      return isCurrentMonth(dateStr);
   if (range === "last_month") {
     const lm = new Date(now.getFullYear(), now.getMonth() - 1, 1);
@@ -1085,17 +1097,33 @@ export function useManagerAttendance() {
   }, [scheduledTodayAttendance, employees, stats.monthlyAverage]);
 
   const filtered = useMemo(() => {
-    const pool = filters.dateRange === "today" ? scheduledTodayAttendance : scheduledAllHistory;
+    let pool = filters.dateRange === "today" ? scheduledTodayAttendance : scheduledAllHistory;
+    // Someone who didn't clock in today has no record, so "Absent · Today" used to
+    // show nobody. Add them as absent rows (everyone without a record today).
+    if (filters.status === "absent" && filters.dateRange === "today") {
+      const today = todayISO();
+      const withRecord = new Set(scheduledTodayAttendance.map(r => String(r.employee_id)));
+      const missing = employees
+        .filter(e => !["terminated", "resigned", "inactive", "suspended"].includes(String(e.status || "").toLowerCase()))
+        .filter(e => !withRecord.has(String(e.employee_id)))
+        .map(e => ({
+          employee_id: e.employee_id, employee_code: e.employee_code || "-", full_name: e.full_name || "Unknown",
+          department: e.department || "-", position: e.position || "-", status: "absent" as AttendanceStatus,
+          clock_in: null, clock_out: null, work_hours: null, date: today, breaks: [], total_break_time: 0,
+        } as unknown as ManagerAttendanceRecord));
+      pool = [...pool, ...missing];
+    }
+    const q = filters.search.trim().toLowerCase();
     return pool.filter(r => {
-      const matchSearch = !filters.search ||
-        r.full_name.toLowerCase().includes(filters.search.toLowerCase()) ||
-        r.employee_code.toLowerCase().includes(filters.search.toLowerCase());
+      const matchSearch = !q ||
+        String(r.full_name || "").toLowerCase().includes(q) ||
+        String(r.employee_code || "").toLowerCase().includes(q);
       const matchStatus = !filters.status || r.status === filters.status;
       const matchDept = filters.dept === "all" || r.department === filters.dept;
       const matchDate = matchesDateRange(r.date, filters.dateRange);
       return matchSearch && matchStatus && matchDept && matchDate;
     });
-  }, [scheduledTodayAttendance, scheduledAllHistory, filters]);
+  }, [scheduledTodayAttendance, scheduledAllHistory, filters, employees]);
 
   const noClockInList = useMemo(() => {
     const todayIds = new Set(todayAttendance.map(r => r.employee_id));
@@ -1178,6 +1206,10 @@ export function useManagerAttendance() {
     noClockInList, showNoClockIn, setShowNoClockIn,
     filters, setSearch, setStatus, setDateRange, setDept, clearFilters,
     filtered,
+    // Shown when the table is empty, so "Leave · Today" doesn't look broken.
+    emptyMessage: filters.dateRange === "today" && filters.status
+      ? `No one is ${filters.status === "leave" ? "on leave" : statusLabel(filters.status)} today. Choose This Week, This Month or All Time to see other days.`
+      : "No records match your filters.",
     quickFilterPresent, quickFilterAbsent, quickFilterWeek,
     handleRefresh, handleExportCSV, handlePrint, handleExportRecord,
     selectedRow, setSelectedRow,
