@@ -134,6 +134,20 @@ export function pad2(n: number): string {
   return String(n).padStart(2, "0");
 }
 
+/**
+ * The backend stores "on-leave", "half-day" and "remote"; the page's filters,
+ * colours and counts use "leave", "half_day" and "present". Without this the
+ * Leave and Half-day filters never matched anything.
+ */
+export function normalizeAttendanceStatus(raw: unknown): AttendanceStatus {
+  const s = String(raw || "").toLowerCase().replace(/-/g, "_");
+  if (s === "on_leave" || s === "leave") return "leave";
+  if (s === "half_day") return "half_day";
+  if (s === "remote" || s === "present") return "present";
+  if (s === "late" || s === "absent" || s === "holiday") return s as AttendanceStatus;
+  return "present";
+}
+
 export function todayISO(): string {
   return toLocalDateStr(new Date());
 }
@@ -479,7 +493,8 @@ export function useEmployeeAttendance() {
   const fetchHistory = useCallback(async () => {
     try {
       const token = localStorage.getItem('token');
-      const response = await fetch(`${API_URL}/attendance`, {
+      // scope=mine: only this person's own attendance, even for managers, HR and owners.
+      const response = await fetch(`${API_URL}/attendance?scope=mine`, {
         headers: { 'Authorization': `Bearer ${token}` }
       });
       const data = await response.json();
@@ -532,7 +547,7 @@ export function useEmployeeAttendance() {
         return {
           id: item.attendance_id ?? item.id ?? index,
           date: dateStr,
-          status: item.status,
+          status: normalizeAttendanceStatus(item.status),
           clock_in: formatApiTime(item.clock_in || item.clockInTime),
           clock_out: formatApiTime(item.clock_out || item.clockOutTime),
           work_hours: item.totalHours || item.hours_worked,
@@ -900,7 +915,7 @@ export function useManagerAttendance() {
             full_name: fullName,
             department: dept,
             position: position,
-            status: item.status,
+            status: normalizeAttendanceStatus(item.status),
             clock_in: formatApiTime(item.clockInTime || item.clock_in),
             clock_out: formatApiTime(item.clockOutTime || item.clock_out),
             work_hours: item.totalHours ?? item.hours_worked ?? item.work_hours ?? null,
@@ -999,10 +1014,11 @@ export function useManagerAttendance() {
           employee_id: String(emp._id).trim(),
           employee_code: emp.employeeId,
           full_name: `${emp.firstName} ${emp.lastName}`,
-          department: emp.department?.name || 'Department',
+          // Departments are stored as text on the employee (an object on some older records).
+          department: (typeof emp.department === 'object' ? emp.department?.name : emp.department) || '-',
           position: emp.position,
           email: emp.email,
-          status: emp.status,
+          status: emp.employmentStatus || emp.status,
         }));
         setEmployees(transformed);
         const depts = Array.from(new Set(transformed.map(e => e.department))) as string[];
@@ -1052,17 +1068,21 @@ export function useManagerAttendance() {
   const scheduledStats = useMemo<AttendanceStats>(() => {
     const present = scheduledTodayAttendance.filter(r => r.status === "present" || r.status === "half_day").length;
     const late    = scheduledTodayAttendance.filter(r => r.status === "late").length;
-    const absent  = scheduledTodayAttendance.filter(r => r.status === "absent").length;
-    const total   = scheduledTodayAttendance.length;
+    // Out of everyone who should be at work: all active employees (once loaded),
+    // not just the people who have a record today (that showed 1/1 = 100%).
+    const activeEmployees = employees.filter(e => !["terminated", "resigned", "inactive", "suspended"].includes(String(e.status || "").toLowerCase())).length;
+    const total   = activeEmployees || scheduledTodayAttendance.length;
+    const onLeave = scheduledTodayAttendance.filter(r => r.status === "leave").length;
+    const absent  = Math.max(0, total - present - late - onLeave);
     return {
       totalEmployees:  total,
-      todayPresent:    present,
+      todayPresent:    present + late,
       todayAbsent:     absent,
       todayLate:       late,
       todayPercentage: total ? Math.round(((present + late) / total) * 100) : 0,
       monthlyAverage:  stats.monthlyAverage,
     };
-  }, [scheduledTodayAttendance, stats.monthlyAverage]);
+  }, [scheduledTodayAttendance, employees, stats.monthlyAverage]);
 
   const filtered = useMemo(() => {
     const pool = filters.dateRange === "today" ? scheduledTodayAttendance : scheduledAllHistory;
