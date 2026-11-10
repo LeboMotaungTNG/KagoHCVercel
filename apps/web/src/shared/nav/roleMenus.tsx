@@ -203,6 +203,8 @@ const ownerNav: AppShellNav = {
         { kind: "link", to: "/owner", label: "Dashboard", icon: Home, exact: true },
         { kind: "link", to: "/owner/my-leave", label: "My Leave", icon: Calendar },
         { kind: "link", to: "/owner/leave", label: "Team Leave", icon: ClipboardList },
+        { kind: "link", to: "/manager/overtime-approvals", label: "Overtime Approvals", icon: Clock },
+        { kind: "link", to: "/manager/team-overtime", label: "Overtime History", icon: TrendingUp },
         { kind: "link", to: "/owner/my-attendance", label: "My Attendance", icon: Clock },
         { kind: "link", to: "/owner/attendance", label: "Team Attendance", icon: Calendar },
         { kind: "link", to: "/owner/payroll", label: "Payroll", icon: Banknote },

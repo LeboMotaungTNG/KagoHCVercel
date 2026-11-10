@@ -45,14 +45,34 @@ const AVATAR_COLORS = [C.coral, "#12b76a", "#f79009", "#ee46bc", "#7a5af8", "#f0
 
 export const normalizeOvertimeRequests = (data: any): OvertimeRequest[] => {
   const rows = Array.isArray(data) ? data : data?.requests;
-  return (rows || []).map((request: any) => ({
-    ...request,
-    id: request.id || request._id,
-    employeeName: request.employeeName || request.employee?.name || request.employee?.firstName,
-    hours: Number(request.hours || 0),
-    rate: Number(request.rate || 1.5),
-    status: request.status || "pending",
-  }));
+  // The API populates the employee into employeeId ({ firstName, lastName }).
+  const person = (request: any) => {
+    const e = typeof request.employeeId === "object" && request.employeeId ? request.employeeId : request.employee;
+    return `${e?.firstName || ""} ${e?.lastName || ""}`.trim() || e?.name || "";
+  };
+  return (rows || [])
+    .map((request: any) => ({
+      ...request,
+      id: request.id || request._id,
+      employeeId: typeof request.employeeId === "object" ? request.employeeId?._id : request.employeeId,
+      employeeName: request.employeeName || person(request) || "—",
+      // Dates arrive as timestamps; show the calendar day.
+      date: String(request.date || "").slice(0, 10),
+      hours: Number(request.hours || 0),
+      rate: Number(request.rate || 1.5),
+      status: request.status || "pending",
+      rejectionReason: request.rejectionReason || "",
+      source: request.source || "manual",
+    }))
+    // Newest first.
+    .sort((a: OvertimeRequest, b: OvertimeRequest) => b.date.localeCompare(a.date));
+};
+
+/** Extra detail for a row: the rejection reason, or that it was recorded automatically. */
+export const overtimeNotes = (request: OvertimeRequest) => {
+  if (request.status === "rejected" && request.rejectionReason) return `Rejected: ${request.rejectionReason}`;
+  if (request.source === "automatic") return "Recorded automatically (worked past standard hours)";
+  return request.notes || "—";
 };
 
 export const hoursBetween = (start: string, end: string) => {

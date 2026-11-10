@@ -221,8 +221,9 @@ export const loadOvertimeRequests = () =>
 export const approveOvertime = (id: string, notes = "") =>
   send<any>(`/attendance/overtime/requests/${id}/approve`, "PUT", { notes });
 
-export const rejectOvertime = (id: string, notes = "") =>
-  send<any>(`/attendance/overtime/requests/${id}/reject`, "PUT", { notes });
+/** The backend requires a reason; it's shown to the employee. */
+export const rejectOvertime = (id: string, reason: string) =>
+  send<any>(`/attendance/overtime/requests/${id}/reject`, "PUT", { reason });
 
 export const approvePayrollRunApi = (runId: string) =>
   send<any>(`/payroll/runs/${runId}/approve`, "POST");

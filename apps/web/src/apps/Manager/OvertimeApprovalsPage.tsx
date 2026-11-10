@@ -1,6 +1,6 @@
 import React from "react";
 import { Check, X } from "lucide-react";
-import SharedLayout from "./SharedLayout";
+import AppShell from "../../shared/components/AppShell";
 import { C } from "../../shared/utils/employee";
 import { orgApi, type OvertimeRequest } from "../../shared/utils/organizationSettings";
 import {
@@ -17,13 +17,20 @@ export const OvertimeApprovalsContent: React.FC = () => {
     .reduce((total, row) => total + row.hours, 0);
 
   const decide = async (request: OvertimeRequest, approved: boolean) => {
+    let reason = "";
+    if (!approved) {
+      reason = (window.prompt(`Why is ${request.employeeName || "this"} overtime on ${request.date} not approved? The employee will see this.`) || "").trim();
+      if (!reason) return; // cancelled, or no reason given
+    }
     try {
       const response = approved
         ? await orgApi.approveOvertime(request.id)
-        : await orgApi.rejectOvertime(request.id);
+        : await orgApi.rejectOvertime(request.id, reason);
       if (!response.success) throw new Error(response.message || "Update failed");
       setRequests((current) => current.map((row) => (
-        row.id === request.id ? { ...row, status: approved ? "approved" : "rejected" } : row
+        row.id === request.id
+          ? { ...row, status: approved ? "approved" : "rejected", ...(approved ? {} : { rejectionReason: reason }) }
+          : row
       )));
     } catch (error) {
       setMessage(error instanceof Error ? error.message : "Could not update request.");
@@ -99,9 +106,10 @@ export const OvertimeApprovalsContent: React.FC = () => {
 };
 
 const OvertimeApprovalsPage: React.FC = () => (
-  <SharedLayout title="Overtime Approvals">
+  // No role prop: each user keeps their own menu (owner, admin/HR).
+  <AppShell title="Overtime Approvals">
     <OvertimeApprovalsContent />
-  </SharedLayout>
+  </AppShell>
 );
 
 export default OvertimeApprovalsPage;
