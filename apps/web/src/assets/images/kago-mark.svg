@@ -1,0 +1,11 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 88 80" fill="none" aria-hidden="true">
+  <!-- Left person -->
+  <circle cx="22.5" cy="20" r="8.2" stroke="#fff" stroke-width="3.2"/>
+  <path d="M10 72 L22.5 32.5 L35 72 Z" stroke="#fff" stroke-width="3.2" stroke-linejoin="round"/>
+  <!-- Right person -->
+  <circle cx="65.5" cy="20" r="8.2" stroke="#fff" stroke-width="3.2"/>
+  <path d="M53 72 L65.5 32.5 L78 72 Z" stroke="#fff" stroke-width="3.2" stroke-linejoin="round"/>
+  <!-- Centre person (in front) -->
+  <circle cx="44" cy="13.5" r="9.4" stroke="#fff" stroke-width="3.2"/>
+  <path d="M26.5 76 L44 27 L61.5 76 Z" stroke="#fff" stroke-width="3.2" stroke-linejoin="round"/>
+</svg>

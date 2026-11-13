@@ -18,6 +18,7 @@ import {
 import { Building2, ClipboardList } from "lucide-react";
 import DocumentsLibraryTab from "./DocumentsLibraryTab";
 import OvertimeControlPanel from "./OvertimeControlPanel";
+import WorkingHoursPanel from "./WorkingHoursPanel";
 import { C } from "../../shared/utils/employee";
 import { FilterTabs, PageHero, PerformancePage } from "./ownerUi";
 
@@ -1510,19 +1511,20 @@ const LeaveSettingsTab = () => {
 // MAIN ORGANIZATION SETTINGS PAGE
 // ============================================
 export const OrganizationSettingsPage = () => {
-  const [activeTab, setActiveTab] = useState<"company" | "payroll" | "leave" | "documents">("company");
+  const [activeTab, setActiveTab] = useState<"company" | "hours" | "payroll" | "leave" | "documents">("company");
 
   return (
     <PerformancePage maxWidth={1200}>
       <PageHero
         icon={<Building2 size={24} color="#fff" />}
         title="Organisation settings"
-        subtitle="Company profile, payroll rules, leave types, and documents."
+        subtitle="Company profile, working hours, payroll rules, leave types, and documents."
       />
       <div className="mb-4">
         <FilterTabs
           tabs={[
             { key: "company", label: "Company Details" },
+            { key: "hours", label: "Working Hours" },
             { key: "payroll", label: "Payroll" },
             { key: "leave", label: "Leave" },
             { key: "documents", label: "Documents Library" },
@@ -1532,6 +1534,7 @@ export const OrganizationSettingsPage = () => {
         />
       </div>
       {activeTab === "company" && <CompanyDetailsTab />}
+      {activeTab === "hours" && <WorkingHoursPanel />}
       {activeTab === "payroll" && <PayrollSettingsTab />}
       {activeTab === "leave" && <LeaveSettingsTab />}
       {activeTab === "documents" && <DocumentsLibraryTab />}

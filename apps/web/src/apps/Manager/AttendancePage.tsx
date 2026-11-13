@@ -8,6 +8,7 @@ import {
   STATUS_COLORS,
   badgeStyle,
   fmtTime,
+  fmtClockOut,
   pad2,
   addDays,
   isWeekend,
@@ -319,7 +320,7 @@ function DetailsModal({ row, onClose, onExport }: { row: ManagerAttendanceRecord
             { label: "Position", value: asText(row.position) },
             { label: "Status", value: <span style={{ display: "inline-block", padding: "3px 12px", borderRadius: 20, fontSize: 12, fontWeight: 700, textTransform: "capitalize", ...badgeStyle(row.status) }}>{row.status.replace("_", " ")}</span> },
             { label: "Clock In",  value: fmtTime(row.clock_in)  || "—" },
-            { label: "Clock Out", value: fmtTime(row.clock_out) || "—" },
+            { label: "Clock Out", value: fmtClockOut(row.clock_out, row.clock_in, row.date) },
             { label: "Work Hours", value: row.work_hours != null ? `${row.work_hours.toFixed(1)}h` : "—" },
             { label: "Date", value: row.date || "—" },
           ].map(({ label, value }) => (
@@ -499,7 +500,7 @@ function AttendanceContent() {
                               <span style={{ display: "inline-block", padding: "3px 12px", borderRadius: 20, fontSize: 12, fontWeight: 700, textTransform: "capitalize", ...badgeStyle(row.status) }}>{row.status.replace("_", " ")}</span>
                             </td>
                             <td style={{ padding: "13px 16px", fontSize: 14, color: "#667085", fontVariantNumeric: "tabular-nums" }}>{fmtTime(row.clock_in)}</td>
-                            <td style={{ padding: "13px 16px", fontSize: 14, color: "#667085", fontVariantNumeric: "tabular-nums" }}>{fmtTime(row.clock_out)}</td>
+                            <td style={{ padding: "13px 16px", fontSize: 14, color: "#667085", fontVariantNumeric: "tabular-nums" }}>{fmtClockOut(row.clock_out, row.clock_in, row.date)}</td>
                             <td style={{ padding: "13px 16px", fontSize: 14 }}>
                               {row.work_hours != null ? <strong style={{ color: "#1d2939" }}>{row.work_hours.toFixed(1)}h</strong> : <span style={{ color: "#9ca3af" }}>—</span>}
                             </td>
