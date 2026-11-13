@@ -177,6 +177,18 @@ export function captureLocation(): Promise<{ latitude: number; longitude: number
   });
 }
 
+/** Label for a clock-out cell. An empty clock-out means different things
+ *  depending on whether the person clocked in and whether the day is over. */
+export function fmtClockOut(
+  clockOut: string | null | undefined,
+  clockIn: string | null | undefined,
+  date?: string | null,
+): string {
+  if (clockOut) return fmtTime(clockOut);
+  if (!clockIn) return "—";
+  return !date || date.slice(0, 10) === todayISO() ? "In progress" : "Not clocked out";
+}
+
 export function fmtTime(raw: string | null | undefined): string {
   if (!raw) return "Not clocked in";
 
@@ -219,7 +231,8 @@ export function calcWorkHours(clockIn: string, clockOut: string): number {
 /* ─────────────────────────────────────────────────────────────────────────
  * Work schedule (frontend-only, per-browser).
  *
- * Lets a Manager pin the expected arrival / departure time so that
+ * Lets the Owner (Organisation settings → Working Hours) pin the expected
+ * arrival / departure time so that
  * any employee whose clock-in is later than `arrivalTime + graceMinutes`
  * is automatically reclassified as "late" in the Manager Attendance UI.
  *
@@ -235,8 +248,8 @@ export interface WorkSchedule {
 }
 
 export const DEFAULT_WORK_SCHEDULE: WorkSchedule = {
-  arrivalTime:   "08:00",
-  departureTime: "17:00",
+  arrivalTime:   "08:30",
+  departureTime: "17:30",
   graceMinutes:  0,
 };
 

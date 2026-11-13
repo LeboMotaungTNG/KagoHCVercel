@@ -11,6 +11,7 @@ import {
   STATUS_COLORS,
   badgeStyle,
   fmtTime,
+  fmtClockOut,
   pad2,
   exportEmployeeCSV,
   matchesDateRange,
@@ -234,7 +235,7 @@ const ClockPanel: React.FC<ClockPanelProps> = ({ state, onClockIn, onClockOut, l
       <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 12, marginBottom: 20 }}>
         {[
           { label: "Clock In",  value: fmtTime(state.clockInTime),  color: "#10b981" },
-          { label: "Clock Out", value: fmtTime(state.clockOutTime), color: "#ef4444" },
+          { label: "Clock Out", value: fmtClockOut(state.clockOutTime, state.clockInTime), color: "#ef4444" },
           { label: "Elapsed",   value: active ? elapsed : state.sessionHours != null ? `${state.sessionHours.toFixed(2)}h` : "", color: C.primary },
         ].map(({ label, value, color }) => (
           <div key={label} style={{ background: "rgba(255,255,255,0.72)", backdropFilter: "blur(4px)", borderRadius: 12, padding: "14px 16px" }}>
@@ -522,7 +523,7 @@ const RecordModal: React.FC<{ record: AttendanceRecord; onClose: () => void }> =
       <div style={{ padding: 24, display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14 }}>
         {[
           { label: "Clock In",   value: fmtTime(record.clock_in)  },
-          { label: "Clock Out",  value: fmtTime(record.clock_out) },
+          { label: "Clock Out",  value: fmtClockOut(record.clock_out, record.clock_in, record.date) },
           { label: "Work Hours", value: record.work_hours != null ? `${record.work_hours.toFixed(2)}h` : "" },
           { label: "Date",       value: record.date },
         ].map(({ label, value }) => (
@@ -633,7 +634,7 @@ const HistoryTable: React.FC<HistoryTableProps> = ({ records, onSelect }) => {
                     </span>
                   </td>
                   <td style={{ padding: "13px 16px", fontSize: 14, color: "#667085", fontVariantNumeric: "tabular-nums" }}>{fmtTime(row.clock_in)}</td>
-                  <td style={{ padding: "13px 16px", fontSize: 14, color: "#667085", fontVariantNumeric: "tabular-nums" }}>{fmtTime(row.clock_out)}</td>
+                  <td style={{ padding: "13px 16px", fontSize: 14, color: "#667085", fontVariantNumeric: "tabular-nums" }}>{fmtClockOut(row.clock_out, row.clock_in, row.date)}</td>
                   <td style={{ padding: "13px 16px", fontSize: 14 }}>
                     {row.work_hours != null
                       ? <strong style={{ color: "#1d2939" }}>{row.work_hours.toFixed(2)}h</strong>
