@@ -56,7 +56,7 @@ export function useFrameworkLibrary() {
       setActivatingId(sourceFrameworkId);
       try {
         const existing =
-          tenantFrameworks.find((tf) => tf.sourceFrameworkId === sourceFrameworkId) ?? null;
+          pickTenantCopy(tenantFrameworks, sourceFrameworkId) ?? null;
         const activated = await activateFramework(sourceFrameworkId, department, existing);
         setTenantFrameworks((prev) => {
           const without = prev.filter(
@@ -83,4 +83,18 @@ export function useFrameworkLibrary() {
     activatingId,
     reload: load,
   };
+}
+
+/**
+ * The company's copy of a library framework to customise or re-assign:
+ * the active (published) one first, then a draft. Archived older versions are
+ * ignored — they can't be edited or assigned, which made Customise/Re-assign fail.
+ */
+export function pickTenantCopy<T extends { sourceFrameworkId?: string; status?: string; version?: number }>(
+  list: T[],
+  sourceFrameworkId: string,
+): T | undefined {
+  const copies = list.filter((tf) => tf.sourceFrameworkId === sourceFrameworkId && tf.status !== 'archived');
+  const rank = (s?: string) => (s === 'published' ? 0 : s === 'draft' ? 1 : 2);
+  return copies.sort((a, b) => rank(a.status) - rank(b.status) || (b.version ?? 0) - (a.version ?? 0))[0];
 }

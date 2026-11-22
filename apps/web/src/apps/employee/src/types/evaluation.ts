@@ -112,7 +112,17 @@ export interface Evaluation {
   ownerDecisionComment?: string;
   ownerDecidedAt?: string;
   linkedEvaluationId?: string;
+  /** Audit trail: each step, who took it and when. */
+  history?: EvaluationHistoryEntry[];
   createdAt: string;
+}
+
+export interface EvaluationHistoryEntry {
+  action: 'submitted' | 'moderation_started' | 'submitted_to_owner' | 'accepted' | 'rejected' | 'changes_requested' | string;
+  byName?: string;
+  role?: string;
+  at: string;
+  comment?: string;
 }
 
 /** Goal frozen onto an evaluation so later goal edits don't rewrite history. */

@@ -644,3 +644,17 @@ export async function queryEvaluations(params: {
   const data = await http.get<unknown>(`/evaluations?${qs}`);
   return asEvaluationList(data).filter((e) => matchesEvaluationQuery(e, params));
 }
+
+/** Owner/admin/HR: create a period's manager reviews, assigned to each employee's manager. */
+export interface AssignReviewsResult {
+  assigned: Array<{ evaluationId: string; employeeId: string; name: string; managerId: string }>;
+  skipped: Array<{ employeeId: string; name: string; reason: string }>;
+}
+export async function assignReviewsToManagers(payload: {
+  period: string;
+  department?: string;
+  employeeIds?: string[];
+  purpose?: 'annual' | 'quarterly' | 'probation' | 'ad_hoc';
+}): Promise<AssignReviewsResult & { message?: string }> {
+  return http.post<AssignReviewsResult & { message?: string }>('/evaluations/assign', payload);
+}

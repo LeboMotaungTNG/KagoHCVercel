@@ -21,6 +21,7 @@ import {
 import { PageHero } from "../employee/src/components/PerformanceUI";
 import MyClockCard from "../../shared/components/MyClockCard";
 import { isManagerReviewStatus, leaveApiMessage } from "../../shared/utils/LeaveUtils";
+import { canOnboardEmployees } from "../../shared/utils/onboardingAccess";
 
 const token = () => localStorage.getItem("token") || "";
 
@@ -436,7 +437,8 @@ const TeamRosterCard: React.FC<{ roster: any[]; loading: boolean }> = ({ roster,
 const QuickActionsCard: React.FC = () => {
   const navigate = useNavigate();
   const actions = [
-    { label: "Add Employee",   path: "/manager/manage-employees", icon: <Plus size={18} />,     bg: C.coralBg,  color: C.coral  },
+    // Onboarding is for the owner, admins and HR only.
+    ...(canOnboardEmployees() ? [{ label: "Add Employee",   path: "/manager/manage-employees", icon: <Plus size={18} />,     bg: C.coralBg,  color: C.coral  }] : []),
     { label: "All Employees",  path: "/manager/employees",        icon: <Users size={18} />,    bg: C.blueBg,   color: C.blue   },
     { label: "Clock in",       path: "/manager/my-attendance",    icon: <Clock size={18} />,    bg: C.greenBg,  color: C.green  },
     { label: "Team attendance", path: "/manager/attendance",      icon: <Clock size={18} />,    bg: C.blueBg,   color: C.blue   },

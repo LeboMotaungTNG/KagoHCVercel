@@ -11,6 +11,7 @@ import {
 import { resolveCurrentEmployee } from '../../utils/resolveEmployee';
 import { C, FONT_NUM, R } from '../../../../../shared/utils/employee';
 import type { EmployeeGoal, GoalStatus, OrganizationalObjective } from '../../types/goals';
+import ObjectivesOverview from '../../components/ObjectivesOverview';
 
 const STATUS_STYLE: Record<GoalStatus, { bg: string; color: string; label: string }> = {
   draft: { bg: C.surfaceAlt, color: C.muted, label: 'Draft' },
@@ -124,10 +125,15 @@ export default function GoalsPage() {
         </div>
       )}
 
+      <ObjectivesOverview
+        objectives={objectives}
+        hint="Your company's objectives for you and your department. Your manager sets your goals under these."
+      />
+
       {goals.length === 0 && (
         <EmptyState
           icon={<Target size={28} />}
-          message="No goals assigned yet. Your manager will set goals under organisational objectives."
+          message="No goals assigned yet. Your manager will set goals under the organisational objectives above."
         />
       )}
 

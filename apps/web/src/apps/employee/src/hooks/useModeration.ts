@@ -4,6 +4,7 @@ import {
   saveEvaluationScores,
   scoreEvaluation,
   submitEvaluation,
+  submitToOwner,
 } from '../api/evaluations.api';
 import { updateGoalAssessedProgress } from '../utils/goalScoring';
 import type { Evaluation, EvaluationItem, SnapshotGoal } from '../types/evaluation';
@@ -98,7 +99,13 @@ export function useModeration(moderationId: string) {
   
     if (!managerEval) return;
   
-    const submitted = await submitEvaluation(managerEval._id);
+    // A moderation (linked to a self-review) goes to the owner for approval;
+    // a standalone manager review is submitted as before.
+    // Moderations and reviews the owner assigned go to the owner for approval;
+    // only an old-style standalone draft is submitted the old way.
+    const submitted = managerEval.linkedEvaluationId || managerEval.status !== 'draft'
+      ? await submitToOwner(managerEval._id)
+      : await submitEvaluation(managerEval._id);
   
     setManagerEval(submitted);
   
@@ -113,9 +120,9 @@ export function useModeration(moderationId: string) {
   const getItem = (criterionId: string) => items.find((i) => i.criterionId === criterionId);
   const getSelfItem = (criterionId: string) => selfEval?.items.find((i) => i.criterionId === criterionId);
 
-  const locked =
-  managerEval?.status === 'submitted' ||
-  managerEval?.status === 'signed_off';
+  // Editable while being moderated or after the owner sent it back; locked once
+  // it's with the owner or decided.
+  const locked = !!managerEval && ![ 'draft', 'manager_in_progress', 'changes_requested' ].includes(managerEval.status);
 
   return {
     managerEval,

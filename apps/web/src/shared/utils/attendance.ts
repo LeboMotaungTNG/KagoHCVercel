@@ -229,7 +229,10 @@ export function calcWorkHours(clockIn: string, clockOut: string): number {
 }
 
 /* ─────────────────────────────────────────────────────────────────────────
- * Work schedule (frontend-only, per-browser).
+ * Work schedule — stored on the SERVER per company (GET/PUT
+ * /attendance/work-schedule), so every user and device sees the same hours and
+ * the server marks late clock-ins with it. The browser copy below is only a
+ * cache so pages can show the hours instantly.
  *
  * Lets the Owner (Organisation settings → Working Hours) pin the expected
  * arrival / departure time so that
@@ -274,16 +277,55 @@ export function loadWorkSchedule(): WorkSchedule {
   }
 }
 
+/** Updates the browser cache and tells open pages (not the server). */
 export function saveWorkSchedule(s: WorkSchedule): void {
   if (typeof window === "undefined") return;
   window.localStorage.setItem(WORK_SCHEDULE_KEY, JSON.stringify(s));
   window.dispatchEvent(new CustomEvent<WorkSchedule>(WORK_SCHEDULE_EVENT, { detail: s }));
 }
 
-export function useWorkSchedule(): [WorkSchedule, (next: WorkSchedule) => void] {
+const authHeaders = (): Record<string, string> => {
+  const token = typeof window !== "undefined" ? window.localStorage.getItem("token") : null;
+  return { "Content-Type": "application/json", ...(token ? { Authorization: `Bearer ${token}` } : {}) };
+};
+
+/** The company's working hours from the server (null if it can't be reached). */
+export async function fetchWorkSchedule(): Promise<WorkSchedule | null> {
+  try {
+    const res = await fetch(`${API_URL}/attendance/work-schedule`, { headers: authHeaders() });
+    if (!res.ok) return null;
+    const body = await res.json();
+    const d = body?.data;
+    if (!d?.arrivalTime) return null;
+    const schedule: WorkSchedule = { arrivalTime: d.arrivalTime, departureTime: d.departureTime, graceMinutes: Number(d.graceMinutes) || 0 };
+    saveWorkSchedule(schedule);
+    return schedule;
+  } catch {
+    return null;
+  }
+}
+
+/** Saves the company's working hours on the server (owner/admin/HR). Throws with the server's message. */
+export async function updateWorkSchedule(next: WorkSchedule): Promise<WorkSchedule> {
+  const res = await fetch(`${API_URL}/attendance/work-schedule`, {
+    method: "PUT",
+    headers: authHeaders(),
+    body: JSON.stringify(next),
+  });
+  const body = await res.json().catch(() => ({}));
+  if (!res.ok) throw new Error(body?.message || "Working hours could not be saved.");
+  const d = body?.data || next;
+  const saved: WorkSchedule = { arrivalTime: d.arrivalTime, departureTime: d.departureTime, graceMinutes: Number(d.graceMinutes) || 0 };
+  saveWorkSchedule(saved);
+  return saved;
+}
+
+export function useWorkSchedule(): [WorkSchedule, (next: WorkSchedule) => Promise<WorkSchedule>] {
   const [schedule, setSchedule] = useState<WorkSchedule>(() => loadWorkSchedule());
   useEffect(() => {
     if (typeof window === "undefined") return;
+    // The server's hours replace the cached copy as soon as they arrive.
+    void fetchWorkSchedule().then(s => { if (s) setSchedule(s); });
     const onChange = (e: Event) => {
       const detail = (e as CustomEvent<WorkSchedule>).detail;
       if (detail) setSchedule(detail);
@@ -298,9 +340,10 @@ export function useWorkSchedule(): [WorkSchedule, (next: WorkSchedule) => void] 
       window.removeEventListener("storage", onStorage);
     };
   }, []);
-  const set = useCallback((next: WorkSchedule) => {
-    saveWorkSchedule(next);
-    setSchedule(next);
+  const set = useCallback(async (next: WorkSchedule) => {
+    const saved = await updateWorkSchedule(next);
+    setSchedule(saved);
+    return saved;
   }, []);
   return [schedule, set];
 }

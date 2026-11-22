@@ -13,6 +13,7 @@ import { loadDocumentsForEmployee } from "../../shared/utils/documentsLibrary";
 import { STATUS_LABELS } from "../../shared/utils/LeaveUtils";
 import { Users } from "lucide-react";
 import { PageHero } from "./managerUi";
+import { canOnboardEmployees } from "../../shared/utils/onboardingAccess";
 
 // --- Types (previously from admin/employee-profile.types) --------------------
 
@@ -928,6 +929,7 @@ function EmployeeProfileContent() {
                   >
                     <IconRefresh /> Refresh
                   </button>
+                  {canOnboardEmployees() && (
                   <a
                     href="/manager/manage-employees"
                     style={{
@@ -938,6 +940,7 @@ function EmployeeProfileContent() {
                   >
                     <IconPlus /> Add New
                   </a>
+                  )}
                 </div>
               </div>
             </div>
@@ -1931,6 +1934,7 @@ function EmployeeProfileContent() {
                   <p style={{ fontSize: 14, color: "#667085", marginBottom: 24 }}>
                     Select an employee from the dropdown above to view their profile details.
                   </p>
+                  {canOnboardEmployees() && (
                   <a
                     href="/manager/manage-employees"
                     style={{
@@ -1941,6 +1945,7 @@ function EmployeeProfileContent() {
                   >
                     <IconPlus /> Add New Employee
                   </a>
+                  )}
                 </div>
               </div>
             ) : null}

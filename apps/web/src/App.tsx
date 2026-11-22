@@ -25,6 +25,7 @@ import ManagerModerationPage from "./apps/Manager/ManagerModerationPage";
 import ManagerTeamGoalsPage from "./apps/Manager/ManagerTeamGoalsPage";
 import EmployeeProfile from "./apps/Manager/EmployeeProfile";
 import ManageEmployees from "./apps/Manager/ManageEmployees";
+import HrOnboardingPage from "./apps/Manager/HrOnboardingPage";
 import EmployeesPage from "./apps/Manager/EmployeesPage";
 import AttendancePage from "./apps/Manager/AttendancePage";
 import ManagerMyAttendance from "./apps/Manager/ManagerMyAttendance";
@@ -116,7 +117,8 @@ const App: React.FC = () => (
       <Route path="/manager/profile-verifications" element={<Guard roles={VerificationHrArea}><HrProfileVerificationPage /></Guard>} />
       {/* Notifications link straight to one employee: /manager/profile-verifications/<employeeId> */}
       <Route path="/manager/profile-verifications/:id" element={<Guard roles={VerificationHrArea}><HrProfileVerificationPage /></Guard>} />
-      <Route path="/manager/manage-employees" element={<Guard roles={ManagerArea}><ManageEmployees /></Guard>} />
+      {/* Onboarding: owner, admins and HR only — the same roles the server accepts. */}
+      <Route path="/manager/manage-employees" element={<Guard roles={["admin", "hr", "hr_manager", "owner"]}><HrOnboardingPage /></Guard>} />
       <Route path="/manager/employees"        element={<Guard roles={ManagerArea}><EmployeesPage /></Guard>} />
       <Route path="/manager/attendance"       element={<Guard roles={ManagerArea}><AttendancePage /></Guard>} />
       <Route path="/manager/my-attendance"    element={<Guard roles={ManagerArea}><ManagerMyAttendance /></Guard>} />
@@ -126,12 +128,14 @@ const App: React.FC = () => (
       {/* Overtime is approved by HR or the owner, so owners and HR managers can open these too. */}
       <Route path="/manager/overtime-approvals" element={<Guard roles={[...ManagerArea, "owner", "hr_manager"]}><OvertimeApprovalsPage /></Guard>} />
       <Route path="/manager/team-overtime"      element={<Guard roles={[...ManagerArea, "owner", "hr_manager"]}><TeamOvertimePage /></Guard>} />
-      <Route path="/manager/performance"     element={<Guard roles={ManagerArea}><ManagerReviewPage /></Guard>} />
+      {/* Line managers moderate their team's reviews too. */}
+      <Route path="/manager/performance"     element={<Guard roles={[...ManagerArea, "line_manager"]}><ManagerReviewPage /></Guard>} />
       <Route path="/manager/my-performance/*" element={<Guard roles={ManagerArea}><EmployeePerformance basePath="/manager/my-performance" /></Guard>} />
       <Route path="/manager/self-review"     element={<Navigate to="/manager/my-performance/self-review" replace />} />
-      <Route path="/manager/team-goals"      element={<Guard roles={ManagerArea}><ManagerTeamGoalsPage /></Guard>} />
+      {/* Line managers assign goals to their team too. */}
+      <Route path="/manager/team-goals"      element={<Guard roles={[...ManagerArea, "line_manager"]}><ManagerTeamGoalsPage /></Guard>} />
       <Route path="/manager/insights"        element={<Guard roles={ManagerArea}><ManagerAnalyticsPage /></Guard>} />
-      <Route path="/manager/moderate/:id"    element={<Guard roles={ManagerArea}><ManagerModerationPage /></Guard>} />
+      <Route path="/manager/moderate/:id"    element={<Guard roles={[...ManagerArea, "line_manager"]}><ManagerModerationPage /></Guard>} />
       <Route path="/delegations"             element={<Guard roles={['manager', 'admin', 'hr', 'owner', 'line_manager', 'payroll_officer', 'hr_manager']}><DelegationManagement /></Guard>} />
       <Route path="/delegations/:id"         element={<Guard roles={['manager', 'admin', 'hr', 'owner', 'line_manager', 'payroll_officer', 'hr_manager']}><DelegationManagement /></Guard>} />
 
