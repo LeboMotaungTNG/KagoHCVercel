@@ -17,6 +17,7 @@ import {
 } from '../employee/src/components/PerformanceUI';
 
 function empName(e: Evaluation) {
+  if (!e.employeeId) return 'Former employee'; // that employee record no longer exists
   if (typeof e.employeeId === 'string') return e.employeeId;
   return `${e.employeeId.firstName} ${e.employeeId.lastName}`;
 }
