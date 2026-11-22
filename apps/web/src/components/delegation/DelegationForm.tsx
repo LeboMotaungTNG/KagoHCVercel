@@ -52,9 +52,19 @@ const DelegationForm: React.FC<DelegationFormProps> = ({ onSuccess, onCancel }) 
     });
   };
 
+  const [formError, setFormError] = useState<string | null>(null);
+  const [formNotice, setFormNotice] = useState<string | null>(null);
+
   const handleSubmit = async (event: React.FormEvent) => {
     event.preventDefault();
-    if (!formData.delegateId || !formData.startDate || !formData.endDate) return;
+    setFormNotice(null);
+    // Say what's wrong instead of silently doing nothing.
+    if (!formData.delegateId) { setFormError("Choose who will act on your behalf."); return; }
+    if (!formData.startDate || !formData.endDate) { setFormError("Choose a start date and an end date."); return; }
+    if (formData.endDate < formData.startDate) { setFormError("The end date can't be before the start date."); return; }
+    const today = new Date(); const todayKey = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, "0")}-${String(today.getDate()).padStart(2, "0")}`;
+    if (formData.startDate < todayKey) { setFormError("The delegation can't start in the past."); return; }
+    setFormError(null);
     try {
       await createDelegation({
         delegateId: formData.delegateId,
@@ -65,14 +75,26 @@ const DelegationForm: React.FC<DelegationFormProps> = ({ onSuccess, onCancel }) 
         scope: formData.scope,
         reason: formData.reason || undefined,
       });
+      setFormNotice(`Delegated to ${formData.delegateName || "your delegate"} — they've been notified.`);
       onSuccess?.();
     } catch (error) {
       console.error("Failed to create delegation:", error);
+      setFormError(error instanceof Error ? error.message : "The delegation could not be created.");
     }
   };
 
   return (
-    <form onSubmit={handleSubmit}>
+    <form onSubmit={handleSubmit} noValidate>
+      {formError && (
+        <div role="alert" style={{ marginBottom: 12, padding: "10px 12px", borderRadius: 8, background: "#FEF3F2", color: "#B42318", fontSize: 13, fontWeight: 600 }}>
+          {formError}
+        </div>
+      )}
+      {formNotice && (
+        <div role="status" style={{ marginBottom: 12, padding: "10px 12px", borderRadius: 8, background: "#ECFDF3", color: "#067647", fontSize: 13, fontWeight: 600 }}>
+          {formNotice}
+        </div>
+      )}
       <h3 style={{ margin: "0 0 16px", fontSize: 17, fontWeight: 600, color: C.ink }}>Create delegation</h3>
       <div style={{ display: "grid", gap: 16 }}>
         <label>
