@@ -25,7 +25,9 @@ import type { Evaluation, EvaluationStatus } from '../../types/evaluation';
 
 type DecisionAction = 'reject' | 'request_changes';
 
+// employeeId is null when that employee record no longer exists.
 function empName(e: Evaluation) {
+  if (!e.employeeId) return 'Former employee';
   return typeof e.employeeId === 'string'
     ? e.employeeId
     : `${e.employeeId.firstName} ${e.employeeId.lastName}`;
@@ -254,7 +256,7 @@ export default function ReviewsDashboardPage() {
   const gapPanel = useMemo(() => {
     const byEmployeePeriod: Record<string, { manager?: Evaluation; self?: Evaluation }> = {};
     evaluations.forEach((e) => {
-      const empId = typeof e.employeeId === 'string' ? e.employeeId : e.employeeId._id;
+      const empId = !e.employeeId ? '' : typeof e.employeeId === 'string' ? e.employeeId : e.employeeId._id;
       const key = `${empId}::${e.period}`;
       byEmployeePeriod[key] = byEmployeePeriod[key] ?? {};
       if (e.type === 'manager_review') byEmployeePeriod[key].manager = e;

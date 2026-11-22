@@ -69,13 +69,16 @@ const INTERVENTION_CATALOG: Record<
   },
 };
 
+// employeeId is null when that employee record no longer exists.
 function empName(e: Evaluation): string {
+  if (!e.employeeId) return 'Former employee';
   return typeof e.employeeId === 'string'
     ? e.employeeId
     : `${e.employeeId.firstName} ${e.employeeId.lastName}`;
 }
 
 function empId(e: Evaluation): string {
+  if (!e.employeeId) return '';
   return typeof e.employeeId === 'string' ? e.employeeId : e.employeeId._id;
 }
 

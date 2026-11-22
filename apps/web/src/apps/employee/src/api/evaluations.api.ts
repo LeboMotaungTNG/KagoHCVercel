@@ -33,13 +33,19 @@ function sleep(ms = 200) {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
+// employeeId arrives as an id or as the populated employee — or null when that
+// employee record no longer exists. Never crash the whole list over one row.
 function empIdOf(e: Evaluation): string {
-  return typeof e.employeeId === 'string' ? e.employeeId : e.employeeId._id;
+  const ref = e.employeeId as unknown as { _id?: string } | string | null | undefined;
+  if (!ref) return '';
+  return typeof ref === 'string' ? ref : String(ref._id ?? '');
 }
 
 function empNameOf(e: Evaluation): string {
-  if (typeof e.employeeId === 'string') return e.employeeId;
-  return `${e.employeeId.firstName} ${e.employeeId.lastName}`.trim();
+  const ref = e.employeeId as unknown as { firstName?: string; lastName?: string } | string | null | undefined;
+  if (!ref) return 'Former employee';
+  if (typeof ref === 'string') return ref;
+  return `${ref.firstName ?? ''} ${ref.lastName ?? ''}`.trim() || 'Employee';
 }
 
 function empRefOf(e: Evaluation): Evaluation['employeeId'] {
