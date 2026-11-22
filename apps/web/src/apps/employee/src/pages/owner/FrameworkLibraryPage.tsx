@@ -7,7 +7,7 @@
 import { Library, Layers, CheckCircle2 } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { useFrameworkLibrary } from '../../hooks/useFrameworks';
+import { pickTenantCopy, useFrameworkLibrary } from '../../hooks/useFrameworks';
 import {
   EmptyState,
   PageHero,
@@ -51,7 +51,8 @@ export default function FrameworkLibraryPage() {
     tenantFrameworks.some((tf) => tf.sourceFrameworkId === systemFrameworkId);
 
   const tenantFrameworkFor = (systemFrameworkId: string) =>
-    tenantFrameworks.find((tf) => tf.sourceFrameworkId === systemFrameworkId);
+    // The company's current copy: active first, then a draft — never an archived version.
+    pickTenantCopy(tenantFrameworks, systemFrameworkId);
 
   const busy = Boolean(activatingId);
 

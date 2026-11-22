@@ -47,12 +47,22 @@ export const WorkingHoursPanel = () => {
   const update = <K extends keyof WorkSchedule>(key: K, value: WorkSchedule[K]) =>
     setDraft((cur) => ({ ...cur, [key]: value }));
 
-  const save = () => {
+  const [saving, setSaving] = useState(false);
+  const save = async () => {
     const error = validate(draft);
     if (error) { setMessage({ tone: "warn", text: error }); return; }
-    setSchedule(draft);
-    setEditing(false);
-    setMessage({ tone: "ok", text: "Working hours saved." });
+    setSaving(true);
+    try {
+      // Saved on the server: applies to everyone in the company, on every device,
+      // and late clock-ins are marked with it.
+      await setSchedule(draft);
+      setEditing(false);
+      setMessage({ tone: "ok", text: "Working hours saved for everyone in the company." });
+    } catch (err) {
+      setMessage({ tone: "warn", text: err instanceof Error ? err.message : "Working hours could not be saved." });
+    } finally {
+      setSaving(false);
+    }
   };
 
   const cancel = () => { setDraft(schedule); setEditing(false); setMessage(null); };
@@ -77,7 +87,7 @@ export const WorkingHoursPanel = () => {
               <FaUndo className="me-2" /> Reset to default
             </button>
             <button type="button" style={perfBtnGhost} onClick={cancel}>Cancel</button>
-            <button type="button" style={perfBtnPrimary} onClick={save}><FaSave className="me-2" /> Save</button>
+            <button type="button" style={perfBtnPrimary} onClick={() => void save()} disabled={saving}><FaSave className="me-2" /> {saving ? "Saving…" : "Save"}</button>
           </div>
         )
       }

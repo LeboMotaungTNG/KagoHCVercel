@@ -4,6 +4,7 @@ import SharedLayout from "./SharedLayout";
 import { API_URL, C } from "../../shared/utils/employee";
 import { Users } from "lucide-react";
 import { PageHero, PerformancePage, SectionCard, StatTile, perfBtnHero, mgrSearch, mgrInput } from "./managerUi";
+import { canOnboardEmployees } from "../../shared/utils/onboardingAccess";
 
 const getToken = () => localStorage.getItem("token") || "";
 
@@ -80,7 +81,7 @@ export function EmployeesContent({ departmentOnly, readOnly = false }: Employees
         actions={
           <>
             <button type="button" onClick={fetchEmployees} style={perfBtnHero}>Refresh</button>
-            {!readOnly && (
+            {!readOnly && canOnboardEmployees() && (
               <button type="button" onClick={() => navigate("/manager/manage-employees")} style={perfBtnHero}>
                 + Add
               </button>

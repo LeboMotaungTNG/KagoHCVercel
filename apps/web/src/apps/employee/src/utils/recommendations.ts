@@ -125,8 +125,11 @@ export function generateRecommendations(
   goals: EmployeeGoal[]
 ): TrainingRecommendation[] {
   const recs: TrainingRecommendation[] = [];
+  // Only final reviews count: a moderation once the owner accepted it, or a
+  // standalone manager review once submitted. Rejected / sent-back / in-progress ones don't.
   const managerReviews = evaluations.filter(
-    (e) => e.type === 'manager_review' && e.status !== 'draft' && e.percentScore > 0
+    (e) => e.type === 'manager_review' && e.percentScore > 0 &&
+      (e.linkedEvaluationId ? e.status === 'signed_off' : ['submitted', 'reviewed', 'signed_off'].includes(e.status))
   );
 
   for (const evaluation of managerReviews) {

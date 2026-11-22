@@ -5,6 +5,7 @@ import { Plus, Target, UserPlus } from 'lucide-react';
 import SharedLayout from './SharedLayout';
 import { createGoal, listGoals, listObjectives } from '../employee/src/api/goals.api';
 import type { EmployeeGoal, GoalPriority, OrganizationalObjective } from '../employee/src/types/goals';
+import ObjectivesOverview from '../employee/src/components/ObjectivesOverview';
 import { API_URL, C, R, normalizeEmployeeList } from '../../shared/utils/employee';
 import {
   EmptyState,
@@ -64,8 +65,16 @@ export default function ManagerTeamGoalsPage() {
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
   const [priority, setPriority] = useState<GoalPriority>('medium');
-  const [period, setPeriod] = useState('Q2 2026');
-  const [dueDate, setDueDate] = useState('2026-06-30');
+  // Default to the current quarter (was fixed at Q2 2026, a date now in the past).
+  const [period, setPeriod] = useState(() => {
+    const d = new Date();
+    return `Q${Math.floor(d.getMonth() / 3) + 1} ${d.getFullYear()}`;
+  });
+  const [dueDate, setDueDate] = useState(() => {
+    const d = new Date();
+    const end = new Date(d.getFullYear(), Math.floor(d.getMonth() / 3) * 3 + 3, 0);
+    return `${end.getFullYear()}-${String(end.getMonth() + 1).padStart(2, '0')}-${String(end.getDate()).padStart(2, '0')}`;
+  });
 
   const refresh = async () => {
     const token = localStorage.getItem('token');
@@ -189,6 +198,11 @@ export default function ManagerTeamGoalsPage() {
             {error}
           </div>
         )}
+
+        <ObjectivesOverview
+          objectives={objectives}
+          hint="Objectives for the company and your department. Use “New assignment” to give team members goals under them — that's what appears on their My goals page."
+        />
 
         {showForm && (
           <SectionCard icon={<Target size={16} />} title="New assignment">
