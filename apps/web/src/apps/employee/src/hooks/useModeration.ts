@@ -95,20 +95,14 @@ export function useModeration(moderationId: string) {
   };
 
   const submitFinal = useCallback(async () => {
-    await persist();
-  
     if (!managerEval) return;
-  
-    // A moderation (linked to a self-review) goes to the owner for approval;
-    // a standalone manager review is submitted as before.
+    await persist();
     // Moderations and reviews the owner assigned go to the owner for approval;
     // only an old-style standalone draft is submitted the old way.
     const submitted = managerEval.linkedEvaluationId || managerEval.status !== 'draft'
       ? await submitToOwner(managerEval._id)
       : await submitEvaluation(managerEval._id);
-  
     setManagerEval(submitted);
-  
     return submitted;
   }, [persist, managerEval]);
 
@@ -122,7 +116,7 @@ export function useModeration(moderationId: string) {
 
   // Editable while being moderated or after the owner sent it back; locked once
   // it's with the owner or decided.
-  const locked = !!managerEval && ![ 'draft', 'manager_in_progress', 'changes_requested' ].includes(managerEval.status);
+  const locked = !!managerEval && !['draft', 'manager_in_progress', 'changes_requested'].includes(managerEval.status);
 
   return {
     managerEval,
@@ -132,12 +126,10 @@ export function useModeration(moderationId: string) {
     comment,
 
     setComment: (v: string) => {
-  if (locked) return;
-
-  dirtyRef.current = true;
-  setComment(v);
-},
-
+      if (locked) return;
+      dirtyRef.current = true;
+      setComment(v);
+    },
     getItem,
     getSelfItem,
     setScore,
@@ -147,8 +139,8 @@ export function useModeration(moderationId: string) {
     saving,
     error,
     locked,
-    changesRequested: false,
-    ownerDecisionComment: undefined,
+    changesRequested: managerEval?.status === 'changes_requested',
+    ownerDecisionComment: managerEval?.ownerDecisionComment,
     save: persist,
     submitFinal,
   };

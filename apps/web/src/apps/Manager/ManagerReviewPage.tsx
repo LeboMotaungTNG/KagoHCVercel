@@ -5,6 +5,7 @@ import { ClipboardCheck, Lightbulb, PenTool, Target } from 'lucide-react';
 import SharedLayout from './SharedLayout';
 import { C, FONT_NUM, R } from '../../shared/utils/employee';
 import { queryEvaluations } from '../employee/src/api/evaluations.api';
+import { ApiError } from '../employee/src/api/httpClient';
 import type { Evaluation } from '../employee/src/types/evaluation';
 import {
   EmptyState,
@@ -30,10 +31,21 @@ function empDept(e: Evaluation) {
 export default function ManagerReviewPage() {
   const [pending, setPending] = useState<Evaluation[]>([]);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
 
   useEffect(() => {
     queryEvaluations({ pendingModeration: true })
       .then(setPending)
+      .catch((err) => {
+        const status = err instanceof ApiError ? err.status : undefined;
+        setLoadError(
+          status === 401 || status === 403
+            ? "Your account isn't allowed to load the moderation queue yet. Ask an administrator to enable manager access to team reviews."
+            : err instanceof Error && err.message
+              ? `Couldn't load the moderation queue: ${err.message}`
+              : "Couldn't load the moderation queue. Please try again.",
+        );
+      })
       .finally(() => setLoading(false));
   }, []);
 
@@ -70,7 +82,17 @@ export default function ManagerReviewPage() {
         >
           {loading && <div style={{ color: C.muted }}>Loading queue…</div>}
 
-          {!loading && pending.length === 0 && (
+          {!loading && loadError && (
+            <div
+              className="small mb-3"
+              role="alert"
+              style={{ background: C.badBg, color: C.bad, borderRadius: R.md, padding: '10px 12px', fontWeight: 600 }}
+            >
+              {loadError}
+            </div>
+          )}
+
+          {!loading && !loadError && pending.length === 0 && (
             <EmptyState
               icon={<ClipboardCheck size={28} />}
               message="No self-reviews waiting. When an employee submits, they appear here and in your notifications."

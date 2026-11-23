@@ -3,7 +3,7 @@ import { Helmet } from "react-helmet-async";
 import { useNavigate } from "react-router-dom";
 import {
   AlertCircle, ArrowUp, Award, Calendar, Clock, FileText,
-  GraduationCap, Heart, MapPin, Megaphone, MessageCircle, Palmtree, Pin,
+  GraduationCap, Heart, MapPin, MessageCircle, Palmtree,
   Plane, Plus, Receipt, Search, Sparkles, Star, Target, TrendingUp, Users,
   Video, Zap,
   Cake,
@@ -21,6 +21,7 @@ import {
 } from "../../shared/utils/employee";
 import { STATUS_LABELS } from "../../shared/utils/LeaveUtils";
 import BreakControls from "../../shared/components/BreakControls";
+import { CompanyNotices } from "../../shared/components/CompanyNotices";
 import { useBreakSession, fmtBreakShort, totalBreakMs } from "../../shared/utils/breaks";
 import { PageHero } from "./src/components/PerformanceUI";
 
@@ -823,49 +824,6 @@ const AIAssistantCard: React.FC = () => {
   );
 };
 
-type NoticeKind = "POLICY" | "NOTICE" | "ACTION";
-const NOTICE_STYLES: Record<NoticeKind, { bg: string; color: string; icon: React.ReactNode }> = {
-  POLICY: { bg: C.coralBg,  color: C.coral,  icon: <Pin size={14} /> },
-  NOTICE: { bg: C.blueBg,   color: C.blue,   icon: <Megaphone size={14} /> },
-  ACTION: { bg: C.amberBg,  color: C.amber,  icon: <Target size={14} /> },
-};
-const NOTICES: Array<{ kind: NoticeKind; title: string; body: string }> = [
-  { kind: "POLICY", title: "New parental leave policy", body: "12 weeks fully paid for all parents, effective July 1." },
-  { kind: "NOTICE", title: "Office closed Monday",      body: "Public holiday observance. Remote work optional." },
-  { kind: "ACTION", title: "Q2 performance reviews open", body: "Self-assessments due by end of next week." },
-];
-const MORE_NOTICES: Array<{ kind: NoticeKind; title: string; body: string }> = [
-  { kind: "NOTICE", title: "Parking garage maintenance", body: "Levels B2–B3 closed this weekend; plan alternate parking." },
-  { kind: "ACTION", title: "Confirm emergency contacts", body: "HR requires an update in People — complete by Friday COB." },
-  { kind: "POLICY", title: "Travel & per diem refresh", body: "Domestic nightly cap updated; see Finance policy hub." },
-  { kind: "NOTICE", title: "IT security awareness drill", body: "Simulated phishing exercise runs next Thursday — stay alert." },
-];
-const ALL_NOTICES = [...NOTICES, ...MORE_NOTICES];
-
-const CompanyNoticesCard: React.FC<{ onViewAll: () => void }> = ({ onViewAll }) => (
-  <Card>
-    <SectionHead
-      title="Company notices"
-      right={<button type="button" style={linkBtn} onClick={onViewAll}>All notices</button>}
-    />
-    <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(240px,1fr))", gap: 12 }}>
-      {NOTICES.map((n, i) => {
-        const s = NOTICE_STYLES[n.kind];
-        return (
-          <div key={i} style={{
-            border: `1px solid ${C.line}`, borderRadius: R.lg,
-            padding: 16, background: C.surfaceAlt,
-          }}>
-            <StatusPill bg={s.bg} color={s.color}>{s.icon}{n.kind}</StatusPill>
-            <div style={{ fontSize: 14, fontWeight: 800, color: C.ink, marginTop: 10 }}>{n.title}</div>
-            <div style={{ fontSize: 12.5, color: C.muted, marginTop: 4, lineHeight: 1.45 }}>{n.body}</div>
-          </div>
-        );
-      })}
-    </div>
-  </Card>
-);
-
 type BirthdayEntryLike = BirthdayEntry;
 
 type AppEvent = { icon: React.ReactNode; bg: string; color: string; title: string; when: string };
@@ -976,7 +934,7 @@ const EmployeeDashboardBody: React.FC<Props> = ({
 }) => {
   const navigate = useNavigate();
 
-  const [modal, setModal] = useState<null | "events" | "notices" | "directory">(null);
+  const [modal, setModal] = useState<null | "events" | "directory">(null);
 
   const teammateRoster = useMemo(
     () => buildTeammateRoster(
@@ -1105,7 +1063,7 @@ const EmployeeDashboardBody: React.FC<Props> = ({
 
         <div className="kg-row kg-row-pair">
           <UpcomingEventsCard birthdays={birthdays} onViewAll={() => setModal("events")} />
-          <CompanyNoticesCard onViewAll={() => setModal("notices")} />
+          <Card><CompanyNotices /></Card>
         </div>
 
         <SimpleModal open={modal === "events"} title="Upcoming events" onClose={() => setModal(null)}>
@@ -1119,21 +1077,6 @@ const EmployeeDashboardBody: React.FC<Props> = ({
                 </div>
               </div>
             ))}
-          </div>
-        </SimpleModal>
-
-        <SimpleModal open={modal === "notices"} title="All company notices" onClose={() => setModal(null)}>
-          <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
-            {ALL_NOTICES.map((n, i) => {
-              const s = NOTICE_STYLES[n.kind];
-              return (
-                <div key={`${n.title}-${i}`} style={{ border: `1px solid ${C.line}`, borderRadius: R.lg, padding: 16, background: C.surfaceAlt }}>
-                  <StatusPill bg={s.bg} color={s.color}>{s.icon}{n.kind}</StatusPill>
-                  <div style={{ fontSize: 15, fontWeight: 800, color: C.ink, marginTop: 10 }}>{n.title}</div>
-                  <div style={{ fontSize: 13, color: C.muted, marginTop: 4, lineHeight: 1.5 }}>{n.body}</div>
-                </div>
-              );
-            })}
           </div>
         </SimpleModal>
 

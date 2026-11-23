@@ -20,6 +20,7 @@ import {
 } from "../../shared/utils/employee";
 import { PageHero } from "../employee/src/components/PerformanceUI";
 import MyClockCard from "../../shared/components/MyClockCard";
+import { CompanyNotices } from "../../shared/components/CompanyNotices";
 import { isManagerReviewStatus, leaveApiMessage } from "../../shared/utils/LeaveUtils";
 import { canOnboardEmployees } from "../../shared/utils/onboardingAccess";
 
@@ -652,6 +653,10 @@ const ManagerDashboard: React.FC = () => {
         </div>
 
         <MyClockCard historyTo="/manager/my-attendance" />
+
+        <div className="mgr-row">
+          <Card><CompanyNotices /></Card>
+        </div>
 
         <div className="mgr-kpi">
           <StatTile label="Total Employees" value={loading ? "…" : counts.employees}    sub="In your team"          icon={<Users size={20} />}    iconBg={C.blueBg}   iconColor={C.blue}   onClick={() => navigate("/manager/employees")}     />

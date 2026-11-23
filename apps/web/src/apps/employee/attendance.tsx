@@ -16,7 +16,10 @@ import {
   exportEmployeeCSV,
   matchesDateRange,
   useEmployeeAttendance,
+  extraHoursFor,
 } from "../../shared/utils/attendance";
+import { orgApi, type OvertimeRequest } from "../../shared/utils/organizationSettings";
+import { normalizeOvertimeRequests, overtimeStatusPill } from "../../shared/components/overtimeUi";
 import BreakControls from "../../shared/components/BreakControls";
 import { useBreakSession, fmtBreakShort } from "../../shared/utils/breaks";
 import { PageHero } from "./src/components/PerformanceUI";
@@ -543,14 +546,142 @@ const RecordModal: React.FC<{ record: AttendanceRecord; onClose: () => void }> =
   </div>
 );
 
+// ” Overtime from extra hours ”
+
+/** Calendar day of an API date. Timestamps are read in local time so they match the attendance rows. */
+function localDay(raw: unknown): string {
+  const text = String(raw || "");
+  if (/^\d{4}-\d{2}-\d{2}$/.test(text)) return text;
+  const d = new Date(text);
+  if (isNaN(d.getTime())) return text.slice(0, 10);
+  return `${d.getFullYear()}-${pad2(d.getMonth() + 1)}-${pad2(d.getDate())}`;
+}
+
+/** HH:MM that is `hours` before `end` (HH:MM), not earlier than midnight. */
+function timeBefore(end: string, hours: number): string {
+  const [h, m] = end.split(":").map(Number);
+  const mins = Math.max(0, h * 60 + m - Math.round(hours * 60));
+  return `${pad2(Math.floor(mins / 60))}:${pad2(mins % 60)}`;
+}
+
+const OVERTIME_CELL: React.CSSProperties = { padding: "13px 16px", fontSize: 14 };
+
+const OvertimeCells: React.FC<{
+  row: AttendanceRecord;
+  request?: OvertimeRequest;
+  onRequest: () => void;
+}> = ({ row, request, onRequest }) => {
+  const extra = extraHoursFor(row);
+  return (
+    <>
+      <td style={OVERTIME_CELL}>
+        {extra > 0
+          ? <strong style={{ color: C.amber, fontVariantNumeric: "tabular-nums" }}>+{extra.toFixed(2)}h</strong>
+          : <span style={{ color: "#9ca3af" }}>—</span>}
+      </td>
+      <td style={OVERTIME_CELL} onClick={(e) => e.stopPropagation()}>
+        {request ? (
+          overtimeStatusPill(request.status)
+        ) : extra > 0 ? (
+          <button
+            type="button"
+            onClick={onRequest}
+            style={{ padding: "6px 12px", borderRadius: 8, border: `1px solid ${C.primary}`, background: C.primaryBg, color: C.primary, fontSize: 12, fontWeight: 700, cursor: "pointer", whiteSpace: "nowrap" }}
+          >
+            Request overtime
+          </button>
+        ) : (
+          <span style={{ color: "#9ca3af" }}>—</span>
+        )}
+      </td>
+    </>
+  );
+};
+
+const OvertimeRequestModal: React.FC<{
+  record: AttendanceRecord;
+  onClose: () => void;
+  onSubmitted: (message: string) => void;
+}> = ({ record, onClose, onSubmitted }) => {
+  const hours = extraHoursFor(record);
+  const endTime = record.clock_out || "";
+  const startTime = timeBefore(endTime, hours);
+  const [reason, setReason] = useState("");
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState("");
+  const dateLabel = new Date(record.date).toLocaleDateString("en-ZA", { day: "numeric", month: "short", year: "numeric" });
+
+  const submit = async () => {
+    if (!reason.trim()) { setError("Add a reason for the overtime."); return; }
+    setSaving(true);
+    setError("");
+    try {
+      const response = await orgApi.requestOvertime({ date: record.date, startTime, endTime, reason: reason.trim() });
+      if (!response.success) throw new Error(response.message || "Could not submit the overtime request.");
+      onSubmitted(response.message || "Overtime request submitted for approval.");
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Could not submit the overtime request.");
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const row = (label: string, value: string) => (
+    <div style={{ display: "flex", justifyContent: "space-between", padding: "8px 0", borderBottom: "1px solid #f2f4f7", fontSize: 14 }}>
+      <span style={{ color: "#667085" }}>{label}</span>
+      <strong style={{ color: "#1d2939", fontVariantNumeric: "tabular-nums" }}>{value}</strong>
+    </div>
+  );
+
+  return (
+    <div style={{ position: "fixed", inset: 0, zIndex: 210, display: "flex", alignItems: "center", justifyContent: "center", padding: 16 }}>
+      <div onClick={saving ? undefined : onClose} style={{ position: "absolute", inset: 0, background: "rgba(16,24,40,0.5)", backdropFilter: "blur(4px)" }}/>
+      <div role="dialog" aria-modal="true" aria-label="Request overtime" style={{ position: "relative", width: "100%", maxWidth: 460, background: "#fff", borderRadius: 20, boxShadow: "0 24px 48px rgba(0,0,0,0.18)", padding: 24 }}>
+        <h3 style={{ margin: "0 0 4px", fontSize: 17, fontWeight: 700, color: "#1d2939" }}>Request overtime</h3>
+        <p style={{ margin: "0 0 16px", fontSize: 13, color: "#667085" }}>
+          Your extra hours on {dateLabel} will be sent for approval. Overtime is only paid once it's approved.
+        </p>
+        {row("Date", dateLabel)}
+        {row("Worked", record.work_hours != null ? `${record.work_hours.toFixed(2)}h` : "—")}
+        {row("Overtime", `${startTime} – ${endTime}`)}
+        {row("Extra hours", `${hours.toFixed(2)}h`)}
+        <label style={{ display: "block", marginTop: 16 }}>
+          <span style={{ display: "block", fontSize: 13, fontWeight: 600, color: "#344054", marginBottom: 6 }}>Reason</span>
+          <textarea
+            rows={3}
+            value={reason}
+            onChange={(e) => setReason(e.target.value)}
+            placeholder="What did the extra time cover?"
+            style={{ ...INPUT, height: "auto", width: "100%", padding: 12, resize: "vertical", boxSizing: "border-box" }}
+          />
+        </label>
+        {error && <p role="alert" style={{ margin: "10px 0 0", fontSize: 13, color: "#b42318", fontWeight: 600 }}>{error}</p>}
+        <div style={{ display: "flex", justifyContent: "flex-end", gap: 8, marginTop: 18 }}>
+          <button type="button" onClick={onClose} disabled={saving}
+            style={{ padding: "9px 16px", borderRadius: 10, border: "1px solid #e4e7ec", background: "#fff", fontSize: 14, fontWeight: 600, color: "#344054", cursor: "pointer" }}>
+            Cancel
+          </button>
+          <button type="button" onClick={submit} disabled={saving}
+            style={{ padding: "9px 16px", borderRadius: 10, border: "none", background: saving ? "#98a2b3" : C.primary, color: "#fff", fontSize: 14, fontWeight: 600, cursor: saving ? "not-allowed" : "pointer" }}>
+            {saving ? "Submitting…" : "Submit request"}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+};
+
 // ” History Table ”
 
 interface HistoryTableProps {
   records:  AttendanceRecord[];
   onSelect: (r: AttendanceRecord) => void;
+  /** The employee's overtime requests, keyed by calendar day (YYYY-MM-DD). */
+  overtimeByDate: Map<string, OvertimeRequest>;
+  onRequestOvertime: (r: AttendanceRecord) => void;
 }
 
-const HistoryTable: React.FC<HistoryTableProps> = ({ records, onSelect }) => {
+const HistoryTable: React.FC<HistoryTableProps> = ({ records, onSelect, overtimeByDate, onRequestOvertime }) => {
   const [search, setSearch] = useState("");
   const [status, setStatus] = useState<AttendanceStatus | "">("");
   const [range,  setRange]  = useState("month");
@@ -601,10 +732,10 @@ const HistoryTable: React.FC<HistoryTableProps> = ({ records, onSelect }) => {
 
       {/* Table */}
       <div style={{ overflowX: "auto", borderRadius: 12, border: "1px solid #e4e7ec" }}>
-        <table style={{ width: "100%", minWidth: 500, borderCollapse: "collapse" }}>
+        <table style={{ width: "100%", minWidth: 760, borderCollapse: "collapse" }}>
           <thead>
             <tr style={{ background: "#f9fafb", borderBottom: "1px solid #e4e7ec" }}>
-              {["Date","Status","Clock In","Clock Out","Hours"].map(h => (
+              {["Date","Status","Clock In","Clock Out","Hours","Extra Hours","Overtime"].map(h => (
                 <th key={h} style={{ padding: "10px 16px", textAlign: "left", fontSize: 11, fontWeight: 700, color: "#9ca3af", textTransform: "uppercase", letterSpacing: 0.6 }}>{h}</th>
               ))}
             </tr>
@@ -612,7 +743,7 @@ const HistoryTable: React.FC<HistoryTableProps> = ({ records, onSelect }) => {
           <tbody>
             {filtered.length === 0 ? (
               <tr>
-                <td colSpan={5} style={{ padding: "36px 16px", textAlign: "center", fontSize: 14, color: "#9ca3af" }}>
+                <td colSpan={7} style={{ padding: "36px 16px", textAlign: "center", fontSize: 14, color: "#9ca3af" }}>
                   No records match your filters.
                 </td>
               </tr>
@@ -640,6 +771,11 @@ const HistoryTable: React.FC<HistoryTableProps> = ({ records, onSelect }) => {
                       ? <strong style={{ color: "#1d2939" }}>{row.work_hours.toFixed(2)}h</strong>
                       : <span style={{ color: "#9ca3af" }}>”</span>}
                   </td>
+                  <OvertimeCells
+                    row={row}
+                    request={overtimeByDate.get(row.date)}
+                    onRequest={() => onRequestOvertime(row)}
+                  />
                 </tr>
               ))
             )}
@@ -666,10 +802,41 @@ const EmployeeAttendanceContent: React.FC = () => {
 
   const { isOnBreak, totalMs: breakTotalMs } = useBreakSession();
 
+  // The employee's overtime requests, so each day shows its request status
+  // (including ones the backend created automatically at clock-out).
+  const [overtimeByDate, setOvertimeByDate] = useState<Map<string, OvertimeRequest>>(new Map());
+  const [overtimeRecord, setOvertimeRecord] = useState<AttendanceRecord | null>(null);
+  const [overtimeNotice, setOvertimeNotice] = useState<{ message: string; type: "success" | "error" } | null>(null);
+
+  const loadOvertime = React.useCallback(async () => {
+    try {
+      const response = await orgApi.loadOvertimeRequests();
+      if (!response.success) return;
+      const raw: any[] = Array.isArray(response.data) ? response.data : (response.data as any)?.requests || [];
+      const normalized = normalizeOvertimeRequests(raw);
+      const byDate = new Map<string, OvertimeRequest>();
+      raw.forEach((item, i) => {
+        const request = normalized.find((r) => r.id === (item.id || item._id)) || normalized[i];
+        if (!request || request.status === "cancelled") return;
+        const day = localDay(item.date);
+        // Keep the most relevant request per day: approved, then pending, then rejected.
+        const rank = (s: string) => (s === "approved" ? 3 : s === "pending" ? 2 : 1);
+        const current = byDate.get(day);
+        if (!current || rank(request.status) > rank(current.status)) byDate.set(day, request);
+      });
+      setOvertimeByDate(byDate);
+    } catch {
+      /* the column still shows extra hours; requests just won't show a status */
+    }
+  }, []);
+
+  useEffect(() => { loadOvertime(); }, [loadOvertime, records]);
+
   return (
     <div style={{ maxWidth: 1280, margin: "0 auto" }}>
 
       {toast && <Toast message={toast.message} type={toast.type} onClose={clearToast}/>}
+      {overtimeNotice && <Toast message={overtimeNotice.message} type={overtimeNotice.type} onClose={() => setOvertimeNotice(null)}/>}
 
       {/* Page heading */}
       <PageHero
@@ -711,7 +878,12 @@ const EmployeeAttendanceContent: React.FC = () => {
             variant="panel"
           />
           
-          <HistoryTable records={records} onSelect={setSelectedRecord}/>
+          <HistoryTable
+            records={records}
+            onSelect={setSelectedRecord}
+            overtimeByDate={overtimeByDate}
+            onRequestOvertime={setOvertimeRecord}
+          />
         </div>
         
 
@@ -733,6 +905,17 @@ const EmployeeAttendanceContent: React.FC = () => {
       </div>
 
       {selectedRecord && <RecordModal record={selectedRecord} onClose={() => setSelectedRecord(null)}/>}
+      {overtimeRecord && (
+        <OvertimeRequestModal
+          record={overtimeRecord}
+          onClose={() => setOvertimeRecord(null)}
+          onSubmitted={(message) => {
+            setOvertimeRecord(null);
+            setOvertimeNotice({ message, type: "success" });
+            loadOvertime();
+          }}
+        />
+      )}
     </div>
     
   );

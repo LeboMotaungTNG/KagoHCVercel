@@ -3,7 +3,7 @@ import React, { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import {
   Award, Building2, Cake, Calendar, ChevronRight, Clock,
-  FileText, Megaphone, MessageCircle, PenTool, Pin, Plane, Plus, Search, Settings,
+  FileText, MessageCircle, PenTool, Plane, Plus, Search, Settings,
   Sparkles, Star, Target, TrendingUp, UserPlus, Users, Zap,
 } from "lucide-react";
 import {
@@ -21,6 +21,7 @@ import { PageHero } from "../employee/src/components/PerformanceUI";
 import { isHrReviewStatus, LEAVE_TYPE_LABELS } from "../../shared/utils/LeaveUtils";
 import { formatMonthlyPrice, isActiveCompanyStatus, planFromHeadcount } from "../../shared/utils/ownerOrgNumbers";
 import MyClockCard from "../../shared/components/MyClockCard";
+import { CompanyNotices, type ExtraNotice } from "../../shared/components/CompanyNotices";
 
 /* ─── Design tokens ──────────────────────────────────────────────────────── */
 const C = TOKENS;
@@ -654,19 +655,6 @@ const AIAssistantCard: React.FC = () => {
 };
 
 /* ─── Who's around / notices / events ─────────────────────────────────────── */
-type NoticeKind = "POLICY" | "NOTICE" | "ACTION";
-const NOTICE_STYLES: Record<NoticeKind, { bg: string; color: string; icon: React.ReactNode }> = {
-  POLICY: { bg: C.accentBg, color: C.accent, icon: <Pin size={14} /> },
-  NOTICE: { bg: C.blueBg,   color: C.blue,   icon: <Megaphone size={14} /> },
-  ACTION: { bg: C.amberBg,  color: C.amber,  icon: <Target size={14} /> },
-};
-
-const OWNER_NOTICES: Array<{ kind: NoticeKind; title: string; body: string }> = [
-  { kind: "POLICY", title: "POPIA access logging", body: "Sensitive employee numbers are masked. Reveals are recorded." },
-  { kind: "NOTICE", title: "Keep SARS details current", body: "Income tax, PAYE and UIF references drive payroll and EMP201." },
-  { kind: "ACTION", title: "Review the live directory", body: "Headcount and plan follow people on file — offboard leavers promptly." },
-];
-
 /* Live presence for the owner's view. "Not in yet" is local to this page so the
    employee dashboards, which share PRESENCE_STYLES, are unaffected. */
 type OwnerPresence = PresenceState | "out";
@@ -760,27 +748,6 @@ const WhosAroundCard: React.FC<{ roster: OwnerTeammate[]; loading: boolean; onVi
     </Card>
   );
 };
-
-const CompanyNoticesCard: React.FC<{ notices: Array<{ kind: NoticeKind; title: string; body: string }>; onViewAll: () => void }> = ({ notices, onViewAll }) => (
-  <Card>
-    <SectionHead
-      title="Company notices"
-      right={<button type="button" style={linkBtn} onClick={onViewAll}>All notices</button>}
-    />
-    <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(240px,1fr))", gap: 12 }}>
-      {notices.slice(0, 3).map((n, i) => {
-        const s = NOTICE_STYLES[n.kind];
-        return (
-          <div key={`${n.title}-${i}`} style={{ border: `1px solid ${C.line}`, borderRadius: R.lg, padding: 16, background: C.surfaceAlt }}>
-            <StatusPill bg={s.bg} color={s.color}>{s.icon}{n.kind}</StatusPill>
-            <div style={{ fontSize: 14, fontWeight: 800, color: C.ink, marginTop: 10 }}>{n.title}</div>
-            <div style={{ fontSize: 12.5, color: C.muted, marginTop: 4, lineHeight: 1.45 }}>{n.body}</div>
-          </div>
-        );
-      })}
-    </div>
-  </Card>
-);
 
 type AppEvent = { icon: React.ReactNode; bg: string; color: string; title: string; when: string; daysUntil: number };
 
@@ -978,7 +945,7 @@ export const OwnerOverview: React.FC = () => {
   const [loading, setLoading]         = useState(true);
   const [leaveLoading, setLeaveLoading] = useState(true);
   const [companyStatus, setCompanyStatus] = useState("Active");
-  const [modal, setModal]             = useState<null | "events" | "notices" | "directory">(null);
+  const [modal, setModal]             = useState<null | "events" | "directory">(null);
 
   /* Auth guard */
   useEffect(() => {
@@ -1143,8 +1110,9 @@ export const OwnerOverview: React.FC = () => {
     ),
     [colleagues, teamOnLeave, user, aroundToday],
   );
-  const notices = useMemo(() => {
-    const live: Array<{ kind: NoticeKind; title: string; body: string }> = [];
+  // Live reminders for the owner, shown before the company notices they've posted.
+  const liveNotices = useMemo(() => {
+    const live: ExtraNotice[] = [];
     if (counts.pendingLeave > 0) {
       live.push({
         kind: "ACTION",
@@ -1159,7 +1127,7 @@ export const OwnerOverview: React.FC = () => {
         body: `${counts.onPayroll} of ${counts.employees} people are on payroll.`,
       });
     }
-    return [...live, ...OWNER_NOTICES];
+    return live;
   }, [counts.pendingLeave, counts.employees, counts.onPayroll]);
 
   return (
@@ -1228,7 +1196,7 @@ export const OwnerOverview: React.FC = () => {
         </div>
 
         <div className="own-row">
-          <CompanyNoticesCard notices={notices} onViewAll={() => setModal("notices")} />
+          <Card><CompanyNotices canManage extra={liveNotices} /></Card>
         </div>
 
         <SimpleModal open={modal === "directory"} title="Who's around — full directory" onClose={() => setModal(null)}>
@@ -1268,21 +1236,6 @@ export const OwnerOverview: React.FC = () => {
                 </div>
               </div>
             ))}
-          </div>
-        </SimpleModal>
-
-        <SimpleModal open={modal === "notices"} title="All company notices" onClose={() => setModal(null)}>
-          <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
-            {notices.map((n, i) => {
-              const s = NOTICE_STYLES[n.kind];
-              return (
-                <div key={`${n.title}-${i}`} style={{ border: `1px solid ${C.line}`, borderRadius: R.lg, padding: 16, background: C.surfaceAlt }}>
-                  <StatusPill bg={s.bg} color={s.color}>{s.icon}{n.kind}</StatusPill>
-                  <div style={{ fontSize: 15, fontWeight: 800, color: C.ink, marginTop: 10 }}>{n.title}</div>
-                  <div style={{ fontSize: 13, color: C.muted, marginTop: 4, lineHeight: 1.5 }}>{n.body}</div>
-                </div>
-              );
-            })}
           </div>
         </SimpleModal>
 

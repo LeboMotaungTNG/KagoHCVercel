@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { ArrowLeft, ClipboardCheck } from 'lucide-react';
 import ScorePicker from '../../components/ScorePicker';
@@ -60,6 +61,7 @@ export default function ModerationFormPage() {
     changesRequested,
     ownerDecisionComment,
   } = useModeration(id);
+  const [submitError, setSubmitError] = useState<string | null>(null);
 
   if (loading) return <div className="p-4" style={{ color: C.muted }}>Loading review for moderation…</div>;
   if (error) return <div className="p-4" style={{ color: C.bad }}>{error}</div>;
@@ -69,8 +71,17 @@ export default function ModerationFormPage() {
   let lastPillar = '';
 
   const handleSubmitToOwner = async () => {
-    await submitFinal();
-    navigate('/manager/performance');
+    setSubmitError(null);
+    try {
+      await submitFinal();
+      navigate('/manager/performance');
+    } catch (err) {
+      setSubmitError(
+        err instanceof Error && err.message
+          ? `Couldn't submit to the owner: ${err.message}`
+          : "Couldn't submit to the owner. Please try again.",
+      );
+    }
   };
 
   return (
@@ -113,6 +124,8 @@ export default function ModerationFormPage() {
           <strong>Owner requested changes:</strong> {ownerDecisionComment}
         </AlertBanner>
       )}
+
+      {submitError && <AlertBanner tone="danger">{submitError}</AlertBanner>}
 
       {locked && (
         <AlertBanner tone="ok">

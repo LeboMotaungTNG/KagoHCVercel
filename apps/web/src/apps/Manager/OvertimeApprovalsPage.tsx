@@ -19,7 +19,7 @@ export const OvertimeApprovalsContent: React.FC = () => {
   const decide = async (request: OvertimeRequest, approved: boolean) => {
     let reason = "";
     if (!approved) {
-      reason = (window.prompt(`Why is ${request.employeeName || "this"} overtime on ${request.date} not approved? The employee will see this.`) || "").trim();
+      reason = (window.prompt(`Why is ${request.employeeName ? `${request.employeeName}'s` : "this"} overtime on ${request.date} not approved? The employee will see this.`) || "").trim();
       if (!reason) return; // cancelled, or no reason given
     }
     try {

@@ -190,10 +190,11 @@ export const PrimaryButton: React.FC<React.ButtonHTMLAttributes<HTMLButtonElemen
     {...props}
     style={{
       padding: "8px 16px",
-      borderRadius: 8,
+      borderRadius: 10,
       border: "none",
       background: props.disabled ? C.faint : C.primary,
-      borderRadius: 10,
+      color: "#fff",
+      fontSize: 14,
       fontWeight: 600,
       cursor: props.disabled ? "not-allowed" : "pointer",
       ...style,
