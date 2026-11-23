@@ -3,7 +3,7 @@ import {
   getEvaluationById,
   saveEvaluationScores,
   scoreEvaluation,
-  submitEvaluation,
+  submitToOwner,
 } from '../api/evaluations.api';
 import { updateGoalAssessedProgress } from '../utils/goalScoring';
 import type { Evaluation, EvaluationItem, SnapshotGoal } from '../types/evaluation';
@@ -94,15 +94,11 @@ export function useModeration(moderationId: string) {
   };
 
   const submitFinal = useCallback(async () => {
-    await persist();
-  
     if (!managerEval) return;
-  
-    const submitted = await submitEvaluation(managerEval._id);
-  
-    setManagerEval(submitted);
-  
-    return submitted;
+    await persist();
+    const finalised = await submitToOwner(managerEval._id);
+    setManagerEval(finalised);
+    return finalised;
   }, [persist, managerEval]);
 
   const preview = useMemo(() => {
@@ -113,9 +109,12 @@ export function useModeration(moderationId: string) {
   const getItem = (criterionId: string) => items.find((i) => i.criterionId === criterionId);
   const getSelfItem = (criterionId: string) => selfEval?.items.find((i) => i.criterionId === criterionId);
 
+  // Editable while the manager is moderating (incl. after the owner asks for changes).
   const locked =
-  managerEval?.status === 'submitted' ||
-  managerEval?.status === 'signed_off';
+    managerEval?.status === 'pending_owner' ||
+    managerEval?.status === 'signed_off' ||
+    managerEval?.status === 'reviewed' ||
+    managerEval?.status === 'rejected';
 
   return {
     managerEval,
@@ -125,12 +124,10 @@ export function useModeration(moderationId: string) {
     comment,
 
     setComment: (v: string) => {
-  if (locked) return;
-
-  dirtyRef.current = true;
-  setComment(v);
-},
-
+      if (locked) return;
+      dirtyRef.current = true;
+      setComment(v);
+    },
     getItem,
     getSelfItem,
     setScore,
@@ -140,8 +137,8 @@ export function useModeration(moderationId: string) {
     saving,
     error,
     locked,
-    changesRequested: false,
-    ownerDecisionComment: undefined,
+    changesRequested: managerEval?.status === 'changes_requested',
+    ownerDecisionComment: managerEval?.ownerDecisionComment,
     save: persist,
     submitFinal,
   };
