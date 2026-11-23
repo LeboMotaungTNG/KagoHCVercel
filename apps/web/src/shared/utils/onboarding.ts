@@ -285,7 +285,10 @@ export const mergeCompanyData = (base: CompanyData, incoming: Partial<CompanyDat
 };
 
 /** Write every alias the org-settings schema and the onboarding form use. */
-export const companyPayloadForSave = (company: CompanyData): Record<string, unknown> => {
+// Accepts onboarding or Organization Settings company shapes; both are normalised first.
+export const companyPayloadForSave = (
+  company: CompanyData | object,
+): Record<string, unknown> => {
   const n = normalizeCompanyFromApi(company);
   const physical = pickStr(
     n.address.physicalAddress,
