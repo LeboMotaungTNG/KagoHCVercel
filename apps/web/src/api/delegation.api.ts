@@ -46,7 +46,26 @@ const normalizeDelegationListResponse = (result: any): DelegationListResponse =>
   return { delegations, pagination };
 };
 
+/** The server's reason (e.g. "…is on leave…", "You already delegated…"), not just "HTTP 409". */
+async function errorMessage(response: Response): Promise<string> {
+  const body = await response.json().catch(() => ({} as any));
+  if (response.status === 403) return body?.message || "You're not allowed to delegate authority.";
+  return body?.message || `The request failed (HTTP ${response.status}).`;
+}
+
 export const delegationApi = {
+  // Change a delegation's dates (and reason)
+  updateDelegation: async (delegationId: string, data: { startDate: string; endDate: string; reason?: string }): Promise<Delegation> => {
+    const response = await fetch(`${BASE_URL}/${delegationId}`, {
+      method: "PATCH",
+      headers: getAuthHeaders(),
+      body: JSON.stringify(data),
+    });
+    if (!response.ok) throw new Error(await errorMessage(response));
+    const result = await response.json();
+    return result.data || result;
+  },
+
   // 1. Create Delegation
   createDelegation: async (data: CreateDelegationDto): Promise<Delegation> => {
     try {
@@ -55,7 +74,7 @@ export const delegationApi = {
         headers: getAuthHeaders(),
         body: JSON.stringify(data),
       });
-      if (!response.ok) throw new Error(`HTTP ${response.status}`);
+      if (!response.ok) throw new Error(await errorMessage(response));
       const result = await response.json();
       return result.data || result;
     } catch (error) {
@@ -82,7 +101,7 @@ export const delegationApi = {
       const response = await fetch(url, {
         headers: getAuthHeaders(),
       });
-      if (!response.ok) throw new Error(`HTTP ${response.status}`);
+      if (!response.ok) throw new Error(await errorMessage(response));
       const result = await response.json();
       return normalizeDelegationListResponse(result);
     } catch (error) {
@@ -97,7 +116,7 @@ export const delegationApi = {
       const response = await fetch(`${BASE_URL}/${delegationId}`, {
         headers: getAuthHeaders(),
       });
-      if (!response.ok) throw new Error(`HTTP ${response.status}`);
+      if (!response.ok) throw new Error(await errorMessage(response));
       const result = await response.json();
       return result.data || result;
     } catch (error) {
@@ -112,7 +131,7 @@ export const delegationApi = {
       const response = await fetch(`${BASE_URL}/delegate/${delegateId}/active`, {
         headers: getAuthHeaders(),
       });
-      if (!response.ok) throw new Error(`HTTP ${response.status}`);
+      if (!response.ok) throw new Error(await errorMessage(response));
       const result = await response.json();
       const payload = result?.data ?? result;
       if (Array.isArray(payload)) return payload;
@@ -134,7 +153,7 @@ export const delegationApi = {
       headers: getAuthHeaders(),
       body: JSON.stringify(data),
     });
-    if (!response.ok) throw new Error(`HTTP ${response.status}`);
+    if (!response.ok) throw new Error(await errorMessage(response));
     const result = await response.json();
     return result.data || result;
   },
@@ -146,7 +165,7 @@ export const delegationApi = {
       headers: getAuthHeaders(),
       body: JSON.stringify(onBehalfOf ? { onBehalfOf } : {}),
     });
-    if (!response.ok) throw new Error(`HTTP ${response.status}`);
+    if (!response.ok) throw new Error(await errorMessage(response));
     const result = await response.json();
     return result.data || result;
   },
@@ -158,7 +177,7 @@ export const delegationApi = {
       headers: getAuthHeaders(),
       body: JSON.stringify({ reason, ...(onBehalfOf ? { onBehalfOf } : {}) }),
     });
-    if (!response.ok) throw new Error(`HTTP ${response.status}`);
+    if (!response.ok) throw new Error(await errorMessage(response));
     const result = await response.json();
     return result.data || result;
   },
@@ -171,7 +190,7 @@ export const delegationApi = {
         headers: getAuthHeaders(),
         body: JSON.stringify(data),
       });
-      if (!response.ok) throw new Error(`HTTP ${response.status}`);
+      if (!response.ok) throw new Error(await errorMessage(response));
       const result = await response.json();
       return result.data || result;
     } catch (error) {
@@ -196,7 +215,7 @@ export const delegationApi = {
       const response = await fetch(url, {
         headers: getAuthHeaders(),
       });
-      if (!response.ok) throw new Error(`HTTP ${response.status}`);
+      if (!response.ok) throw new Error(await errorMessage(response));
       const result = await response.json();
       return result.data || { logs: [], pagination: {} };
     } catch (error) {

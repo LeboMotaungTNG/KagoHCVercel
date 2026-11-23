@@ -3,6 +3,18 @@ import { useDelegation } from "../../hooks/useDelegation";
 import { useEmployees } from "../../hooks/useEmployees";
 import { C } from "../../shared/utils/employee";
 import { INPUT, PrimaryButton, GhostButton } from "../../shared/components/overtimeUi";
+import { currentAppRole } from "../../shared/utils/onboardingAccess";
+
+/** Authority each role may hand over (same rule as the server). Owner authority is never delegated. */
+const DELEGABLE_ROLES: Record<string, string[]> = {
+  owner: ["line_manager", "hr_manager", "payroll_officer"],
+  admin: ["line_manager", "hr_manager", "payroll_officer"],
+  hr: ["hr_manager", "line_manager"],
+  line_manager: ["line_manager"],
+  manager: ["line_manager"],
+  payroll_officer: ["payroll_officer"],
+};
+const myDelegableRoles = () => DELEGABLE_ROLES[currentAppRole()] || ["line_manager"];
 
 interface DelegationFormProps {
   onSuccess?: () => void;
@@ -22,7 +34,7 @@ const DelegationForm: React.FC<DelegationFormProps> = ({ onSuccess, onCancel }) 
     endDate: "",
     reason: "",
     scope: {
-      roles: ["hr_manager"] as string[],
+      roles: [myDelegableRoles()[0]] as string[],
       leaveTypes: ["annual", "sick", "compassionate"] as string[],
     },
   });
@@ -52,9 +64,20 @@ const DelegationForm: React.FC<DelegationFormProps> = ({ onSuccess, onCancel }) 
     });
   };
 
+  const [formError, setFormError] = useState<string | null>(null);
+  const [formNotice, setFormNotice] = useState<string | null>(null);
+
   const handleSubmit = async (event: React.FormEvent) => {
     event.preventDefault();
-    if (!formData.delegateId || !formData.startDate || !formData.endDate) return;
+    setFormNotice(null);
+    // Say what's wrong instead of silently doing nothing.
+    if (!formData.delegateId) { setFormError("Choose who will act on your behalf."); return; }
+    if (!formData.scope.roles.length) { setFormError("Choose which authority to hand over."); return; }
+    if (!formData.startDate || !formData.endDate) { setFormError("Choose a start date and an end date."); return; }
+    if (formData.endDate < formData.startDate) { setFormError("The end date can't be before the start date."); return; }
+    const today = new Date(); const todayKey = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, "0")}-${String(today.getDate()).padStart(2, "0")}`;
+    if (formData.startDate < todayKey) { setFormError("The delegation can't start in the past."); return; }
+    setFormError(null);
     try {
       await createDelegation({
         delegateId: formData.delegateId,
@@ -65,14 +88,26 @@ const DelegationForm: React.FC<DelegationFormProps> = ({ onSuccess, onCancel }) 
         scope: formData.scope,
         reason: formData.reason || undefined,
       });
+      setFormNotice(`Delegated to ${formData.delegateName || "your delegate"} — they've been notified.`);
       onSuccess?.();
     } catch (error) {
       console.error("Failed to create delegation:", error);
+      setFormError(error instanceof Error ? error.message : "The delegation could not be created.");
     }
   };
 
   return (
-    <form onSubmit={handleSubmit}>
+    <form onSubmit={handleSubmit} noValidate>
+      {formError && (
+        <div role="alert" style={{ marginBottom: 12, padding: "10px 12px", borderRadius: 8, background: "#FEF3F2", color: "#B42318", fontSize: 13, fontWeight: 600 }}>
+          {formError}
+        </div>
+      )}
+      {formNotice && (
+        <div role="status" style={{ marginBottom: 12, padding: "10px 12px", borderRadius: 8, background: "#ECFDF3", color: "#067647", fontSize: 13, fontWeight: 600 }}>
+          {formNotice}
+        </div>
+      )}
       <h3 style={{ margin: "0 0 16px", fontSize: 17, fontWeight: 600, color: C.ink }}>Create delegation</h3>
       <div style={{ display: "grid", gap: 16 }}>
         <label>
@@ -111,7 +146,7 @@ const DelegationForm: React.FC<DelegationFormProps> = ({ onSuccess, onCancel }) 
         <div>
           <span style={labelStyle}>Roles</span>
           <div style={{ display: "flex", flexWrap: "wrap", gap: 10 }}>
-            {["hr_manager", "line_manager", "payroll_officer"].map((role) => (
+            {myDelegableRoles().map((role) => (
               <label key={role} style={{ display: "inline-flex", gap: 6, fontSize: 13, color: C.text, cursor: "pointer" }}>
                 <input type="checkbox" checked={formData.scope.roles.includes(role)} onChange={() => toggleScope("roles", role)} />
                 {role.replace(/_/g, " ")}
