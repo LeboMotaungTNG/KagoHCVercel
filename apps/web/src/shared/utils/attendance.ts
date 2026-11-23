@@ -44,6 +44,8 @@ export interface AttendanceRecord {
   clock_in:   string | null;
   clock_out:  string | null;
   work_hours: number | null;
+  /** Hours past the standard day, as calculated by the backend at clock-out. */
+  overtime_hours?: number | null;
   note?:      string;
   breaks?:            AttendanceBreak[];
   total_break_time?:  number;
@@ -245,6 +247,22 @@ export interface WorkSchedule {
   arrivalTime:   string; // HH:MM (24h) — expected clock-in
   departureTime: string; // HH:MM (24h) — expected clock-out
   graceMinutes:  number; // grace window after arrivalTime before "late"
+}
+
+/** Hours an employee must work in a day before the rest counts as overtime. */
+export const STANDARD_HOURS_PER_DAY = 8;
+
+/**
+ * Extra hours worked on a finished day. Uses the backend's figure (which follows
+ * the company's overtime settings) and falls back to hours past the standard day.
+ */
+export function extraHoursFor(record: AttendanceRecord, standardHours = STANDARD_HOURS_PER_DAY): number {
+  if (!record.clock_out) return 0;
+  const fromApi = Number(record.overtime_hours);
+  const extra = Number.isFinite(fromApi) && fromApi > 0
+    ? fromApi
+    : Math.max(0, (record.work_hours ?? 0) - standardHours);
+  return Math.round(extra * 100) / 100;
 }
 
 export const DEFAULT_WORK_SCHEDULE: WorkSchedule = {
@@ -576,6 +594,7 @@ export function useEmployeeAttendance() {
           clock_in: formatApiTime(item.clock_in || item.clockInTime),
           clock_out: formatApiTime(item.clock_out || item.clockOutTime),
           work_hours: item.totalHours || item.hours_worked,
+          overtime_hours: item.overtime_hours ?? item.overtimeHours ?? null,
           breaks: Array.isArray(item.breaks) ? item.breaks : [],
           total_break_time: item.total_break_time ?? 0,
         };
