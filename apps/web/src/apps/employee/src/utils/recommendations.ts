@@ -69,13 +69,16 @@ const INTERVENTION_CATALOG: Record<
   },
 };
 
+// employeeId is null when that employee record no longer exists.
 function empName(e: Evaluation): string {
+  if (!e.employeeId) return 'Former employee';
   return typeof e.employeeId === 'string'
     ? e.employeeId
     : `${e.employeeId.firstName} ${e.employeeId.lastName}`;
 }
 
 function empId(e: Evaluation): string {
+  if (!e.employeeId) return '';
   return typeof e.employeeId === 'string' ? e.employeeId : e.employeeId._id;
 }
 
@@ -125,8 +128,11 @@ export function generateRecommendations(
   goals: EmployeeGoal[]
 ): TrainingRecommendation[] {
   const recs: TrainingRecommendation[] = [];
+  // Only final reviews count: a moderation once the owner accepted it, or a
+  // standalone manager review once submitted. Rejected / sent-back / in-progress ones don't.
   const managerReviews = evaluations.filter(
-    (e) => e.type === 'manager_review' && e.status !== 'draft' && e.percentScore > 0
+    (e) => e.type === 'manager_review' && e.percentScore > 0 &&
+      (e.linkedEvaluationId ? e.status === 'signed_off' : ['submitted', 'reviewed', 'signed_off'].includes(e.status))
   );
 
   for (const evaluation of managerReviews) {

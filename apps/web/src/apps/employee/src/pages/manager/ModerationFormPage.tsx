@@ -27,6 +27,7 @@ const PILLAR_LABELS: Record<string, string> = {
 function empLabel(evaluation: {
   employeeId: string | { firstName: string; lastName: string; department: string };
 }) {
+  if (!evaluation.employeeId) return 'Former employee'; // that employee record no longer exists
   if (typeof evaluation.employeeId === 'string') return evaluation.employeeId;
   return `${evaluation.employeeId.firstName} ${evaluation.employeeId.lastName}`;
 }

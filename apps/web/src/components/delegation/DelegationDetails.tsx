@@ -1,4 +1,5 @@
-import React from "react";
+import React, { useState } from "react";
+import { delegationApi } from "../../api/delegation.api";
 import { X } from "lucide-react";
 import { useAuth } from "../../hooks/useAuth";
 import type { Delegation } from "../../types/delegation.types";
@@ -9,6 +10,8 @@ interface DelegationDetailsProps {
   delegation: Delegation;
   onClose: () => void;
   onRevoke: () => void;
+  /** Called after the dates were changed, so the list can reload. */
+  onChanged?: () => void;
 }
 
 const overlay: React.CSSProperties = {
@@ -21,9 +24,30 @@ const sheet: React.CSSProperties = {
 };
 const label: React.CSSProperties = { fontSize: 12, fontWeight: 600, color: C.muted, textTransform: "uppercase", letterSpacing: 0.4, marginBottom: 4 };
 
-const DelegationDetails: React.FC<DelegationDetailsProps> = ({ delegation, onClose, onRevoke }) => {
+const DelegationDetails: React.FC<DelegationDetailsProps> = ({ delegation, onClose, onRevoke, onChanged }) => {
   const { user } = useAuth();
   const isDelegator = user?.id === delegation.delegatorId || user?._id === delegation.delegatorId;
+  // Change dates
+  const dayKey = (d: string) => new Date(d).toLocaleDateString("en-CA", { timeZone: "Africa/Johannesburg" });
+  const [editing, setEditing] = useState(false);
+  const [start, setStart] = useState(dayKey(delegation.startDate));
+  const [end, setEnd] = useState(dayKey(delegation.endDate));
+  const [saving, setSaving] = useState(false);
+  const [editError, setEditError] = useState<string | null>(null);
+  const saveDates = async () => {
+    if (!start || !end) { setEditError("Choose a start date and an end date."); return; }
+    if (end < start) { setEditError("The end date can't be before the start date."); return; }
+    setSaving(true); setEditError(null);
+    try {
+      await delegationApi.updateDelegation(delegation._id, { startDate: start, endDate: end });
+      setEditing(false);
+      onChanged?.();
+    } catch (err) {
+      setEditError(err instanceof Error ? err.message : "The dates could not be changed.");
+    } finally {
+      setSaving(false);
+    }
+  };
   const formatDate = (date: string) =>
     new Date(date).toLocaleString("en-ZA", { year: "numeric", month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" });
 
@@ -68,8 +92,28 @@ const DelegationDetails: React.FC<DelegationDetailsProps> = ({ delegation, onClo
             </div>
           </div>
         </div>
+        {editing && (
+          <div style={{ marginTop: 18, padding: 12, border: `1px solid ${C.line}`, borderRadius: 10 }}>
+            <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
+              <label style={{ fontSize: 13, color: C.text }}>Start<br />
+                <input type="date" value={start} onChange={(e) => setStart(e.target.value)} style={{ padding: 6, borderRadius: 6, border: `1px solid ${C.line}` }} />
+              </label>
+              <label style={{ fontSize: 13, color: C.text }}>End<br />
+                <input type="date" value={end} min={start} onChange={(e) => setEnd(e.target.value)} style={{ padding: 6, borderRadius: 6, border: `1px solid ${C.line}` }} />
+              </label>
+            </div>
+            {editError && <div role="alert" style={{ marginTop: 8, color: "#B42318", fontSize: 13, fontWeight: 600 }}>{editError}</div>}
+            <div style={{ display: "flex", justifyContent: "flex-end", gap: 8, marginTop: 10 }}>
+              <GhostButton type="button" onClick={() => { setEditing(false); setEditError(null); }} style={{ padding: "6px 12px", fontSize: 13 }}>Cancel</GhostButton>
+              <PrimaryButton type="button" onClick={() => void saveDates()} disabled={saving} style={{ padding: "6px 12px", fontSize: 13 }}>{saving ? "Saving…" : "Save dates"}</PrimaryButton>
+            </div>
+          </div>
+        )}
         <div style={{ display: "flex", justifyContent: "flex-end", gap: 10, marginTop: 24 }}>
           <GhostButton type="button" onClick={onClose} style={{ padding: "8px 16px", fontSize: 14 }}>Close</GhostButton>
+          {isDelegator && delegation.isActive && !editing && (
+            <GhostButton type="button" onClick={() => setEditing(true)} style={{ padding: "8px 16px", fontSize: 14 }}>Change dates</GhostButton>
+          )}
           {isDelegator && delegation.isActive && (
             <PrimaryButton type="button" onClick={onRevoke} style={{ background: C.bad }}>Revoke</PrimaryButton>
           )}

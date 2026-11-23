@@ -11,6 +11,7 @@ import PhoneInput from "../../shared/components/PhoneInput";
 import { C } from "../../shared/utils/employee";
 import { Users } from "lucide-react";
 import { PageHero, perfBtnHero } from "./managerUi";
+import { onboardingErrorMessage } from "../../shared/utils/onboardingAccess";
 
 function generateRandomEmployeeCode(): string {
   const year = new Date().getFullYear();
@@ -735,7 +736,8 @@ function ManageEmployeesContent() {
           window.location.href = '/login';
           return;
         }
-        throw new Error(`HTTP ${res.status}`);
+        // Show the server's reason (e.g. not allowed, duplicate email, missing fields).
+        throw new Error(await onboardingErrorMessage(res));
       }
       
       const data = await res.json();
@@ -749,7 +751,7 @@ function ManageEmployeesContent() {
       }
     } catch (error) {
       console.error('Error processing queue:', error);
-      alert('Error processing employees. Please try again.');
+      alert(error instanceof Error && error.message ? error.message : 'Error processing employees. Please try again.');
     }
 
     if (!showSuccess?.includes('Network error')) {

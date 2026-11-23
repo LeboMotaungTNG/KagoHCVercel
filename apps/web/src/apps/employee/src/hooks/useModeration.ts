@@ -3,6 +3,7 @@ import {
   getEvaluationById,
   saveEvaluationScores,
   scoreEvaluation,
+  submitEvaluation,
   submitToOwner,
 } from '../api/evaluations.api';
 import { updateGoalAssessedProgress } from '../utils/goalScoring';
@@ -96,9 +97,13 @@ export function useModeration(moderationId: string) {
   const submitFinal = useCallback(async () => {
     if (!managerEval) return;
     await persist();
-    const finalised = await submitToOwner(managerEval._id);
-    setManagerEval(finalised);
-    return finalised;
+    // Moderations and reviews the owner assigned go to the owner for approval;
+    // only an old-style standalone draft is submitted the old way.
+    const submitted = managerEval.linkedEvaluationId || managerEval.status !== 'draft'
+      ? await submitToOwner(managerEval._id)
+      : await submitEvaluation(managerEval._id);
+    setManagerEval(submitted);
+    return submitted;
   }, [persist, managerEval]);
 
   const preview = useMemo(() => {
@@ -109,12 +114,9 @@ export function useModeration(moderationId: string) {
   const getItem = (criterionId: string) => items.find((i) => i.criterionId === criterionId);
   const getSelfItem = (criterionId: string) => selfEval?.items.find((i) => i.criterionId === criterionId);
 
-  // Editable while the manager is moderating (incl. after the owner asks for changes).
-  const locked =
-    managerEval?.status === 'pending_owner' ||
-    managerEval?.status === 'signed_off' ||
-    managerEval?.status === 'reviewed' ||
-    managerEval?.status === 'rejected';
+  // Editable while being moderated or after the owner sent it back; locked once
+  // it's with the owner or decided.
+  const locked = !!managerEval && !['draft', 'manager_in_progress', 'changes_requested'].includes(managerEval.status);
 
   return {
     managerEval,

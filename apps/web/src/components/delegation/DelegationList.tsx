@@ -125,6 +125,7 @@ const DelegationList: React.FC = () => {
           delegation={selectedDelegation}
           onClose={() => setSelectedDelegation(null)}
           onRevoke={() => setShowRevokeModal(true)}
+          onChanged={() => { setSelectedDelegation(null); fetchDelegations(); }}
         />
       )}
 

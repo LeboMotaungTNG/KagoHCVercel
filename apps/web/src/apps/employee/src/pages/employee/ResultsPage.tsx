@@ -3,6 +3,7 @@ import { ChevronDown, ChevronUp, BarChart3, ClipboardCheck, ClipboardList, Trend
 import { queryEvaluations } from '../../api/evaluations.api';
 import RatingBadge from '../../components/RatingBadge';
 import {
+  AlertBanner,
   EmptyState,
   FilterTabs,
   PageHero,
@@ -73,6 +74,7 @@ export default function ResultsPage() {
   const [viewMode, setViewMode] = useState<ViewMode>('list');
 
   const [employeeId, setEmployeeId] = useState<string | null>(null);
+  const [loadError, setLoadError] = useState<string | null>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -88,8 +90,12 @@ export default function ResultsPage() {
         try {
           const list = await queryEvaluations({ employeeId: emp._id });
           if (!cancelled) setEvaluations(Array.isArray(list) ? list : []);
-        } catch {
-          if (!cancelled) setEvaluations([]);
+        } catch (err) {
+          // Show why, instead of pretending there are no reviews.
+          if (!cancelled) {
+            setEvaluations([]);
+            setLoadError(err instanceof Error ? err.message : 'Your reviews could not be loaded.');
+          }
         }
       } finally {
         if (!cancelled) setLoading(false);
@@ -192,7 +198,11 @@ export default function ResultsPage() {
         />
       </div>
 
-      {!compareMode && evaluations.length === 0 && (
+      {loadError && (
+        <AlertBanner tone="danger">Your reviews could not be loaded: {loadError}</AlertBanner>
+      )}
+
+      {!compareMode && !loadError && evaluations.length === 0 && (
         <EmptyState
           icon={<ClipboardList size={28} />}
           message="No reviews yet. Complete a self-review or wait for your manager's evaluation to appear here."
