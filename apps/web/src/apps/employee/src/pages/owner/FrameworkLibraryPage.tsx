@@ -17,6 +17,11 @@ import {
   perfBtnSecondary,
 } from '../../components/PerformanceUI';
 import { C, R } from '../../../../../shared/utils/employee';
+import { API_BASE } from '../../../../../shared/utils/apiBase';
+
+/** Same rule as the server: capitals and spaces don't matter. */
+const normDept = (d: unknown) => String(d ?? '').replace(/\s+/g, '').toLowerCase();
+const INACTIVE = ['terminated', 'resigned', 'inactive'];
 
 export default function FrameworkLibraryPage() {
   const {
@@ -30,6 +35,30 @@ export default function FrameworkLibraryPage() {
   const navigate = useNavigate();
 
   const [deptByFramework, setDeptByFramework] = useState<Record<string, string>>({});
+  // Departments on active employees' profiles (name → headcount), suggested in the
+  // department box so the framework is assigned to a name employees actually have.
+  const [departmentsInUse, setDepartmentsInUse] = useState<Record<string, number>>({});
+  useEffect(() => {
+    const token = localStorage.getItem('token');
+    fetch(`${API_BASE}/employees`, { headers: { Authorization: `Bearer ${token}` } })
+      .then((r) => (r.ok ? r.json() : null))
+      .then((body) => {
+        const list: any[] = Array.isArray(body?.data) ? body.data : body?.data?.employees || body?.employees || [];
+        const counts: Record<string, number> = {};
+        list.forEach((e) => {
+          if (INACTIVE.includes(e?.employmentStatus)) return;
+          const d = typeof e?.department === 'object' ? e?.department?.name : e?.department;
+          if (d) counts[String(d).trim()] = (counts[String(d).trim()] || 0) + 1;
+        });
+        setDepartmentsInUse(counts);
+      })
+      .catch(() => setDepartmentsInUse({}));
+  }, []);
+  /** Employees whose department matches (any capitals/spacing), and the spelling on their profiles. */
+  const coverage = (department: string) => {
+    const names = Object.keys(departmentsInUse).filter((d) => normDept(d) === normDept(department));
+    return { name: names[0] || department, count: names.reduce((n, d) => n + departmentsInUse[d], 0) };
+  };
   const [actionError, setActionError] = useState<string | null>(null);
   const [successById, setSuccessById] = useState<Record<string, string>>({});
 
@@ -68,9 +97,10 @@ export default function FrameworkLibraryPage() {
     setActionError(null);
     try {
       await activate(sourceId, department);
+      const { name, count } = coverage(department);
       setSuccessById((prev) => ({
         ...prev,
-        [sourceId]: `Active for “${department}”. Employees with that department can start reviews.`,
+        [sourceId]: `Active for “${name}”: ${count} employee${count === 1 ? '' : 's'} will use it for new reviews. Reviews already started keep the version they began with.`,
       }));
     } catch (err) {
       setActionError(err instanceof Error ? err.message : 'Activation failed');
@@ -82,6 +112,9 @@ export default function FrameworkLibraryPage() {
 
   return (
     <PerformancePage>
+      <datalist id="departments-in-use">
+        {Object.keys(departmentsInUse).sort().map((d) => <option key={d} value={d} />)}
+      </datalist>
       <PageHero
         icon={<Library size={24} color="#fff" />}
         title="Framework Library"
@@ -166,6 +199,7 @@ export default function FrameworkLibraryPage() {
                       setDeptByFramework((prev) => ({ ...prev, [fw._id]: e.target.value }))
                     }
                     placeholder={fw.department}
+                    list="departments-in-use"
                   />
                 </div>
 
