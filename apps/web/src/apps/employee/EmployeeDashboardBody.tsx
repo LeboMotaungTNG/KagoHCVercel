@@ -378,7 +378,11 @@ const StatsGrid: React.FC<{
 }> = ({ balances, kpis }) => {
   // Every tile uses the same source as the page it's compared with.
   const fmt = (n: number) => (Number.isInteger(n) ? String(n) : n.toFixed(1));
-  const totalLeave = Math.round(balances.reduce((a, b) => a + daysLeft(b), 0) * 10) / 10; // = the Time off cards
+  // "Annual leave" = annual leave available (the Annual card / Leave page). Adding
+  // sick, maternity etc. to it would give a meaningless total.
+  const annual = balances.find(b => b.key === "annual") || balances.find(b => /annual/i.test(b.type));
+  const sick = balances.find(b => b.key === "sick") || balances.find(b => /sick/i.test(b.type));
+  const left = (b: LeaveBalance) => fmt(Math.round(daysLeft(b) * 10) / 10);
   const pct = kpis.monthTarget ? Math.min(999, Math.round((kpis.monthHours / kpis.monthTarget) * 100)) : 0;
   const team = kpis.team;
   const goals = kpis.goals;
@@ -386,8 +390,8 @@ const StatsGrid: React.FC<{
   return (
     <div className="kg-stats-grid">
       <StatTile
-        label="Leave balance" value={`${fmt(totalLeave)}d`}
-        sub={`${kpis.pendingLeave} pending request${kpis.pendingLeave === 1 ? "" : "s"}`}
+        label="Annual leave" value={annual ? `${left(annual)}d` : "—"}
+        sub={`${kpis.pendingLeave} pending request${kpis.pendingLeave === 1 ? "" : "s"}${sick ? ` · ${left(sick)} sick days left` : ""}`}
         icon={<Calendar size={20} />} iconBg={C.coralBg} iconColor={C.coral}
       />
       <StatTile
@@ -640,7 +644,7 @@ const WhosAroundCard: React.FC<{ roster: Teammate[]; onViewAll: () => void }> = 
 
   const counts = roster.reduce(
     (a, r) => ((a[r.state]++), a),
-    { office: 0, remote: 0, leave: 0 } as Record<PresenceState, number>,
+    { office: 0, remote: 0, leave: 0, away: 0 } as Record<PresenceState, number>,
   );
 
   return (
@@ -890,8 +894,9 @@ const EmployeeDashboardBody: React.FC<Props> = ({
       teamOnLeave as any,
       user?.email,
       user ? `${user.firstName || ""} ${user.lastName || ""}`.trim() : undefined,
+      kpis?.teamToday,
     ),
-    [colleagues, teamOnLeave, user],
+    [colleagues, teamOnLeave, user, kpis?.teamToday],
   );
 
   const onLeave = !!activeLeave || today.status === "leave";
