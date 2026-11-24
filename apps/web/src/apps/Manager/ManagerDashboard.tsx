@@ -434,42 +434,6 @@ const TeamRosterCard: React.FC<{ roster: any[]; loading: boolean }> = ({ roster,
   );
 };
 
-/* ─── Quick actions ──────────────────────────────────────────────────────── */
-const QuickActionsCard: React.FC = () => {
-  const navigate = useNavigate();
-  const actions = [
-    // Onboarding is for the owner, admins and HR only.
-    ...(canOnboardEmployees() ? [{ label: "Add Employee",   path: "/manager/manage-employees", icon: <Plus size={18} />,     bg: C.coralBg,  color: C.coral  }] : []),
-    { label: "All Employees",  path: "/manager/employees",        icon: <Users size={18} />,    bg: C.blueBg,   color: C.blue   },
-    { label: "Clock in",       path: "/manager/my-attendance",    icon: <Clock size={18} />,    bg: C.greenBg,  color: C.green  },
-    { label: "Team attendance", path: "/manager/attendance",      icon: <Clock size={18} />,    bg: C.blueBg,   color: C.blue   },
-    { label: "Request leave",  path: "/manager/my-leave",         icon: <Calendar size={18} />, bg: C.warnBg,   color: C.amber  },
-    { label: "Team leave",     path: "/manager/leave-requests",   icon: <Calendar size={18} />, bg: C.blueBg,   color: C.blue   },
-    { label: "Payroll",        path: "/manager/payroll",          icon: <Target size={18} />,   bg: C.purpleBg, color: C.purple },
-    { label: "Self-review",    path: "/manager/my-performance/self-review", icon: <TrendingUp size={18} />, bg: C.coralBg, color: C.coral },
-    { label: "Emp. Profile",   path: "/manager/profile",          icon: <Star size={18} />,     bg: "#f1f5f9",  color: C.muted  },
-  ];
-  return (
-    <Card>
-      <SectionHead title="Quick navigation" subtitle="Jump to any section" />
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 10 }}>
-        {actions.map(a => (
-          <button
-            key={a.label}
-            onClick={() => navigate(a.path)}
-            style={{ padding: "14px 10px", borderRadius: R.lg, border: `1px solid ${C.line}`, background: C.surface, cursor: "pointer", display: "flex", flexDirection: "column", alignItems: "center", gap: 8, transition: "all .15s" }}
-            onMouseEnter={e => { e.currentTarget.style.background = a.bg; e.currentTarget.style.borderColor = a.color; e.currentTarget.style.transform = "translateY(-2px)"; e.currentTarget.style.boxShadow = SHADOW_L; }}
-            onMouseLeave={e => { e.currentTarget.style.background = C.surface; e.currentTarget.style.borderColor = C.line; e.currentTarget.style.transform = ""; e.currentTarget.style.boxShadow = ""; }}
-          >
-            <IconBubble bg={a.bg} color={a.color} size={38}>{a.icon}</IconBubble>
-            <span style={{ fontSize: 12, fontWeight: 600, color: C.ink, textAlign: "center", lineHeight: 1.3 }}>{a.label}</span>
-          </button>
-        ))}
-      </div>
-    </Card>
-  );
-};
-
 /* ─── AI assistant (same as employee) ───────────────────────────────────── */
 const MANAGER_PROMPTS = [
   "How do I export an attendance report?",
@@ -679,8 +643,7 @@ const ManagerDashboard: React.FC = () => {
           <TeamRosterCard roster={roster} loading={rosterLoading} />
         </div>
 
-        <div className="mgr-row mgr-bot">
-          <QuickActionsCard />
+        <div className="mgr-row">
           <AIAssistantCard />
         </div>
 
