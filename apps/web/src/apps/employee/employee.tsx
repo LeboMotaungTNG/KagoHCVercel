@@ -389,60 +389,6 @@ const StatsGrid: React.FC<{
   );
 };
 
-const QUICK_ACTIONS: Array<{
-  label: string; icon: React.ReactNode; bg: string; color: string; badge?: string;
-}> = [
-  { label: "Payslip on WhatsApp", icon: <Receipt   size={20} />, bg: C.coralBg,  color: C.coral,  badge: "NEW" },
-  { label: "Book meeting room",   icon: <Video     size={20} />, bg: C.blueBg,   color: C.blue   },
-  { label: "Submit expense",      icon: <FileText  size={20} />, bg: C.greenBg,  color: C.green  },
-  { label: "Contact HR",          icon: <MessageCircle size={20} />, bg: C.pinkBg,   color: C.pink   },
-  { label: "Give kudos",          icon: <Sparkles  size={20} />, bg: C.amberBg,  color: C.amber  },
-  { label: "Browse courses",      icon: <GraduationCap size={20} />, bg: C.purpleBg, color: C.purple },
-];
-
-const QuickActionsCard: React.FC = () => (
-  <Card>
-    <SectionHead title="Quick actions" />
-    <div className="kg-actions-grid">
-      {QUICK_ACTIONS.map(a => (
-        <button
-          key={a.label}
-          style={{
-            border: `1px solid ${C.line}`, background: C.surface,
-            borderRadius: R.lg, padding: "16px 12px", cursor: "pointer",
-            display: "flex", flexDirection: "column", alignItems: "center", gap: 10,
-            transition: "transform .15s, box-shadow .15s, border-color .15s",
-            position: "relative",
-          }}
-          onMouseEnter={e => {
-            e.currentTarget.style.transform = "translateY(-2px)";
-            e.currentTarget.style.boxShadow = "0 6px 18px rgba(16,24,40,0.08)";
-            e.currentTarget.style.borderColor = a.color;
-          }}
-          onMouseLeave={e => {
-            e.currentTarget.style.transform = "";
-            e.currentTarget.style.boxShadow = "";
-            e.currentTarget.style.borderColor = C.line;
-          }}
-        >
-          {a.badge && (
-            <span style={{
-              position: "absolute", top: 10, right: 10,
-              fontSize: 9.5, fontWeight: 800, letterSpacing: 0.6,
-              background: C.coral, color: "#fff",
-              borderRadius: 999, padding: "2px 6px",
-            }}>{a.badge}</span>
-          )}
-          <IconBubble bg={a.bg} color={a.color} size={44}>{a.icon}</IconBubble>
-          <span style={{ fontSize: 12.5, fontWeight: 600, color: C.ink, textAlign: "center", lineHeight: 1.3 }}>
-            {a.label}
-          </span>
-        </button>
-      ))}
-    </div>
-  </Card>
-);
-
 function leaveCategoryIcon(type: string): React.ReactNode {
   const t = type.toLowerCase();
   if (/(sick|medical|illness)/.test(t)) return <Heart size={20} strokeWidth={2} aria-hidden />;
@@ -1015,27 +961,22 @@ const EmployeeDashboard: React.FC = () => {
 
       <style>{`
         .kg-stats-grid   { display: grid; gap: 16px; grid-template-columns: repeat(2, minmax(0, 1fr)); }
-        .kg-actions-grid { display: grid; gap: 12px; grid-template-columns: repeat(3, minmax(0, 1fr)); }
         .kg-leave-grid   { display: grid; gap: 12px; grid-template-columns: repeat(3, minmax(0, 1fr)); }
         .kg-row          { display: grid; gap: 20px; margin-bottom: 22px; }
         .kg-row-hero     { grid-template-columns: 1fr; }
-        .kg-row-pulse    { grid-template-columns: 1fr; }
         .kg-row-trio     { grid-template-columns: 1fr; }
         .kg-row-pair     { grid-template-columns: 1fr; }
         @media (max-width: 420px) {
           .kg-stats-grid,
           .kg-leave-grid   { grid-template-columns: 1fr; }
-          .kg-actions-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
         }
         @media (min-width: 1100px) {
           .kg-stats-grid   { grid-template-columns: repeat(4, minmax(0, 1fr)); }
           .kg-row-hero     { grid-template-columns: 2fr 1fr; }
-          .kg-row-pulse    { grid-template-columns: 1fr; }
           .kg-row-trio     { grid-template-columns: 1fr 1fr 1fr; }
           .kg-row-pair     { grid-template-columns: 1fr 1fr; }
         }
         @media (min-width: 1500px) {
-          .kg-actions-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
         }
       `}</style>
 
@@ -1065,10 +1006,6 @@ const EmployeeDashboard: React.FC = () => {
 
         <div style={{ marginBottom: 22 }}>
           <StatsGrid balances={balances} today={today} stats={stats} teamOnLeaveCount={teamOnLeave.length} />
-        </div>
-
-        <div className="kg-row kg-row-pulse">
-          <QuickActionsCard />
         </div>
 
         <div className="kg-row kg-row-trio">
