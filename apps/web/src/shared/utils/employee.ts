@@ -92,7 +92,7 @@ export interface LeaveRecord {
   id: string; type: string; start_date: string; end_date: string;
   status: LeaveStatus; days: number;
 }
-export interface LeaveBalance     { type: string; used: number; total: number; color: string; /** Available now, from the server (accrual + carry-over − used). */ remaining?: number }
+export interface LeaveBalance     { type: string; used: number; total: number; color: string; /** Available now, from the server (accrual + carry-over − used). */ remaining?: number; /** Policy code, e.g. "annual". */ key?: string }
 /** Days left for a leave type — the server's available figure, the same as the Leave page. */
 export const daysLeft = (b: LeaveBalance): number => Math.max(0, typeof b.remaining === "number" ? b.remaining : b.total - b.used);
 
@@ -105,6 +105,8 @@ export interface DashboardKpis {
   monthTarget: number;
   /** Your team today (department; a manager's team): clocked in, size, on approved leave. */
   team: { online: number; total: number; onLeave: number } | null;
+  /** Your team today, member by member — shared by "Team online" and "Who's around today". */
+  teamToday?: { members: Array<{ id: string; name: string; department: string; email: string }>; status: Record<string, PresenceState> };
   /** Your goals: average progress, how many, how many completed. */
   goals: { average: number; total: number; completed: number } | null;
 }
@@ -112,7 +114,7 @@ export interface AttendanceStats  { rate: number; present: number; late: number;
 export interface BirthdayEntry    { name: string; dob: string; department: string; daysUntil: number }
 export interface TeamOnLeave      { name: string; type: string; end_date: string; daysLeft: number; department: string }
 
-export type PresenceState = "office" | "remote" | "leave";
+export type PresenceState = "office" | "remote" | "leave" | "away";
 export interface Colleague { id: string; name: string; department: string; email?: string }
 export interface Teammate  { id: string; name: string; department: string; state: PresenceState; email?: string }
 
@@ -138,6 +140,7 @@ export const PRESENCE_STYLES: Record<PresenceState, { dot: string; label: string
   office: { dot: C.ok,    label: "In office", color: C.ok    },
   remote: { dot: C.blue,  label: "Remote",    color: C.blue  },
   leave:  { dot: C.amber, label: "On leave",  color: C.amber },
+  away:   { dot: C.faint, label: "Not in yet", color: C.muted },
 };
 
 /* ─────────────────────────────────────────────────────────────────────────────
@@ -343,7 +346,19 @@ export function buildTeammateRoster(
   teamOnLeave: TeamOnLeave[],
   currentEmail?: string,
   currentFullName?: string,
+  teamToday?: DashboardKpis["teamToday"],
 ): Teammate[] {
+  // Real states from the server (who clocked in / is on leave / isn't in yet),
+  // for the same people "Team online" counts — you included.
+  if (teamToday && teamToday.members.length) {
+    const order: Record<PresenceState, number> = { office: 0, remote: 1, away: 2, leave: 3 };
+    return teamToday.members
+      .map(m => {
+        const you = !!currentEmail && !!m.email && m.email.toLowerCase() === currentEmail.toLowerCase();
+        return { id: m.id, name: you ? `${m.name} (you)` : m.name, department: m.department, email: m.email, state: teamToday.status[m.id] || "away" };
+      })
+      .sort((a, b) => order[a.state] - order[b.state] || a.name.localeCompare(b.name));
+  }
   const isSelf = (c: Colleague) => {
     if (currentEmail && c.email && c.email.toLowerCase() === currentEmail.toLowerCase()) return true;
     if (currentFullName && namesRoughlyMatch(currentFullName, c.name)) return true;
@@ -530,7 +545,8 @@ export function useEmployeeData() {
       : [];
     entries.sort(([a], [b2]) => (ORDER.indexOf(a) === -1 ? 99 : ORDER.indexOf(a)) - (ORDER.indexOf(b2) === -1 ? 99 : ORDER.indexOf(b2)));
     setBalances(entries.map(([key, v]: [string, any], i: number) => ({
-      type: label(key),
+      key,
+      type: v.name || label(key),
       used: Number(v.used) || 0,
       total: Number(v.total) || 0,
       remaining: typeof v.remaining === "number" ? v.remaining : undefined,
@@ -543,7 +559,20 @@ export function useEmployeeData() {
     const d = await safeJson(`${API_URL}/attendance/around-today`, { headers });
     const r = d?.data ?? d;
     if (r && typeof r.count === "number") {
-      setKpis(k => ({ ...k, team: { online: r.count, total: Number(r.total) || r.count, onLeave: Number(r.onLeave) || 0 } }));
+      // Each team member's state today: clocked in (office / remote), on approved leave, or not in yet.
+      const members: Array<{ id: string; name: string; department: string; email: string }> = Array.isArray(r.members) ? r.members : [];
+      const status: Record<string, PresenceState> = {};
+      members.forEach(m => { status[m.id] = "away"; });
+      (Array.isArray(r.onLeaveIds) ? r.onLeaveIds : []).forEach((id: string) => { status[String(id)] = "leave"; });
+      (Array.isArray(r.teammates) ? r.teammates : []).forEach((t: any) => { status[String(t.employee_id)] = t.status === "remote" ? "remote" : "office"; });
+      const states = members.map(m => status[m.id]);
+      setKpis(k => ({
+        ...k,
+        team: members.length
+          ? { online: states.filter(st => st === "office" || st === "remote").length, total: members.length, onLeave: states.filter(st => st === "leave").length }
+          : { online: r.count, total: Number(r.total) || r.count, onLeave: Number(r.onLeave) || 0 },
+        teamToday: members.length ? { members, status } : undefined,
+      }));
     }
   }, [headers]);
 
