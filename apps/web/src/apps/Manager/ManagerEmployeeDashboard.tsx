@@ -5,7 +5,7 @@ import EmployeeDashboardBody from "../employee/EmployeeDashboardBody";
 
 const ManagerEmployeeDashboard: React.FC = () => {
   const {
-    user, today, stats, balances, activeLeave, recentLeaves, teamOnLeave, birthdays, colleagues,
+    user, today, stats, balances, activeLeave, recentLeaves, teamOnLeave, birthdays, colleagues, kpis,
     loading, error, clockIn, clockOut,
   } = useEmployeeData();
 
@@ -17,6 +17,7 @@ const ManagerEmployeeDashboard: React.FC = () => {
         today={today}
         stats={stats}
         balances={balances}
+        kpis={kpis}
         activeLeave={activeLeave}
         recentLeaves={recentLeaves}
         teamOnLeave={teamOnLeave}
