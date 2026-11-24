@@ -92,7 +92,22 @@ export interface LeaveRecord {
   id: string; type: string; start_date: string; end_date: string;
   status: LeaveStatus; days: number;
 }
-export interface LeaveBalance     { type: string; used: number; total: number; color: string }
+export interface LeaveBalance     { type: string; used: number; total: number; color: string; /** Available now, from the server (accrual + carry-over − used). */ remaining?: number }
+/** Days left for a leave type — the server's available figure, the same as the Leave page. */
+export const daysLeft = (b: LeaveBalance): number => Math.max(0, typeof b.remaining === "number" ? b.remaining : b.total - b.used);
+
+/** Figures for the dashboard tiles, each from the same source as its page. */
+export interface DashboardKpis {
+  /** Your own leave requests still waiting for a decision. */
+  pendingLeave: number;
+  /** Hours worked this month (attendance history) and the month's target. */
+  monthHours: number;
+  monthTarget: number;
+  /** Your team today (department; a manager's team): clocked in, size, on approved leave. */
+  team: { online: number; total: number; onLeave: number } | null;
+  /** Your goals: average progress, how many, how many completed. */
+  goals: { average: number; total: number; completed: number } | null;
+}
 export interface AttendanceStats  { rate: number; present: number; late: number; total: number }
 export interface BirthdayEntry    { name: string; dob: string; department: string; daysUntil: number }
 export interface TeamOnLeave      { name: string; type: string; end_date: string; daysLeft: number; department: string }
@@ -388,6 +403,7 @@ export function useEmployeeData() {
   const [teamOnLeave, setTeamOnLeave]   = useState<TeamOnLeave[]>([]);
   const [birthdays, setBirthdays]       = useState<BirthdayEntry[]>([]);
   const [colleagues, setColleagues]     = useState<Colleague[]>([]);
+  const [kpis, setKpis]                 = useState<DashboardKpis>({ pendingLeave: 0, monthHours: 0, monthTarget: 0, team: null, goals: null });
   const [loading, setLoading]           = useState(true);
   const [error, setError]               = useState<string | null>(null);
 
@@ -431,7 +447,8 @@ export function useEmployeeData() {
   }, [headers]);
 
   const loadAttendance = useCallback(async () => {
-    const d = await safeJson(`${API_URL}/attendance`, { headers });
+    // scope=mine: only MY attendance (managers otherwise get the team's).
+    const d = await safeJson(`${API_URL}/attendance?scope=mine`, { headers });
     const records: any[] =
       d?.data?.data ?? (Array.isArray(d?.data) ? d.data : Array.isArray(d) ? d : []);
 
@@ -449,6 +466,14 @@ export function useEmployeeData() {
       present, late, total,
       rate: total > 0 ? Math.round(((present + late) / total) * 100) : 0,
     });
+    // This month = the hours in my attendance history this month; target = the
+    // month's working days (Mon–Fri) × 8h.
+    const monthHours = Math.round(month.reduce((sum, r: any) => sum + (Number(r.hours_worked ?? r.work_hours) || 0), 0) * 10) / 10;
+    let workingDays = 0;
+    for (let d2 = new Date(now.getFullYear(), now.getMonth(), 1); d2.getMonth() === now.getMonth(); d2.setDate(d2.getDate() + 1)) {
+      if (d2.getDay() !== 0 && d2.getDay() !== 6) workingDays++;
+    }
+    setKpis(k => ({ ...k, monthHours, monthTarget: workingDays * 8 }));
 
     const t = todayISO();
     setTeamOnLeave(records
@@ -470,7 +495,8 @@ export function useEmployeeData() {
 
     // Backend leave endpoints are mounted at: /api/v1/leave
     // We keep parsing tolerant to wrapper shapes.
-    const d = await safeJson(`${API_URL}/leave/requests?limit=100&page=1`, { headers });
+    // mine=true: only MY requests, even for managers (otherwise the team's are returned).
+    const d = await safeJson(`${API_URL}/leave/requests?limit=100&page=1&mine=true`, { headers });
     const raw: any[] = unwrapArray(d);
 
 
@@ -489,37 +515,47 @@ export function useEmployeeData() {
     setActiveLeave(mapped.find(l => l.status === "approved" && l.start_date <= today && l.end_date >= today) || null);
     setRecentLeaves([...mapped].sort((a, b) => b.start_date.localeCompare(a.start_date)));
 
-    // Leave balance endpoint (backend): /api/v1/leave/balance/:employeeId
-    // This hook currently only has user profile (email) and does not expose employeeId.
-    // So we compute balances from leave requests instead of calling the balance endpoint.
+    const PENDING = ["pending", "pending_manager", "pending_hr"];
+    const pendingLeave = raw.filter((l: any) => PENDING.includes(String(l.status))).length;
+    setKpis(k => ({ ...k, pendingLeave }));
 
-    // Note: leave balance endpoint isn't wired here yet.
-    // Keep this as a safe no-op to avoid TS narrowing to `never`.
-    const ba: any[] = [];
+    // Balances come from the server (/leave/balance) — the same figures as the Leave
+    // page, including monthly accrual and carry-over. No guessed totals.
+    const b = await safeJson(`${API_URL}/leave/balance`, { headers });
+    const map = (b && typeof b === "object" ? (b.data ?? b) : null) as Record<string, any> | null;
+    const ORDER = ["annual", "sick", "family", "family_responsibility", "maternity", "parental", "adoption", "unpaid"];
+    const label = (k: string) => k.replace(/[_-]+/g, " ").replace(/\b\w/g, c => c.toUpperCase());
+    const entries = map && !Array.isArray(map)
+      ? Object.entries(map).filter(([, v]) => v && typeof v === "object" && ("total" in v || "remaining" in v))
+      : [];
+    entries.sort(([a], [b2]) => (ORDER.indexOf(a) === -1 ? 99 : ORDER.indexOf(a)) - (ORDER.indexOf(b2) === -1 ? 99 : ORDER.indexOf(b2)));
+    setBalances(entries.map(([key, v]: [string, any], i: number) => ({
+      type: label(key),
+      used: Number(v.used) || 0,
+      total: Number(v.total) || 0,
+      remaining: typeof v.remaining === "number" ? v.remaining : undefined,
+      color: LEAVE_PALETTE[i % LEAVE_PALETTE.length],
+    })));
+  }, [headers]);
 
-    if (ba.length) {
-      setBalances(
-        ba.map((b: any, i: number) => ({
-          type: b.leaveType || b.type || "Leave",
-          used: b.used || b.usedDays || 0,
-          total: b.total || b.totalDays || b.allowance || 20,
-          color: LEAVE_PALETTE[i % LEAVE_PALETTE.length],
-        }))
-      );
-      return;
+  /** Team online: who in my team clocked in today, team size, on approved leave (server). */
+  const loadTeamToday = useCallback(async () => {
+    const d = await safeJson(`${API_URL}/attendance/around-today`, { headers });
+    const r = d?.data ?? d;
+    if (r && typeof r.count === "number") {
+      setKpis(k => ({ ...k, team: { online: r.count, total: Number(r.total) || r.count, onLeave: Number(r.onLeave) || 0 } }));
     }
+  }, [headers]);
 
-
-    const tally: Record<string, number> = {};
-    mapped.filter(l => l.status === "approved").forEach(l => { tally[l.type] = (tally[l.type] || 0) + l.days; });
-    const inferred = Object.entries(tally).map(([type, used], i) => ({
-      type, used, total: Math.max(used, 20), color: LEAVE_PALETTE[i % LEAVE_PALETTE.length],
-    }));
-    setBalances(inferred.length ? inferred : [
-      { type: "Annual",   used: 0, total: 22, color: C.coral },
-      { type: "Sick",     used: 0, total: 12, color: C.pink  },
-      { type: "Personal", used: 0, total: 5,  color: C.green },
-    ]);
+  /** Goals progress: average progress of MY goals (same as My goals). */
+  const loadGoalsSummary = useCallback(async () => {
+    const me = await safeJson(`${API_URL}/employees/me`, { headers });
+    const id = me?.data?._id ?? me?._id;
+    if (!id) { setKpis(k => ({ ...k, goals: { average: 0, total: 0, completed: 0 } })); return; }
+    const g = await safeJson(`${API_URL}/goals?employeeId=${id}`, { headers });
+    const list: any[] = (Array.isArray(g?.data) ? g.data : Array.isArray(g) ? g : []).filter((x: any) => x.status !== "cancelled");
+    const average = list.length ? Math.round(list.reduce((s2, x: any) => s2 + (Number(x.progressPct) || 0), 0) / list.length) : 0;
+    setKpis(k => ({ ...k, goals: { average, total: list.length, completed: list.filter((x: any) => x.status === "completed").length } }));
   }, [headers]);
 
   const loadEmployeeDirectory = useCallback(async () => {
@@ -560,11 +596,11 @@ export function useEmployeeData() {
   const reload = useCallback(async () => {
     setError(null);
     const results = await Promise.allSettled([
-      loadProfile(), loadToday(), loadAttendance(), loadLeave(), loadEmployeeDirectory(),
+      loadProfile(), loadToday(), loadAttendance(), loadLeave(), loadEmployeeDirectory(), loadTeamToday(), loadGoalsSummary(),
     ]);
     if (results.some(r => r.status === "rejected")) setError("Some data couldn't be loaded.");
     setLoading(false);
-  }, [loadProfile, loadToday, loadAttendance, loadLeave, loadEmployeeDirectory]);
+  }, [loadProfile, loadToday, loadAttendance, loadLeave, loadEmployeeDirectory, loadTeamToday, loadGoalsSummary]);
 
   useEffect(() => { reload(); }, [reload]);
 
@@ -591,7 +627,7 @@ export function useEmployeeData() {
   }, [headers, today.clock_in, today.clock_out]);
 
   return {
-    user, today, stats, balances, activeLeave, recentLeaves, teamOnLeave, birthdays, colleagues,
+    user, today, stats, balances, activeLeave, recentLeaves, teamOnLeave, birthdays, colleagues, kpis,
     loading, error, reload, clockIn, clockOut,
   };
 }

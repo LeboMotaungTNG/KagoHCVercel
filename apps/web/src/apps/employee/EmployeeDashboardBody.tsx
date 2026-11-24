@@ -11,7 +11,7 @@ import {
 import {
   C, SHADOW, SHADOW_L, R, FONT_NUM,
   type UserProfile, type TodayAttendance, type LeaveStatus, type LeaveRecord,
-  type LeaveBalance, type AttendanceStats, type BirthdayEntry,
+  type LeaveBalance, type AttendanceStats, type BirthdayEntry, type DashboardKpis, daysLeft,
   type PresenceState, type Teammate,
   PRESENCE_STYLES,
   greetingFor, longDate, fmtTime, fmtHMS, fmtDateRange,
@@ -30,6 +30,8 @@ type DashboardMode = "employee" | "manager" | "owner";
 
 type Props = {
   mode: DashboardMode;
+  /** Dashboard tile figures (from useEmployeeData). */
+  kpis?: DashboardKpis;
   user: UserProfile | null;
   today: TodayAttendance;
   stats: AttendanceStats;
@@ -372,41 +374,36 @@ const StatTile: React.FC<{
 
 const StatsGrid: React.FC<{
   balances: LeaveBalance[];
-  today: TodayAttendance;
-  stats: AttendanceStats;
-  teamOnlineCount: number;
-  teamTotal: number;
-  teamOnLeaveCount: number;
-}> = ({ balances, today, stats, teamOnlineCount, teamTotal, teamOnLeaveCount }) => {
-  const totalLeave = balances.reduce((a, b) => a + Math.max(0, b.total - b.used), 0);
-  const pendingLeave = balances.length;
-  const monthHours = today.work_hours ? (today.work_hours * 22).toFixed(0) : "0";
-  const target = 176;
-  const pct = Math.min(999, Math.round((Number(monthHours) / target) * 100));
+  kpis: DashboardKpis;
+}> = ({ balances, kpis }) => {
+  // Every tile uses the same source as the page it's compared with.
+  const fmt = (n: number) => (Number.isInteger(n) ? String(n) : n.toFixed(1));
+  const totalLeave = Math.round(balances.reduce((a, b) => a + daysLeft(b), 0) * 10) / 10; // = the Time off cards
+  const pct = kpis.monthTarget ? Math.min(999, Math.round((kpis.monthHours / kpis.monthTarget) * 100)) : 0;
+  const team = kpis.team;
+  const goals = kpis.goals;
 
   return (
     <div className="kg-stats-grid">
       <StatTile
-        label="Leave balance" value={`${totalLeave}d`}
-        sub={`${pendingLeave} pending requests`}
-        delta={{ up: true, text: `+${Math.max(0, totalLeave - 20)}` }}
+        label="Leave balance" value={`${fmt(totalLeave)}d`}
+        sub={`${kpis.pendingLeave} pending request${kpis.pendingLeave === 1 ? "" : "s"}`}
         icon={<Calendar size={20} />} iconBg={C.coralBg} iconColor={C.coral}
       />
       <StatTile
-        label="This month" value={`${monthHours}h`}
-        sub={`${pct}% of target`}
+        label="This month" value={`${fmt(kpis.monthHours)}h`}
+        sub={`${pct}% of ${kpis.monthTarget}h target`}
         delta={{ up: pct >= 80, text: `${pct}%` }}
         icon={<TrendingUp size={20} />} iconBg={C.greenBg} iconColor={C.green}
       />
       <StatTile
-        label="Team online" value={`${teamOnlineCount}/${teamTotal}`}
-        sub={`${teamOnLeaveCount} on leave today`}
+        label="Team online" value={team ? `${team.online}/${team.total}` : "—"}
+        sub={team ? `${team.onLeave} on leave today` : "Team not available"}
         icon={<Users size={20} />} iconBg={C.blueBg} iconColor={C.blue}
       />
       <StatTile
-        label="Goals progress" value={`${stats.rate}%`}
-        sub={`${stats.present} present · ${stats.late} late`}
-        delta={{ up: stats.rate >= 80, text: `${stats.rate}%` }}
+        label="Goals progress" value={goals && goals.total ? `${goals.average}%` : "—"}
+        sub={goals && goals.total ? `${goals.completed} of ${goals.total} goal${goals.total === 1 ? "" : "s"} completed` : "No goals assigned yet"}
         icon={<Target size={20} />} iconBg={C.pinkBg} iconColor={C.pink}
       />
     </div>
@@ -422,7 +419,7 @@ function leaveCategoryIcon(type: string): React.ReactNode {
 }
 
 const LeaveBalanceTile: React.FC<{ balance: LeaveBalance; gradient: string }> = ({ balance, gradient }) => {
-  const remaining = Math.max(0, balance.total - balance.used);
+  const remaining = daysLeft(balance); // same figure as the Leave page
   const pct = balance.total ? Math.min(100, (balance.used / balance.total) * 100) : 0;
   const label = balance.type.replace(/\s+leave$/i, "").trim();
 
@@ -864,7 +861,10 @@ const SimpleModal: React.FC<{ open: boolean; title: string; onClose: () => void;
   );
 };
 
+const EMPTY_KPIS: DashboardKpis = { pendingLeave: 0, monthHours: 0, monthTarget: 0, team: null, goals: null };
+
 const EmployeeDashboardBody: React.FC<Props> = ({
+  kpis,
   mode,
   user,
   today,
@@ -897,16 +897,6 @@ const EmployeeDashboardBody: React.FC<Props> = ({
   const onLeave = !!activeLeave || today.status === "leave";
   const canClock = mode === "employee" || mode === "manager" || mode === "owner";
   const canApplyLeave = mode === "employee";
-  const teamPresence = useMemo(() => {
-    const online = teammateRoster.filter((member) => member.state === "office" || member.state === "remote").length;
-    const onLeaveCount = teammateRoster.filter((member) => member.state === "leave").length;
-    const currentUserCount = user ? 1 : 0;
-    return {
-      online: online + (user && !onLeave ? 1 : 0),
-      total: teammateRoster.length + currentUserCount,
-      onLeave: onLeaveCount + (user && onLeave ? 1 : 0),
-    };
-  }, [teammateRoster, user, onLeave]);
 
   // Align leave stats / history with the same leave API mapping used by apps/employee/leave.tsx
   // (EmployeeDashboardBody currently relies on useEmployeeData's inferred balances/history).
@@ -976,14 +966,7 @@ const EmployeeDashboardBody: React.FC<Props> = ({
         </div>
 
         <div style={{ marginBottom: 22 }}>
-          <StatsGrid
-            balances={balances}
-            today={today}
-            stats={stats}
-            teamOnlineCount={teamPresence.online}
-            teamTotal={teamPresence.total}
-            teamOnLeaveCount={teamPresence.onLeave}
-          />
+          <StatsGrid balances={balances} kpis={kpis ?? EMPTY_KPIS} />
         </div>
 
         <div className="kg-row kg-row-trio">
