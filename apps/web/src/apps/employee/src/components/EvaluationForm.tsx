@@ -102,6 +102,17 @@ export default function EvaluationForm({
 
   let lastPillar = '';
 
+  // Section heading tells the truth about this framework's marks: "5 pts each" only
+  // when every criterion in the section is worth 5; otherwise the section's total
+  // (customised frameworks differ).
+  const pillarMeta = (p: string): string | undefined => {
+    const marks = frameworkSnapshot.categories
+      .filter((c) => pillarForCategoryOrder(c.order) === p)
+      .flatMap((c) => c.criteria.map((cr) => Number(cr.maxMarks) || 0));
+    if (!marks.length) return undefined;
+    return marks.every((m) => m === marks[0]) ? `${marks[0]} pts each` : `${marks.reduce((a, m) => a + m, 0)} marks`;
+  };
+
   return (
     <PerformancePage maxWidth={1100}>
       <PageHero
@@ -189,7 +200,7 @@ export default function EvaluationForm({
                 {showPillarHeader && (
                   <PillarHeader
                     label={PILLAR_LABELS[pillar] ?? pillar.toUpperCase()}
-                    meta={pillar === 'functional' ? '5 pts each' : undefined}
+                    meta={pillarMeta(pillar)}
                     connected
                   />
                 )}
