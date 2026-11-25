@@ -44,6 +44,7 @@ import {
   readFileAsDataUrl,
   saveCache,
   saveCachedPositions,
+  fetchServerPositions,
   saveCompanySettings,
   setByPath,
   validateAdministrator,
@@ -271,7 +272,7 @@ const OnboardingPage: React.FC = () => {
   const [deptParentId, setDeptParentId] = useState<string>("");
   const [savingDept, setSavingDept] = useState(false);
 
-  // Positions (local catalog until a positions API exists)
+  // Positions: stored on the server per department (cached in the browser for instant display)
   const [positions, setPositions] = useState<OrgPosition[]>(() => loadCachedPositions());
   const [posDraft, setPosDraft] = useState({ name: "", description: "", departmentId: "" });
   const [savingPos, setSavingPos] = useState(false);
@@ -295,6 +296,8 @@ const OnboardingPage: React.FC = () => {
       setCompletedSteps(cached.completedSteps || []);
       setPositions(cached.positions || []);
     }
+    // The company's positions from the server (uploads this browser's old list once if the server has none).
+    void fetchServerPositions().then(list => { if (list) setPositions(list); });
     (async () => {
       try {
         const [remote, remoteAdmins, remoteDepts] = await Promise.all([
@@ -481,18 +484,17 @@ const OnboardingPage: React.FC = () => {
       await deleteDepartment(d.id);
       const childIds = departments.filter(x => x.parentDepartment === d.id).map(x => x.id);
       setDepartments(prev => prev.filter(x => x.id !== d.id));
-      setPositions(prev => {
-        const next = prev.filter(p => p.departmentId !== d.id && !childIds.includes(p.departmentId));
-        saveCachedPositions(next);
-        return next;
-      });
+      // The department's positions went with it on the server; keep the list in step.
+      const next = positions.filter(p => p.departmentId !== d.id && !childIds.includes(p.departmentId));
+      setPositions(next);
+      saveCachedPositions(next).catch(err => showToast(err?.message || "Positions could not be saved.", "error"));
       showToast("Deleted.", "success");
     } catch (e: any) {
       showToast(e?.message || "Failed to delete.", "error");
     }
   };
 
-  const handleAddPosition = () => {
+  const handleAddPosition = async () => {
     const name = posDraft.name.trim();
     if (!name) { showToast("Position name is required.", "error"); return; }
     if (!posDraft.departmentId) {
@@ -516,24 +518,34 @@ const OnboardingPage: React.FC = () => {
       departmentId: posDraft.departmentId,
       departmentName: dept.name,
     };
-    setPositions(prev => {
-      const next = [created, ...prev];
-      saveCachedPositions(next);
-      return next;
-    });
-    setPosDraft({ name: "", description: "", departmentId: posDraft.departmentId });
-    setSavingPos(false);
-    showToast("Position added.", "success");
+    const previous = positions;
+    const next = [created, ...positions];
+    setPositions(next);
+    try {
+      // Saved on the server, so HR and other computers get it when onboarding.
+      await saveCachedPositions(next);
+      setPosDraft({ name: "", description: "", departmentId: posDraft.departmentId });
+      showToast("Position added.", "success");
+    } catch (err: any) {
+      setPositions(previous);
+      showToast(err?.message || "Position could not be saved. Please try again.", "error");
+    } finally {
+      setSavingPos(false);
+    }
   };
 
-  const handleDeletePosition = (p: OrgPosition) => {
+  const handleDeletePosition = async (p: OrgPosition) => {
     if (!window.confirm(`Delete position "${p.name}"?`)) return;
-    setPositions(prev => {
-      const next = prev.filter(x => x.id !== p.id);
-      saveCachedPositions(next);
-      return next;
-    });
-    showToast("Position deleted.", "success");
+    const previous = positions;
+    const next = positions.filter(x => x.id !== p.id);
+    setPositions(next);
+    try {
+      await saveCachedPositions(next);
+      showToast("Position deleted.", "success");
+    } catch (err: any) {
+      setPositions(previous);
+      showToast(err?.message || "Position could not be deleted. Please try again.", "error");
+    }
   };
 
   // ── Administrator handlers ──────────────────────────────────────────────
