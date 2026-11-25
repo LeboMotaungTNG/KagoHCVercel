@@ -85,11 +85,16 @@ export function useFrameworkBuilder(frameworkId: string) {
     touched();
     setFramework({
       ...framework,
-      categories: framework.categories.map((cat) =>
-        cat._id === categoryId
-          ? { ...cat, criteria: cat.criteria.map((c) => (c._id === criterionId ? { ...c, maxMarks } : c)) }
-          : cat
-      ),
+      // A category's marks always equal the sum of its active criteria, so editing a
+      // criterion can't leave the category out of step (which blocked saving).
+      categories: framework.categories.map((cat) => {
+        if (cat._id !== categoryId) return cat;
+        const criteria = cat.criteria.map((c) => (c._id === criterionId ? { ...c, maxMarks } : c));
+        const sum = criteria
+          .filter((c) => (c as { isActive?: boolean }).isActive !== false)
+          .reduce((total, c) => total + (Number(c.maxMarks) || 0), 0);
+        return { ...cat, criteria, maxMarks: sum };
+      }),
     });
   };
 

@@ -40,15 +40,25 @@ export default function FrameworkLibraryPage() {
   const [departmentsInUse, setDepartmentsInUse] = useState<Record<string, number>>({});
   useEffect(() => {
     const token = localStorage.getItem('token');
-    fetch(`${API_BASE}/employees`, { headers: { Authorization: `Bearer ${token}` } })
-      .then((r) => (r.ok ? r.json() : null))
-      .then((body) => {
+    const headers = { Authorization: `Bearer ${token}` };
+    Promise.all([
+      fetch(`${API_BASE}/employees`, { headers }).then((r) => (r.ok ? r.json() : null)),
+      // Departments set up under Structure — new ones included, even with nobody in them yet.
+      fetch(`${API_BASE}/department`, { headers }).then((r) => (r.ok ? r.json() : null)).catch(() => null),
+    ])
+      .then(([body, deptBody]) => {
         const list: any[] = Array.isArray(body?.data) ? body.data : body?.data?.employees || body?.employees || [];
         const counts: Record<string, number> = {};
         list.forEach((e) => {
           if (INACTIVE.includes(e?.employmentStatus)) return;
           const d = typeof e?.department === 'object' ? e?.department?.name : e?.department;
           if (d) counts[String(d).trim()] = (counts[String(d).trim()] || 0) + 1;
+        });
+        // Structure departments with nobody in them yet (skip ones already listed under another spelling).
+        const depts: any[] = Array.isArray(deptBody?.data) ? deptBody.data : deptBody?.data?.departments || deptBody?.departments || [];
+        depts.forEach((d) => {
+          const name = String(d?.name || '').trim();
+          if (name && !Object.keys(counts).some((k) => normDept(k) === normDept(name))) counts[name] = 0;
         });
         setDepartmentsInUse(counts);
       })
@@ -100,7 +110,9 @@ export default function FrameworkLibraryPage() {
       const { name, count } = coverage(department);
       setSuccessById((prev) => ({
         ...prev,
-        [sourceId]: `Active for “${name}”: ${count} employee${count === 1 ? '' : 's'} will use it for new reviews. Reviews already started keep the version they began with.`,
+        [sourceId]: count
+          ? `Active for “${name}”: ${count} employee${count === 1 ? '' : 's'} will use it for new reviews. Reviews already started keep the version they began with.`
+          : `Active for “${name}”. Nobody is in this department yet — employees added to it will use this framework.`,
       }));
     } catch (err) {
       setActionError(err instanceof Error ? err.message : 'Activation failed');
