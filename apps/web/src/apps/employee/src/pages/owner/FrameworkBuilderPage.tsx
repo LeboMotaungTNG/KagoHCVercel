@@ -76,7 +76,7 @@ export default function FrameworkBuilderPage() {
     try {
       await assign({ scope: 'department', department: department.trim() });
       setAssignMessage(
-        `Assigned to “${department.trim()}”. Employees in that department use this framework for new reviews; the previous department no longer has access.`
+        `Assigned to “${department.trim()}”. Employees in that department use this framework; any of their self-reviews that weren't final are reopened with it so they can be redone (accepted reviews are unchanged). The previous department no longer has access.`
       );
     } catch (err) {
       setAssignError(err instanceof Error ? err.message : 'Failed to assign framework');
@@ -207,20 +207,14 @@ export default function FrameworkBuilderPage() {
                 maxLength={120}
                 onChange={(e) => updateCategoryName(cat._id, e.target.value)}
               />
-              <span style={{ fontSize: 12, color: C.muted, fontWeight: 600 }}>Category max</span>
-              <input
-                type="number"
-                className="form-control form-control-sm"
-                style={{
-                  width: 80,
-                  borderRadius: 8,
-                  borderColor: categoryMismatch ? C.bad : C.line,
-                }}
-                value={cat.maxMarks}
-                min={1}
-                step={1}
-                onChange={(e) => updateCategoryMarks(cat._id, Number(e.target.value))}
-              />
+              {/* A category's marks are always the sum of its criteria (edit the criteria below). */}
+              <span
+                title="Calculated from the criteria below"
+                style={{ fontSize: 13, color: categoryMismatch ? C.bad : C.text, fontWeight: 700, whiteSpace: 'nowrap' }}
+              >
+                Category total: {cat.maxMarks} marks
+                <span style={{ fontWeight: 500, color: C.muted }}> (sum of its criteria)</span>
+              </span>
             </div>
 
             {cat.criteria.map((crit) => (

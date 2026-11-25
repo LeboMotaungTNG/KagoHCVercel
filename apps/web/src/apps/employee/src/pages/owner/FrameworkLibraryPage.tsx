@@ -111,7 +111,7 @@ export default function FrameworkLibraryPage() {
       setSuccessById((prev) => ({
         ...prev,
         [sourceId]: count
-          ? `Active for “${name}”: ${count} employee${count === 1 ? '' : 's'} will use it for new reviews. Reviews already started keep the version they began with.`
+          ? `Active for “${name}”: ${count} employee${count === 1 ? '' : 's'} will use it. Any of their self-reviews that weren't final are reopened with this framework so they can be redone; accepted reviews are unchanged.`
           : `Active for “${name}”. Nobody is in this department yet — employees added to it will use this framework.`,
       }));
     } catch (err) {
@@ -124,9 +124,6 @@ export default function FrameworkLibraryPage() {
 
   return (
     <PerformancePage>
-      <datalist id="departments-in-use">
-        {Object.keys(departmentsInUse).sort().map((d) => <option key={d} value={d} />)}
-      </datalist>
       <PageHero
         icon={<Library size={24} color="#fff" />}
         title="Framework Library"
@@ -200,19 +197,34 @@ export default function FrameworkLibraryPage() {
 
                 <div className="mt-3">
                   <label className="form-label small fw-semibold mb-1" style={{ color: C.muted }}>
-                    Department (must match employee profiles)
+                    Department
                   </label>
-                  <input
-                    className="form-control form-control-sm mb-2"
-                    style={{ borderRadius: R.md, borderColor: C.line }}
-                    value={deptByFramework[fw._id] ?? fw.department}
-                    disabled={busy}
-                    onChange={(e) =>
-                      setDeptByFramework((prev) => ({ ...prev, [fw._id]: e.target.value }))
-                    }
-                    placeholder={fw.department}
-                    list="departments-in-use"
-                  />
+                  {/* Every department — from Structure (new ones included) and employee profiles. */}
+                  {(() => {
+                    const current = deptByFramework[fw._id] ?? fw.department;
+                    const known = Object.keys(departmentsInUse).sort((a, b) => a.localeCompare(b));
+                    const currentKnown = !current || known.some((d) => normDept(d) === normDept(current));
+                    return (
+                      <select
+                        className="form-select form-select-sm mb-2"
+                        style={{ borderRadius: R.md, borderColor: currentKnown ? C.line : C.bad }}
+                        value={currentKnown ? (known.find((d) => normDept(d) === normDept(current)) ?? '') : current}
+                        disabled={busy}
+                        onChange={(e) =>
+                          setDeptByFramework((prev) => ({ ...prev, [fw._id]: e.target.value }))
+                        }
+                      >
+                        {!current && <option value="">Select a department</option>}
+                        {/* The library's suggested name, when the company has no such department. */}
+                        {!currentKnown && <option value={current}>{current} (not one of your departments)</option>}
+                        {known.map((d) => (
+                          <option key={d} value={d}>
+                            {d} ({departmentsInUse[d]} employee{departmentsInUse[d] === 1 ? '' : 's'})
+                          </option>
+                        ))}
+                      </select>
+                    );
+                  })()}
                 </div>
 
                 <div className="d-flex flex-wrap gap-2">
