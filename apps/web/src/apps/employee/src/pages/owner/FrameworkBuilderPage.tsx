@@ -55,7 +55,13 @@ export default function FrameworkBuilderPage() {
   if (!framework) return <div className="p-4" style={{ color: C.bad }}>Framework not found.</div>;
 
   const canPublish = liveErrors.length === 0 && framework.status === 'draft';
-  const canSave = liveErrors.length === 0 && !saving;
+  const canSave = !saving; // never silently greyed out: clicking explains what to fix
+  // Running total of the active categories, shown next to Save.
+  const categoryTotal = framework.categories
+    .filter((c) => (c as { isActive?: boolean }).isActive !== false)
+    .reduce((sum, c) => sum + (Number(c.maxMarks) || 0), 0);
+  const targetTotal = framework.totalMaxMarks || 100;
+  const totalGap = targetTotal - categoryTotal;
   const isPublished = framework.status === 'published';
   const canAssign = isPublished && Boolean(department.trim()) && !assigning;
 
@@ -91,11 +97,22 @@ export default function FrameworkBuilderPage() {
         }}
         actions={
           <>
+            <span
+              aria-live="polite"
+              style={{
+                alignSelf: 'center', fontSize: 13, fontWeight: 700, padding: '6px 10px', borderRadius: 8,
+                background: totalGap === 0 ? 'rgba(255,255,255,0.18)' : '#fff7ed',
+                color: totalGap === 0 ? '#fff' : '#9a3412',
+              }}
+            >
+              Total {categoryTotal} / {targetTotal}
+              {totalGap > 0 ? ` · add ${totalGap}` : totalGap < 0 ? ` · remove ${-totalGap}` : ' ✓'}
+            </span>
             <button
               type="button"
               onClick={() => void save()}
               disabled={!canSave}
-              title={liveErrors.length ? 'Fix the problems listed below before saving' : undefined}
+              title={liveErrors.length ? `${liveErrors.length} problem(s) to fix — click Save to see them` : undefined}
               style={{ ...perfBtnHero, opacity: canSave ? 1 : 0.5, cursor: canSave ? 'pointer' : 'not-allowed' }}
             >
               {saving ? 'Saving…' : 'Save'}
