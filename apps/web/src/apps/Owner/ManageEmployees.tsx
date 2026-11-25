@@ -44,7 +44,7 @@ import {
   type QueueItem,
   type TableRowData,
 } from "../../shared/utils/manageEmployees";
-import { loadCachedPositions, positionsForDepartment, type OrgPosition } from "../../shared/utils/onboarding";
+import { loadCachedPositions, fetchServerPositions, positionsForDepartment, type OrgPosition } from "../../shared/utils/onboarding";
 import { PageHero, PerformancePage, perfBtnHero } from "./ownerUi";
 
 // All Employee/QueueItem/Allowance/Deduction types, defaults, helpers, validation,
@@ -503,7 +503,7 @@ function Tab3Employment({ f, upd, patch, departments, departmentsLoading, positi
           </SelectInput>
           {!!f.department && posOptions.length === 0 && (
             <div style={{ color: "#b54708", fontSize: 11, marginTop: 4 }}>
-              ⚠ No positions for this department — add them under Owner ▸ Onboarding ▸ Structure.
+              ⚠ No positions for this department yet. The owner adds them under Onboarding ▸ Structure.
             </div>
           )}
         </FI>
@@ -1221,6 +1221,8 @@ function ManageEmployeesContent() {
       })
       .finally(() => setDepartmentsLoading(false));
     setPositions(loadCachedPositions());
+    // The company's positions from the server — the same list for the owner, HR and every device.
+    void fetchServerPositions().then(list => { if (list) setPositions(list); });
   }, []);
 
   const upd = useCallback((k: keyof Employee, v: any) => setForm(prev => ({ ...prev, [k]: v })), []);

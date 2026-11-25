@@ -736,7 +736,9 @@ export const saveCache = (state: OnboardingCache): void => {
 export const loadCachedPositions = (): OrgPosition[] =>
   loadCache()?.positions || [];
 
-export const saveCachedPositions = (positions: OrgPosition[]): void => {
+/** Positions are stored on the SERVER (per department), so HR and other devices see
+ *  the same list. The browser copy is only a cache for instant display. */
+const cachePositionsOnly = (positions: OrgPosition[]): void => {
   const cached = loadCache() || {
     country: "",
     company: EMPTY_COMPANY,
@@ -744,6 +746,62 @@ export const saveCachedPositions = (positions: OrgPosition[]): void => {
     completedSteps: [],
   };
   saveCache({ ...cached, positions });
+};
+
+/** Set once this browser's list has been reconciled with the server, so a list
+ *  deliberately emptied elsewhere isn't re-uploaded from a stale browser copy. */
+const POSITIONS_SYNCED_KEY = "kagohc.positions.serverSynced";
+const isPositionsSynced = () => { try { return localStorage.getItem(POSITIONS_SYNCED_KEY) === "1"; } catch { return false; } };
+const markPositionsSynced = () => { try { localStorage.setItem(POSITIONS_SYNCED_KEY, "1"); } catch { /* ignore */ } };
+
+/** Save the whole list to the server (owner / admin / HR). Throws with the server's message. */
+export const saveServerPositions = async (positions: OrgPosition[]): Promise<void> => {
+  const res = await fetch(`${API_URL}/department/positions`, {
+    method: "PUT",
+    headers: authHeaders(),
+    body: JSON.stringify({ positions }),
+  });
+  if (!res.ok) {
+    const body = await res.json().catch(() => ({} as any));
+    throw new Error(body?.message || `Positions could not be saved (HTTP ${res.status}).`);
+  }
+  markPositionsSynced();
+};
+
+/** The company's positions from the server (null if it can't be reached). Updates the cache.
+ *  Positions added before they were stored on the server exist only in this browser: if the
+ *  server has none yet, they're uploaded once (never wiped). */
+export const fetchServerPositions = async (): Promise<OrgPosition[] | null> => {
+  let list: OrgPosition[];
+  try {
+    const res = await fetch(`${API_URL}/department/positions`, { headers: authHeaders() });
+    if (!res.ok) return null;
+    const body = await res.json();
+    list = Array.isArray(body?.data) ? body.data : [];
+  } catch {
+    return null;
+  }
+  const local = loadCachedPositions();
+  if (!list.length && local.length && !isPositionsSynced()) {
+    try {
+      await saveServerPositions(local);
+      const again = await fetch(`${API_URL}/department/positions`, { headers: authHeaders() }).then(r => r.json()).catch(() => null);
+      if (Array.isArray(again?.data)) { cachePositionsOnly(again.data); return again.data; }
+    } catch (err) {
+      console.warn("Could not upload this browser's positions:", err);
+    }
+    return local; // keep showing (and keep) them; the upload is retried next time
+  }
+  markPositionsSynced();
+  cachePositionsOnly(list);
+  return list;
+};
+
+/** Cache locally AND save to the server, so the list is the same everywhere.
+ *  Rejects with the server's message if the save fails. */
+export const saveCachedPositions = (positions: OrgPosition[]): Promise<void> => {
+  cachePositionsOnly(positions);
+  return saveServerPositions(positions);
 };
 
 export const positionsForDepartment = (
