@@ -55,7 +55,8 @@ function PromoteToManagerModal({ onClose, onSuccess }: { onClose: () => void; on
       } else if (Array.isArray(data)) {
         employeesList = data;
       }
-      setEmployees(employeesList);
+      // You can't promote yourself, so you're not in the list.
+      setEmployees(employeesList.filter((e: any) => !isSelf(e)));
     } catch (err) {
       console.error(err);
       setError("Failed to load employees");
@@ -317,6 +318,19 @@ function DemoteManagerModal({ manager, onClose, onSuccess }: { manager: any; onC
 }
 
 // ─── VIEW MANAGER MODAL (with Demote button) ─────────────────────────────────
+/** Is this record the logged-in user? (Their own role can't be changed — the server refuses it too.) */
+const isSelf = (person: any): boolean => {
+  try {
+    const me = JSON.parse(localStorage.getItem("user") || "{}");
+    const myId = String(me?._id || me?.id || "");
+    const email = String(person?.email || "").toLowerCase();
+    return (!!me?.email && !!email && String(me.email).toLowerCase() === email)
+      || (!!myId && String(person?.userId?._id || person?.userId || "") === myId);
+  } catch {
+    return false;
+  }
+};
+
 function ViewManagerModal({ manager, onClose, onDemote }: { manager: any; onClose: () => void; onDemote: () => void }) {
   useEffect(() => {
     document.body.style.overflow = "hidden";
@@ -353,9 +367,16 @@ function ViewManagerModal({ manager, onClose, onDemote }: { manager: any; onClos
         </div>
         <div style={{ padding: "0 24px 24px", display: "flex", gap: 10 }}>
           <button onClick={onClose} style={{ flex: 1, padding: 11, borderRadius: 10, border: "1px solid #d0d5dd", background: "#fff", fontSize: 14, fontWeight: 600, color: "#344054", cursor: "pointer" }}>Close</button>
-          <button onClick={onDemote} style={{ flex: 1, padding: 11, borderRadius: 10, border: "none", background: "#ef4444", fontSize: 14, fontWeight: 600, color: "#fff", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", gap: 6 }}>
-            <AiOutlineArrowDown /> Demote
-          </button>
+          {isSelf(manager) ? (
+            // Nobody changes their own role (the server refuses it too).
+            <span style={{ flex: 1, alignSelf: "center", fontSize: 12.5, color: "#667085", textAlign: "center" }}>
+              You can't change your own role.
+            </span>
+          ) : (
+            <button onClick={onDemote} style={{ flex: 1, padding: 11, borderRadius: 10, border: "none", background: "#ef4444", fontSize: 14, fontWeight: 600, color: "#fff", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", gap: 6 }}>
+              <AiOutlineArrowDown /> Demote
+            </button>
+          )}
         </div>
       </div>
     </div>
