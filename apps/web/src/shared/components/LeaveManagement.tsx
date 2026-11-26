@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import { C } from "../utils/employee";
+import { createPortal } from "react-dom";
 import {
   PAGE_SIZE,
   LEAVE_TYPE_LABELS,
@@ -523,7 +524,14 @@ export function LeaveManagement({ accent = C.primary, canReview = true, reviewSt
         </div>
       )}
 
-      {alert && <AlertBanner message={alert.message} type={alert.type} onClose={() => setAlert(null)}/>}
+      {/* Messages float above the approve/reject windows (which cover the page), so a
+          refusal is always visible — before, it was drawn behind the open window. */}
+      {alert && typeof document !== "undefined" && createPortal(
+        <div style={{ position: "fixed", top: 16, left: "50%", transform: "translateX(-50%)", zIndex: 2147483647, width: "min(560px, calc(100vw - 32px))" }}>
+          <AlertBanner message={alert.message} type={alert.type} onClose={() => setAlert(null)}/>
+        </div>,
+        document.body,
+      )}
 
       <StatCards stats={stats}/>
 
