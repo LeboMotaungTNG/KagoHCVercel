@@ -214,8 +214,8 @@ const OrgGrowthCard: React.FC<{
     <section
       role="button"
       tabIndex={0}
-      onClick={() => navigate("/owner/payroll")}
-      onKeyDown={(e) => { if (e.key === "Enter") navigate("/owner/payroll"); }}
+      onClick={() => navigate("/owner/organization-settings/payroll")}
+      onKeyDown={(e) => { if (e.key === "Enter") navigate("/owner/organization-settings/payroll"); }}
       style={{
       position: "relative", overflow: "hidden",
       background: `linear-gradient(155deg, ${C.teal} 0%, #0a7a70 100%)`,
@@ -591,7 +591,7 @@ const QuickActionsCard: React.FC = () => {
     { label: "Team attendance", path: "/owner/attendance",           icon: <Clock size={18} />,     bg: C.blueBg,   color: C.blue    },
     { label: "Request leave",  path: "/owner/my-leave",              icon: <Calendar size={18} />,  bg: C.warnBg,   color: C.amber   },
     { label: "Team leave",     path: "/owner/leave",                 icon: <Calendar size={18} />,  bg: C.blueBg,   color: C.blue    },
-    { label: "Payroll",        path: "/owner/payroll",               icon: <Target size={18} />,    bg: C.tealBg,   color: C.teal    },
+    { label: "Payroll",        path: "/owner/organization-settings/payroll",               icon: <Target size={18} />,    bg: C.tealBg,   color: C.teal    },
   ];
   return (
     <Card>
@@ -1167,7 +1167,7 @@ export const OwnerOverview: React.FC = () => {
           <StatTile label="Total Employees" value={loading ? "…" : counts.employees}    sub="Across all teams"      icon={<Users size={20} />}       iconBg={C.accentBg} iconColor={C.accent} onClick={() => navigate("/owner/employees")}     />
           <StatTile label="Managers"        value={loading ? "…" : counts.managers}     sub="Active team leads"     icon={<Star size={20} />}        iconBg={C.blueBg}   iconColor={C.blue}   onClick={() => navigate("/owner/managers")}      />
           <StatTile label="Pending Leave"   value={loading ? "…" : counts.pendingLeave} sub="Awaiting HR review"       icon={<Calendar size={20} />}    iconBg={C.warnBg}   iconColor={C.amber}  delta={{ up: counts.pendingLeave === 0, text: counts.pendingLeave === 0 ? "clear" : String(counts.pendingLeave) }} onClick={() => navigate("/owner/leave")} />
-          <StatTile label="On Payroll"      value={loading ? "…" : counts.onPayroll}    sub={`${counts.employees > 0 ? Math.round((counts.onPayroll/counts.employees)*100) : 0}% coverage`} icon={<Target size={20} />} iconBg={C.tealBg} iconColor={C.teal} onClick={() => navigate("/owner/payroll")} />
+          <StatTile label="On Payroll"      value={loading ? "…" : counts.onPayroll}    sub={`${counts.employees > 0 ? Math.round((counts.onPayroll/counts.employees)*100) : 0}% coverage`} icon={<Target size={20} />} iconBg={C.tealBg} iconColor={C.teal} onClick={() => navigate("/owner/organization-settings/payroll")} />
         </div>
 
         {/* Departments + Managers */}

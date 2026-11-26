@@ -4,11 +4,12 @@ import React, { useMemo, useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import SharedLayout from "./SharedLayout";
 import EditPayrollModal from './components/EditPayrollModal';
-import { C } from "../../shared/utils/employee";
-import { Banknote } from "lucide-react";
+import { C, API_URL } from "../../shared/utils/employee";
+import { Banknote, Eye, EyeOff } from "lucide-react";
 import { loadEmployeePayslipsForOwner } from "../../shared/utils/documentsLibrary";
-import { downloadPayslipPdf } from "../../shared/utils/payslipPdf";
-import { FilterTabs, PageHero, PerformancePage } from "./managerUi";
+import { orgApi } from "../../shared/utils/organizationSettings";
+import { downloadPayslipPdf, downloadEmp201Pdf } from "../../shared/utils/payslipPdf";
+import { FilterTabs, PageHero, PerformancePage, perfBtnHero } from "./managerUi";
 
 type PayrollStatus = "on_payroll" | "not_on_payroll" | "active" | "inactive";
 
@@ -77,6 +78,19 @@ const PayrollPageContent: React.FC = () => {
   const [departmentFilter, setDepartmentFilter] = useState<string>("");
 
   const [payrollStep, setPayrollStep] = useState<1 | 2 | 3 | 4>(1);
+  // The real payroll run on the server (created and calculated at "Process Payroll").
+  const [serverRun, setServerRun] = useState<{
+    id: string;
+    status: "calculated" | "approved";
+    employeeCount: number;
+    totalGross: number;
+    totalDeductions: number;
+    totalNetPay: number;
+    rows: any[];
+  } | null>(null);
+  const [runBusy, setRunBusy] = useState<"" | "processing" | "approving" | "emp201">("");
+  const [runError, setRunError] = useState("");
+  const [runNotice, setRunNotice] = useState("");
   const [payrollRun, setPayrollRun] = useState<PayrollRun>({
     periodName: "February 2026 Payroll",
     period: "monthly",
@@ -90,6 +104,10 @@ const PayrollPageContent: React.FC = () => {
   const [employees, setEmployees] = useState<PayrollEmployee[]>([]);
   const [loading, setLoading] = useState(true);
 
+  // Amounts are hidden until the viewer clicks the eye (Show amounts).
+  const [showAmounts, setShowAmounts] = useState(false);
+  const money = (value: number) => (showAmounts ? formatCurrency(value) : "R ••••••");
+
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [selectedEmployee, setSelectedEmployee] = useState<PayrollEmployee | null>(null);
 
@@ -101,7 +119,7 @@ const PayrollPageContent: React.FC = () => {
       return;
     }
 
-    fetch('https://employee-evaluation-kago-e63baae4d822.herokuapp.com/api/v1/employees', {
+    fetch(`${API_URL}/employees`, {
       headers: {
         'Authorization': `Bearer ${token}`
       }
@@ -125,7 +143,7 @@ const PayrollPageContent: React.FC = () => {
           employeeCode: emp.employeeId || emp.employee_code || 'N/A',
           department: emp.department?.name || emp.department || 'Unassigned',
           position: emp.position || 'Employee',
-          onPayroll: emp.onPayroll === true,
+          onPayroll: emp.onPayroll === true || (emp.onPayroll !== false && Number(emp.salary) > 0),
           employmentStatus: emp.status || 'active',
           basicSalary: emp.salary || 0,
           netSalary: emp.salary ? Math.round(emp.salary * 0.81) : 0,
@@ -149,8 +167,8 @@ const PayrollPageContent: React.FC = () => {
       ID: ${employee.employeeCode}
       Department: ${employee.department}
       Position: ${employee.position}
-      Basic Salary: ${formatCurrency(employee.basicSalary)}
-      Net Salary: ${formatCurrency(employee.netSalary)}
+      Basic Salary: ${money(employee.basicSalary)}
+      Net Salary: ${money(employee.netSalary)}
       Status: ${employee.onPayroll ? 'On Payroll' : 'Not on Payroll'}
     `);
   };
@@ -159,7 +177,7 @@ const PayrollPageContent: React.FC = () => {
   const addToPayroll = async (employee: PayrollEmployee) => {
     try {
       const token = localStorage.getItem('token');
-      const response = await fetch(`https://employee-evaluation-kago-e63baae4d822.herokuapp.com/api/v1/employees/${employee.id}`, {
+      const response = await fetch(`${API_URL}/employees/${employee.id}`, {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
@@ -251,7 +269,7 @@ Total Payable: R${totalPAYE + totalUIF + totalSDL}
   const fetchEmployees = () => {
     const token = localStorage.getItem('token');
     if (!token) return;
-    fetch('https://employee-evaluation-kago-e63baae4d822.herokuapp.com/api/v1/employees', {
+    fetch(`${API_URL}/employees`, {
       headers: { 'Authorization': `Bearer ${token}` }
     })
       .then(res => res.json())
@@ -267,7 +285,7 @@ Total Payable: R${totalPAYE + totalUIF + totalSDL}
           employeeCode: emp.employeeId || emp.employee_code || 'N/A',
           department: emp.department?.name || emp.department || 'Unassigned',
           position: emp.position || 'Employee',
-          onPayroll: emp.onPayroll === true,
+          onPayroll: emp.onPayroll === true || (emp.onPayroll !== false && Number(emp.salary) > 0),
           employmentStatus: emp.status || 'active',
           basicSalary: emp.salary || 0,
           netSalary: emp.salary ? Math.round(emp.salary * 0.81) : 0,
@@ -282,7 +300,7 @@ Total Payable: R${totalPAYE + totalUIF + totalSDL}
   const handleSavePayroll = async (updatedEmployee: PayrollEmployee) => {
     const token = localStorage.getItem('token');
     if (!token) throw new Error('Not authenticated');
-    const response = await fetch(`https://employee-evaluation-kago-e63baae4d822.herokuapp.com/api/v1/employees/${updatedEmployee.id}`, {
+    const response = await fetch(`${API_URL}/employees/${updatedEmployee.id}`, {
       method: 'PUT',
       headers: {
         'Content-Type': 'application/json',
@@ -298,7 +316,7 @@ Total Payable: R${totalPAYE + totalUIF + totalSDL}
       }),
     });
     if (!response.ok) throw new Error('Failed to update payroll information');
-    // Update local state immediately � no need to re-fetch
+    // Update local state immediately — no need to re-fetch
     setEmployees(prev => prev.map(e =>
       e.id === updatedEmployee.id ? updatedEmployee : e
     ));
@@ -393,9 +411,161 @@ Total Payable: R${totalPAYE + totalUIF + totalSDL}
     setPayrollStep(3);
   };
 
-  const handleProcessPayroll = () => {
-    if (selectedEmployees.length === 0) return;
-    setPayrollStep(4);
+  const handleProcessPayroll = async () => {
+    if (selectedEmployees.length === 0 || runBusy) return;
+    setRunBusy("processing");
+    setRunError("");
+    setRunNotice("");
+    try {
+      const created: any = await orgApi.createPayrollRun(
+        payrollRun.periodName,
+        payrollRun.period,
+        payrollRun.startDate,
+        payrollRun.endDate
+      );
+      if (!created?.success || !created?.data?._id) {
+        throw new Error(created?.message || "Could not create the payroll run.");
+      }
+      const runId = String(created.data._id);
+
+      // Use the organisation's saved payroll settings (UIF, SDL, PAYE, overtime rates).
+      const saved: any = (await orgApi.loadPayrollSettingsApi().catch(() => null))?.data || {};
+      const num = (v: unknown, d: number) => (Number.isFinite(Number(v)) ? Number(v) : d);
+      const settings: any = {
+        overtimeRate: String(num(saved.overtimeRate, 1.5)),
+        weekendRate: String(num(saved.weekendRate, 2)),
+        holidayRate: String(num(saved.holidayRate, 2.5)),
+        uifRate: String(num(saved.uifRate, 0.01) * 100),
+        sdlRate: String(num(saved.sdlRate, 0.01) * 100),
+        payeEnabled: saved.payeEnabled !== false,
+      };
+      const calc: any = await orgApi.calculatePayrollRun(runId, settings);
+      if (!calc?.success || !calc?.data) {
+        throw new Error(calc?.message || "Could not calculate the payroll run.");
+      }
+      setServerRun({
+        id: runId,
+        status: "calculated",
+        employeeCount: Number(calc.data.employeeCount) || 0,
+        totalGross: Number(calc.data.totalGross) || 0,
+        totalDeductions: Number(calc.data.totalDeductions) || 0,
+        totalNetPay: Number(calc.data.totalNetPay) || 0,
+        rows: Array.isArray(calc.data.employees) ? calc.data.employees : [],
+      });
+      setPayrollStep(4);
+    } catch (err) {
+      setRunError(err instanceof Error ? err.message : "Could not process the payroll run.");
+    } finally {
+      setRunBusy("");
+    }
+  };
+
+  // Approving creates each employee's payslip and notifies them (server side).
+  const handleApprovePayroll = async () => {
+    if (!serverRun || serverRun.status === "approved" || runBusy) return;
+    if (!window.confirm(`Approve this payroll run? Payslips will be created for ${serverRun.employeeCount} employee(s) and they will be notified.`)) return;
+    setRunBusy("approving");
+    setRunError("");
+    try {
+      const res: any = await orgApi.approvePayrollRunApi(serverRun.id);
+      if (!res?.success) throw new Error(res?.message || "Could not approve the payroll run.");
+      setServerRun({ ...serverRun, status: "approved" });
+      setRunNotice(
+        `Payroll approved. Payslips have been created for ${serverRun.employeeCount} employee(s), who have been notified and can now see them under My Payslips.`
+      );
+    } catch (err) {
+      setRunError(err instanceof Error ? err.message : "Could not approve the payroll run.");
+    } finally {
+      setRunBusy("");
+    }
+  };
+
+  const handleDownloadEmp201 = async () => {
+    if (!serverRun || runBusy) return;
+    setRunBusy("emp201");
+    setRunError("");
+    try {
+      // Same Kago template as the payslips, built from the run's server-calculated figures.
+      const token = localStorage.getItem("token");
+      const runRes = await fetch(`${API_URL}/payroll/runs/${serverRun.id}`, {
+        headers: { Authorization: `Bearer ${token}` },
+      }).then((r) => r.json()).catch(() => null);
+      const run: any = runRes?.data || {};
+      const items: any[] = Array.isArray(run.items) && run.items.length ? run.items : serverRun.rows;
+      if (!items.length) throw new Error("No employee figures on this run. Process the payroll first.");
+
+      const company: any = (await orgApi.loadCompanySettings().catch(() => null))?.data || {};
+      const addr = company.address || {};
+      const address = [addr.street || addr.physicalAddress, addr.suburb, addr.city, addr.postalCode]
+        .filter(Boolean)
+        .join(", ");
+
+      await downloadEmp201Pdf({
+        reference: `EMP201-${serverRun.id.slice(-6).toUpperCase()}`,
+        period: run.period || payrollRun.periodName,
+        periodStart: run.periodStart || payrollRun.startDate,
+        periodEnd: run.periodEnd || payrollRun.endDate,
+        currency: "R",
+        employer: {
+          name: company.name || "Company",
+          address: address || undefined,
+          registrationNo: company.registrationNumber || undefined,
+          payeReference: company.payeReference || undefined,
+          sdlReference: company.sdlReference || undefined,
+          uifReference: company.uifReference || undefined,
+        },
+        employees: items.map((it: any) => ({
+          name: it.name || "Unknown",
+          grossPay: Number(it.grossPay) || 0,
+          paye: Number(it.deductions?.paye) || 0,
+          uifEmployee: Number(it.deductions?.uif) || 0,
+          uifEmployer: Number(it.deductions?.uifEmployer ?? it.deductions?.uif) || 0,
+          sdl: Number(it.deductions?.sdl) || 0,
+          eti: Number(it.deductions?.eti) || 0,
+          netPay: Number(it.netPay) || 0,
+        })),
+      });
+    } catch (err) {
+      setRunError(`Could not download the EMP201: ${err instanceof Error ? err.message : "unknown error"}`);
+    } finally {
+      setRunBusy("");
+    }
+  };
+
+  const handleDownloadSummary = () => {
+    if (!serverRun) return;
+    const esc = (v: unknown) => `"${String(v ?? "").replace(/"/g, '""')}"`;
+    const amt = (v: unknown) => (Number(v) || 0).toFixed(2);
+    const lines = [
+      [`Payroll summary`, payrollRun.periodName].map(esc).join(","),
+      [`Period`, `${payrollRun.startDate} to ${payrollRun.endDate}`].map(esc).join(","),
+      [`Status`, serverRun.status === "approved" ? "Approved" : "Calculated (not approved)"].map(esc).join(","),
+      "",
+      ["Employee", "Position", "Gross pay", "PAYE", "UIF", "Total deductions", "Net pay"].map(esc).join(","),
+      ...serverRun.rows.map((r: any) =>
+        [r.name, r.position, amt(r.grossPay), amt(r.deductions?.paye), amt(r.deductions?.uif), amt(r.totalDeductions), amt(r.netPay)]
+          .map(esc)
+          .join(",")
+      ),
+      "",
+      ["Totals", "", amt(serverRun.totalGross), "", "", amt(serverRun.totalDeductions), amt(serverRun.totalNetPay)].map(esc).join(","),
+    ];
+    const blob = new Blob(["\uFEFF" + lines.join("\r\n")], { type: "text/csv;charset=utf-8" });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = `Payroll_Summary_${payrollRun.periodName.replace(/[^\w-]+/g, "_")}.csv`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+  };
+
+  const resetPayrollRun = () => {
+    setServerRun(null);
+    setRunError("");
+    setRunNotice("");
+    setPayrollStep(1);
   };
 
   const statCard = (
@@ -429,6 +599,18 @@ Total Payable: R${totalPAYE + totalUIF + totalSDL}
         icon={<Banknote size={24} color="#fff" />}
         title="Payroll Management"
         subtitle="Who is on payroll, estimated costs, and run processing."
+        actions={
+          <button
+            type="button"
+            onClick={() => setShowAmounts((v) => !v)}
+            aria-pressed={showAmounts}
+            title={showAmounts ? "Hide salary amounts" : "Show salary amounts"}
+            style={{ ...perfBtnHero, display: "inline-flex", alignItems: "center", gap: 6 }}
+          >
+            {showAmounts ? <EyeOff size={16} /> : <Eye size={16} />}
+            {showAmounts ? "Hide amounts" : "Show amounts"}
+          </button>
+        }
       />
 
       {/* Summary cards */}
@@ -443,13 +625,13 @@ Total Payable: R${totalPAYE + totalUIF + totalSDL}
         {statCard("On Payroll", `${stats.onPayroll}/${stats.totalEmployees}`, "Employees currently on payroll")}
         {statCard(
           "Estimated Gross",
-          formatCurrency(stats.estimatedGross),
+          money(stats.estimatedGross),
           "Current month gross",
           "#7DC695"
         )}
         {statCard(
           "Estimated Net",
-          formatCurrency(stats.estimatedNet),
+          money(stats.estimatedNet),
           "After tax & deductions",
           "#6B96E1"
         )}
@@ -689,15 +871,15 @@ Total Payable: R${totalPAYE + totalUIF + totalSDL}
                       <td style={{ padding: "12px 16px", fontSize: 14, color: "#344054" }}>
                         <div>
                           <div>
-                            Basic: {emp.onPayroll ? formatCurrency(emp.basicSalary) : "�"}
+                            Basic: {emp.onPayroll ? money(emp.basicSalary) : "—"}
                           </div>
                           <div>
-                            Net: {emp.onPayroll ? formatCurrency(emp.netSalary) : "�"}
+                            Net: {emp.onPayroll ? money(emp.netSalary) : "—"}
                           </div>
                           <div style={{ fontSize: 12, color: "#98a2b3" }}>
                             {emp.onPayroll ? (
                               <>
-                                {emp.paymentFrequency} � {emp.employmentType}
+                                {emp.paymentFrequency} · {emp.employmentType}
                               </>
                             ) : (
                               <span style={{ color: "#b45309" }}>Not on payroll</span>
@@ -877,7 +1059,7 @@ Total Payable: R${totalPAYE + totalUIF + totalSDL}
                           transition: "all 0.2s ease",
                         }}
                       >
-                        {isCompleted ? "?" : stepIndex}
+                        {isCompleted ? "✓" : stepIndex}
                       </div>
                       <span
                         style={{
@@ -1186,8 +1368,8 @@ Total Payable: R${totalPAYE + totalUIF + totalSDL}
                     {selectedEmployees.length} of {employees.filter((e) => e.onPayroll).length} employees selected
                   </span>
                   <div style={{ color: "#1d4ed8", marginTop: 2 }}>
-                    Est. Gross: {formatCurrency(totalGrossSelected)} � Est. Net:{" "}
-                    {formatCurrency(totalNetSelected)}
+                    Est. Gross: {money(totalGrossSelected)} · Est. Net:{" "}
+                    {money(totalNetSelected)}
                   </div>
                 </div>
               </div>
@@ -1273,7 +1455,7 @@ Total Payable: R${totalPAYE + totalUIF + totalSDL}
                                   color: "#98a2b3",
                                 }}
                               >
-                                {emp.department} � {emp.position}
+                                {emp.department} · {emp.position}
                               </div>
                             </div>
                           </div>
@@ -1285,7 +1467,7 @@ Total Payable: R${totalPAYE + totalUIF + totalSDL}
                                 color: "#1d2939",
                               }}
                             >
-                              {formatCurrency(emp.basicSalary)}
+                              {money(emp.basicSalary)}
                             </div>
                             <div
                               style={{
@@ -1363,8 +1545,8 @@ Total Payable: R${totalPAYE + totalUIF + totalSDL}
                 }}
               >
                 {statCard("Employees", selectedEmployees.length, undefined, "#1d2939")}
-                {statCard("Gross Pay", formatCurrency(totalGrossSelected), undefined, "#2563eb")}
-                {statCard("Net Pay", formatCurrency(totalNetSelected), undefined, "#16a34a")}
+                {statCard("Gross Pay", money(totalGrossSelected), undefined, "#2563eb")}
+                {statCard("Net Pay", money(totalNetSelected), undefined, "#16a34a")}
               </div>
 
               {/* Compliance-style breakdowns (Tax & Employer Cost) */}
@@ -1397,19 +1579,19 @@ Total Payable: R${totalPAYE + totalUIF + totalSDL}
                   <div style={{ fontSize: 13, display: "flex", flexDirection: "column", gap: 6 }}>
                     <div style={{ display: "flex", justifyContent: "space-between" }}>
                       <span style={{ color: "#667085" }}>PAYE Tax</span>
-                      <span style={{ fontWeight: 500 }}>{formatCurrency(totalPAYE)}</span>
+                      <span style={{ fontWeight: 500 }}>{money(totalPAYE)}</span>
                     </div>
                     <div style={{ display: "flex", justifyContent: "space-between" }}>
                       <span style={{ color: "#667085" }}>UIF (Employee)</span>
-                      <span style={{ fontWeight: 500 }}>{formatCurrency(totalUIFEmployee)}</span>
+                      <span style={{ fontWeight: 500 }}>{money(totalUIFEmployee)}</span>
                     </div>
                     <div style={{ display: "flex", justifyContent: "space-between" }}>
                       <span style={{ color: "#667085" }}>UIF (Employer)</span>
-                      <span style={{ fontWeight: 500 }}>{formatCurrency(totalUIFEmployer)}</span>
+                      <span style={{ fontWeight: 500 }}>{money(totalUIFEmployer)}</span>
                     </div>
                     <div style={{ display: "flex", justifyContent: "space-between" }}>
                       <span style={{ color: "#667085" }}>SDL</span>
-                      <span style={{ fontWeight: 500 }}>{formatCurrency(totalSDL)}</span>
+                      <span style={{ fontWeight: 500 }}>{money(totalSDL)}</span>
                     </div>
                   </div>
                 </div>
@@ -1435,15 +1617,15 @@ Total Payable: R${totalPAYE + totalUIF + totalSDL}
                   <div style={{ fontSize: 13, display: "flex", flexDirection: "column", gap: 6 }}>
                     <div style={{ display: "flex", justifyContent: "space-between" }}>
                       <span style={{ color: "#667085" }}>Total Employer Cost</span>
-                      <span style={{ fontWeight: 500 }}>{formatCurrency(totalEmployerCost)}</span>
+                      <span style={{ fontWeight: 500 }}>{money(totalEmployerCost)}</span>
                     </div>
                     <div style={{ display: "flex", justifyContent: "space-between" }}>
                       <span style={{ color: "#667085" }}>Medical Aid</span>
-                      <span style={{ fontWeight: 500 }}>{formatCurrency(totalMedicalAid)}</span>
+                      <span style={{ fontWeight: 500 }}>{money(totalMedicalAid)}</span>
                     </div>
                     <div style={{ display: "flex", justifyContent: "space-between" }}>
                       <span style={{ color: "#667085" }}>Pension</span>
-                      <span style={{ fontWeight: 500 }}>{formatCurrency(totalPension)}</span>
+                      <span style={{ fontWeight: 500 }}>{money(totalPension)}</span>
                     </div>
                   </div>
                 </div>
@@ -1502,10 +1684,10 @@ Total Payable: R${totalPAYE + totalUIF + totalSDL}
                           {emp.department}
                         </td>
                         <td style={{ padding: "8px 12px", textAlign: "right", color: "#667085" }}>
-                          {formatCurrency(emp.basicSalary)}
+                          {money(emp.basicSalary)}
                         </td>
                         <td style={{ padding: "8px 12px", textAlign: "right", color: "#16a34a" }}>
-                          {formatCurrency(emp.netSalary)}
+                          {money(emp.netSalary)}
                         </td>
                       </tr>
                     ))}
@@ -1540,7 +1722,8 @@ Total Payable: R${totalPAYE + totalUIF + totalSDL}
                 </button>
                 <button
                   type="button"
-                  onClick={handleProcessPayroll}
+                  onClick={() => void handleProcessPayroll()}
+                  disabled={runBusy !== ""}
                   style={{
                     borderRadius: 8,
                     border: "none",
@@ -1552,77 +1735,82 @@ Total Payable: R${totalPAYE + totalUIF + totalSDL}
                     color: "#fff",
                   }}
                 >
-                  Process Payroll
+                  {runBusy === "processing" ? "Processing…" : "Process Payroll"}
                 </button>
               </div>
             </div>
           )}
 
           {/* Step 4 */}
-          {payrollStep === 4 && (
+          {runError && (
+            <div
+              role="alert"
+              style={{ borderRadius: 8, border: "1px solid #fecaca", background: "#fef2f2", padding: 12, margin: "8px 0", fontSize: 14, color: "#b91c1c" }}
+            >
+              {runError}
+            </div>
+          )}
+
+          {payrollStep === 4 && serverRun && (
             <div style={{ marginTop: 8 }}>
               <div
                 style={{
                   borderRadius: 8,
-                  border: "1px solid #bbf7d0",
-                  background: "#ecfdf3",
+                  border: serverRun.status === "approved" ? "1px solid #bbf7d0" : "1px solid #bfdbfe",
+                  background: serverRun.status === "approved" ? "#ecfdf3" : "#eff6ff",
                   padding: 16,
                   marginBottom: 16,
                   fontSize: 14,
-                  color: "#166534",
+                  color: serverRun.status === "approved" ? "#166534" : "#1e3a8a",
                 }}
               >
-                <strong>Payroll processed!</strong> This mock flow simulates a completed
-                payroll run for the selected employees and period.
-              </div>
-              <div
-                style={{
-                  display: "flex",
-                  justifyContent: "space-between",
-                  alignItems: "center",
-                  flexWrap: "wrap",
-                  gap: 8,
-                }}
-              >
-                <div>
-                  <div style={{ fontSize: 14, color: "#667085" }}>Total net payable</div>
-                  <div style={{ fontSize: 22, fontWeight: 700, color: "#16a34a" }}>
-                    {formatCurrency(totalNetSelected)}
+                {serverRun.status === "approved" ? (
+                  <><strong>Approved.</strong> {runNotice || "Payslips have been created and employees notified."}</>
+                ) : (
+                  <>
+                    <strong>Payroll calculated</strong> for {serverRun.employeeCount} employee(s). Check the totals, then
+                    approve to create payslips. Employees only see their payslips after you approve.
+                  </>
+                )}
+                {serverRun.employeeCount !== selectedEmployees.length && (
+                  <div style={{ marginTop: 6, fontSize: 13 }}>
+                    Note: the server calculated payroll for all {serverRun.employeeCount} active employee(s) with a
+                    salary, not only the {selectedEmployees.length} you selected.
                   </div>
-                </div>
-                <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+                )}
+              </div>
+
+              <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))", gap: 12, marginBottom: 16 }}>
+                {statCard("Gross pay", money(serverRun.totalGross), undefined, "#2563eb")}
+                {statCard("Deductions", money(serverRun.totalDeductions), undefined, "#b45309")}
+                {statCard("Net payable", money(serverRun.totalNetPay), undefined, "#16a34a")}
+              </div>
+
+              <div style={{ display: "flex", justifyContent: "flex-end", gap: 8, flexWrap: "wrap" }}>
+                <button type="button" onClick={handleDownloadSummary} style={{ borderRadius: 8, border: "1px solid #d0d5dd", background: "#fff", padding: "8px 16px", fontSize: 14, fontWeight: 600, cursor: "pointer", color: "#344054" }}>
+                  Download Summary
+                </button>
+                <button
+                  type="button"
+                  onClick={() => void handleDownloadEmp201()}
+                  disabled={runBusy !== ""}
+                  style={{ borderRadius: 8, border: "1px solid #d0d5dd", background: "#fff", padding: "8px 16px", fontSize: 14, fontWeight: 600, cursor: "pointer", color: "#344054" }}
+                >
+                  {runBusy === "emp201" ? "Downloading…" : "Download EMP201"}
+                </button>
+                {serverRun.status !== "approved" && (
                   <button
                     type="button"
-                    style={{
-                      borderRadius: 8,
-                      border: "1px solid #d0d5dd",
-                      background: "#fff",
-                      padding: "8px 16px",
-                      fontSize: 14,
-                      fontWeight: 500,
-                      cursor: "pointer",
-                      color: "#344054",
-                    }}
+                    onClick={() => void handleApprovePayroll()}
+                    disabled={runBusy !== ""}
+                    style={{ borderRadius: 8, border: "none", background: "#16a34a", padding: "8px 16px", fontSize: 14, fontWeight: 600, cursor: "pointer", color: "#fff" }}
                   >
-                    Download Summary
+                    {runBusy === "approving" ? "Approving…" : "Approve payroll"}
                   </button>
-                  <button
-                    type="button"
-                    onClick={() => setPayrollStep(1)}
-                    style={{
-                      borderRadius: 8,
-                      border: "none",
-                      background: C.coral,
-                      padding: "8px 16px",
-                      fontSize: 14,
-                      fontWeight: 500,
-                      cursor: "pointer",
-                      color: "#fff",
-                    }}
-                  >
-                    Back to Step 1
-                  </button>
-                </div>
+                )}
+                <button type="button" onClick={resetPayrollRun} style={{ borderRadius: 8, border: "none", background: C.coral, padding: "8px 16px", fontSize: 14, fontWeight: 600, cursor: "pointer", color: "#fff" }}>
+                  {serverRun.status === "approved" ? "Start a new run" : "Back to Step 1"}
+                </button>
               </div>
             </div>
           )}
@@ -1714,7 +1902,7 @@ Total Payable: R${totalPAYE + totalUIF + totalSDL}
               }}
             >
               <h5 style={{ margin: "0 0 4px", fontSize: 14, fontWeight: 700, color: "#312e81" }}>
-                EMP201 � Monthly SARS
+                EMP201 — Monthly SARS
               </h5>
               <p style={{ margin: "0 0 12px", fontSize: 12, color: "#4f46e5" }}>
                 Employer declaration for PAYE, UIF and SDL.
@@ -1764,7 +1952,7 @@ Total Payable: R${totalPAYE + totalUIF + totalSDL}
               }}
             >
               <h5 style={{ margin: "0 0 4px", fontSize: 14, fontWeight: 700, color: "#7f1d1d" }}>
-                EMP501 � Annual Reconciliation
+                EMP501 — Annual Reconciliation
               </h5>
               <p style={{ margin: "0 0 12px", fontSize: 12, color: "#b91c1c" }}>
                 Annual employer reconciliation declaration for SARS.
@@ -1916,7 +2104,7 @@ Total Payable: R${totalPAYE + totalUIF + totalSDL}
                               color: "#1d2939",
                             }}
                           >
-                            {formatCurrency(emp.netSalary)}
+                            {money(emp.netSalary)}
                           </td>
                           <td style={{ padding: "8px 12px", textAlign: "center" }}>
                             <button
