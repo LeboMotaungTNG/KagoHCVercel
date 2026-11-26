@@ -15,7 +15,6 @@ import OwnerOrganizationStructurePage from "./OrganizationStructurePage";
 import AttendancePage from "../Manager/AttendancePage";
 import EmployeeAttendance from "../employee/attendance";
 import EmployeeLeave from "../employee/leave";
-import Payroll from "../Manager/Payroll";
 
 import FrameworkLibraryPage from "../employee/src/pages/owner/FrameworkLibraryPage";
 import FrameworkBuilderPage from "../employee/src/pages/owner/FrameworkBuilderPage";
@@ -35,7 +34,8 @@ const OwnerDashboard = () => (
       <Route path="my-leave" element={<EmployeeLeave embedded />} />
       <Route path="attendance" element={<AttendancePage embedded />} />
       <Route path="my-attendance" element={<EmployeeAttendance embedded />} />
-      <Route path="payroll" element={<Payroll embedded />} />
+      {/* Payroll now lives in Organisation settings; old links redirect there. */}
+      <Route path="payroll" element={<Navigate to="/owner/organization-settings/payroll" replace />} />
       <Route path="reviews" element={<ReviewsDashboardPage />} />
       <Route path="employee-review" element={<Navigate to="/owner/reviews" replace />} />
       <Route path="frameworks" element={<FrameworkLibraryPage />} />
@@ -44,6 +44,7 @@ const OwnerDashboard = () => (
       <Route path="analytics" element={<AnalyticsInsightsPage mode="owner" />} />
       <Route path="organization-structure" element={<OwnerOrganizationStructurePage embedded />} />
       <Route path="organization-settings" element={<OrganizationSettingsPage />} />
+      <Route path="organization-settings/:tab" element={<OrganizationSettingsPage />} />
       <Route path="subscriptions" element={<SubscriptionsPage />} />
       <Route path="onboarding" element={<OnboardingPage />} />
     </Routes>

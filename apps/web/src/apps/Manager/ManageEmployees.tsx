@@ -768,7 +768,7 @@ function ManageEmployeesContent() {
     const draftData = { name: draftName, queue, timestamp: new Date().toISOString() };
 
     try {
-      const DRAFT_API = 'https://employee-evaluation-kago-e63baae4d822.herokuapp.com/api/v1/onboarding/save-draft';
+      const DRAFT_API = `${import.meta.env.VITE_API_URL || 'https://employee-evaluation-kago-e63baae4d822.herokuapp.com/api/v1'}/onboarding/save-draft`;
       const token = localStorage.getItem('token');
       const res = await fetch(DRAFT_API, {
         method: 'POST',

@@ -172,7 +172,14 @@ const rrect = (
  * Sections
  * ────────────────────────────────────────────────────────────────── */
 
-const drawBannerHeader = (d: jsPDF, data: PayslipData, logoDataUrl: string | null) => {
+// Shared by the payslip and the EMP201 so both documents carry the same header.
+const drawBannerHeader = (
+  d: jsPDF,
+  data: Pick<PayslipData, "reference" | "period">,
+  logoDataUrl: string | null,
+  title = "PAYSLIP",
+  pillLabel = "PAY PERIOD",
+) => {
   const bannerH = 38;
 
   setFill(d, C.blueDk);
@@ -206,7 +213,7 @@ const drawBannerHeader = (d: jsPDF, data: PayslipData, logoDataUrl: string | nul
   // Right side
   setText(d, C.white);
   d.setFontSize(24); d.setFont("helvetica", "bold");
-  d.text("PAYSLIP", PAGE_W - M, bannerH / 2 - 1, { align: "right" });
+  d.text(title, PAGE_W - M, bannerH / 2 - 1, { align: "right" });
   d.setFontSize(9); d.setFont("helvetica", "normal");
   setText(d, [220, 235, 245]);
   d.text(`Reference · ${data.reference}`, PAGE_W - M, bannerH / 2 + 5, { align: "right" });
@@ -226,7 +233,7 @@ const drawBannerHeader = (d: jsPDF, data: PayslipData, logoDataUrl: string | nul
 
   setText(d, C.blueDk);
   d.setFontSize(7.5); d.setFont("helvetica", "bold");
-  d.text("PAY PERIOD", pillX + pillW / 2, pillY + 5.5, { align: "center" });
+  d.text(pillLabel, pillX + pillW / 2, pillY + 5.5, { align: "center" });
   setText(d, C.ink);
   d.setFontSize(10.5); d.setFont("helvetica", "bold");
   d.text(data.period, pillX + pillW / 2, pillY + 11, { align: "center" });
@@ -486,7 +493,7 @@ const drawLeaveBalances = (d: jsPDF, data: PayslipData, y: number): number => {
   return y + h + 6;
 };
 
-const drawFooter = (d: jsPDF, data: PayslipData) => {
+const drawFooter = (d: jsPDF, data: Pick<PayslipData, "notes">) => {
   const y = PAGE_H - 18;
 
   setFill(d, C.blueDk);
@@ -546,6 +553,268 @@ export const downloadPayslipPdf = async (data: PayslipData, fileName?: string): 
   const a = document.createElement("a");
   a.href = url;
   a.download = fileName || `Payslip-${data.period.replace(/\s+/g, "-")}.pdf`;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  window.setTimeout(() => URL.revokeObjectURL(url), 1500);
+};
+
+/* ─────────────────────────────────────────────────────────────────────
+ * EMP201 — employer's monthly PAYE / SDL / UIF declaration, drawn with the
+ * same Kago template as the payslip (banner, period pill, cards, footer).
+ * ────────────────────────────────────────────────────────────────── */
+
+export interface Emp201EmployeeRow {
+  name: string;
+  grossPay: number;
+  paye: number;
+  uifEmployee: number;
+  uifEmployer: number;
+  sdl: number;
+  eti: number;
+  netPay: number;
+}
+
+export interface Emp201Data {
+  reference: string;
+  period: string;          // "July 2026"
+  periodStart: string;     // ISO
+  periodEnd: string;       // ISO
+  currency?: string;       // "R"
+  employer: {
+    name: string;
+    address?: string;
+    registrationNo?: string;
+    payeReference?: string;
+    sdlReference?: string;
+    uifReference?: string;
+  };
+  employees: Emp201EmployeeRow[];
+}
+
+/** SARS: EMP201 is due by the 7th of the following month (earlier if the 7th is a weekend). */
+const emp201DueDate = (periodEndIso: string): Date => {
+  const end = new Date(periodEndIso);
+  const base = Number.isNaN(end.getTime()) ? new Date() : end;
+  const due = new Date(base.getFullYear(), base.getMonth() + 1, 7);
+  while (due.getDay() === 0 || due.getDay() === 6) due.setDate(due.getDate() - 1);
+  return due;
+};
+
+export const buildEmp201Pdf = async (data: Emp201Data): Promise<Blob> => {
+  const logoDataUrl = await loadLogo();
+  const cur = data.currency || "R";
+  const d = new jsPDF({ unit: "mm", format: "a4", compress: true });
+  d.setProperties({
+    title: `EMP201 — ${data.period} — ${data.employer.name}`,
+    subject: "EMP201 Monthly Employer Declaration",
+    author: data.employer.name,
+    creator: "Kago Human Capital",
+    keywords: "emp201, paye, uif, sdl, kago",
+  });
+
+  const rows = data.employees;
+  const tot = (k: keyof Emp201EmployeeRow) => rows.reduce((a, r) => a + (Number(r[k]) || 0), 0);
+  const totals = {
+    gross: tot("grossPay"), paye: tot("paye"), uifEmp: tot("uifEmployee"),
+    uifEr: tot("uifEmployer"), sdl: tot("sdl"), eti: tot("eti"), net: tot("netPay"),
+  };
+  const payable = totals.paye + totals.sdl + totals.uifEmp + totals.uifEr - totals.eti;
+
+  drawBannerHeader(d, data, logoDataUrl, "EMP201", "DECLARATION PERIOD");
+  let y = 44;
+
+  // Employer strip — same layout as the payslip's.
+  setText(d, C.ink);
+  d.setFontSize(11); d.setFont("helvetica", "bold");
+  d.text(data.employer.name, M, y + 6);
+  setText(d, C.muted);
+  d.setFontSize(8.5); d.setFont("helvetica", "normal");
+  const meta = [
+    data.employer.address,
+    data.employer.registrationNo ? `Reg No: ${data.employer.registrationNo}` : "",
+  ].filter(Boolean).join("\n");
+  if (meta) d.text(d.splitTextToSize(meta, (PAGE_W - 2 * M) / 2), M, y + 11);
+
+  setText(d, C.blueDk);
+  d.setFontSize(7.5); d.setFont("helvetica", "bold");
+  d.text("PAYMENT DUE BY", PAGE_W - M, y + 6, { align: "right" });
+  setText(d, C.ink);
+  d.setFontSize(13); d.setFont("helvetica", "bold");
+  d.text(shortDate(emp201DueDate(data.periodEnd).toISOString()), PAGE_W - M, y + 12, { align: "right" });
+  setText(d, C.muted);
+  d.setFontSize(8.5); d.setFont("helvetica", "normal");
+  d.text(`Cycle: ${shortDate(data.periodStart)} – ${shortDate(data.periodEnd)}`, PAGE_W - M, y + 17, { align: "right" });
+  setStroke(d, C.line);
+  d.setLineWidth(0.3);
+  d.line(M, y + 22, PAGE_W - M, y + 22);
+  y += 26;
+
+  // SARS reference card (styled like the payslip's employee card).
+  const refs = [
+    { k: "PAYE Ref", v: data.employer.payeReference },
+    { k: "SDL Ref", v: data.employer.sdlReference },
+    { k: "UIF Ref", v: data.employer.uifReference },
+    { k: "Employees", v: String(rows.length) },
+  ];
+  const missing = !data.employer.registrationNo || !data.employer.payeReference || !data.employer.sdlReference;
+  const cardH = missing ? 38 : 32;
+  rrect(d, M, y, PAGE_W - 2 * M, cardH, 3, C.blueBg, C.blue);
+  setFill(d, C.blueDk);
+  d.rect(M, y, 3, cardH, "F");
+  setText(d, C.blueDk);
+  d.setFontSize(8); d.setFont("helvetica", "bold");
+  d.text("SARS REFERENCES", M + 7, y + 6);
+  const cellW = (PAGE_W - 2 * M - 12) / refs.length;
+  refs.forEach((cell, i) => {
+    const cx = M + 7 + i * cellW;
+    setText(d, C.faint);
+    d.setFontSize(7); d.setFont("helvetica", "bold");
+    d.text(cell.k.toUpperCase(), cx, y + 14);
+    setText(d, cell.v ? C.ink : C.coralDk);
+    d.setFontSize(10); d.setFont("helvetica", "bold");
+    d.text(d.splitTextToSize(cell.v || "Not set", cellW - 6), cx, y + 20);
+  });
+  if (missing) {
+    setText(d, C.coralDk);
+    d.setFontSize(7.5); d.setFont("helvetica", "bold");
+    d.text(
+      "Not ready to submit: add the registration, PAYE and SDL numbers in Organisation settings, then download again.",
+      M + 7, y + 33,
+    );
+  }
+  y += cardH + 6;
+
+  // Contributions table (same header band, zebra rows and totals band as the payslip).
+  const tableW = PAGE_W - 2 * M;
+  const headerH = 8;
+  const rowH = 6.5;
+  const lines = [
+    { label: "PAYE (Pay-As-You-Earn)", amount: totals.paye },
+    { label: "SDL (Skills Development Levy)", amount: totals.sdl },
+    { label: "UIF — employee contribution", amount: totals.uifEmp },
+    { label: "UIF — employer contribution", amount: totals.uifEr },
+    { label: "ETI (Employment Tax Incentive)", amount: -totals.eti },
+  ];
+  const tableH = headerH + lines.length * rowH + 9;
+  rrect(d, M, y, tableW, tableH, 3, C.white, C.line);
+  setFill(d, C.blueDk);
+  d.roundedRect(M, y, tableW, headerH, 3, 3, "F");
+  d.rect(M, y + headerH - 3, tableW, 3, "F");
+  setText(d, C.white);
+  d.setFontSize(8); d.setFont("helvetica", "bold");
+  d.text("CONTRIBUTION", M + 4, y + 5.3);
+  d.text("AMOUNT", M + tableW - 4, y + 5.3, { align: "right" });
+  let ry = y + headerH;
+  lines.forEach((ln, i) => {
+    if (i % 2 === 1) { setFill(d, C.bandAlt); d.rect(M + 0.3, ry, tableW - 0.6, rowH, "F"); }
+    setText(d, C.text);
+    d.setFontSize(9); d.setFont("helvetica", "normal");
+    d.text(ln.label, M + 4, ry + 4.5);
+    d.text(money(ln.amount, cur), M + tableW - 4, ry + 4.5, { align: "right" });
+    ry += rowH;
+  });
+  setFill(d, C.band);
+  d.rect(M + 0.3, ry, tableW - 0.6, 8.7, "F");
+  setText(d, C.ink);
+  d.setFontSize(9.5); d.setFont("helvetica", "bold");
+  d.text("Total liability", M + 4, ry + 6);
+  d.text(money(payable, cur), M + tableW - 4, ry + 6, { align: "right" });
+  y += tableH + 6;
+
+  // Coral hero — the amount owed to SARS (the payslip's NET PAY strip).
+  const heroH = 26;
+  setFill(d, C.coral);
+  d.roundedRect(M, y, tableW, heroH, 5, 5, "F");
+  setFill(d, C.coralDk);
+  d.roundedRect(PAGE_W - M - 76, y + 4, 72, heroH - 8, 3, 3, "F");
+  setText(d, C.white);
+  d.setFontSize(9.5); d.setFont("helvetica", "bold");
+  d.text("TOTAL PAYABLE TO SARS", M + 8, y + 10);
+  d.setFontSize(8.5); d.setFont("helvetica", "normal");
+  setText(d, [255, 226, 220]);
+  d.text(`PAYE + SDL + UIF${totals.eti ? " less ETI" : ""} for ${data.period}`, M + 8, y + 16);
+  d.text(`Payroll gross ${money(totals.gross, cur)} · ${rows.length} employee(s)`, M + 8, y + 21);
+  setText(d, C.white);
+  d.setFontSize(20); d.setFont("helvetica", "bold");
+  d.text(money(payable, cur), PAGE_W - M - 6, y + heroH / 2 + 3, { align: "right" });
+  y += heroH + 8;
+
+  // Employee summary — paginates, repeating the header band.
+  const cols = [
+    { k: "EMPLOYEE", x: M + 4, align: "left" as const },
+    { k: "GROSS", x: M + 92, align: "right" as const },
+    { k: "PAYE", x: M + 120, align: "right" as const },
+    { k: "UIF", x: M + 146, align: "right" as const },
+    { k: "NET PAY", x: M + tableW - 4, align: "right" as const },
+  ];
+  const drawHeader = () => {
+    setFill(d, C.blueDk);
+    d.roundedRect(M, y, tableW, headerH, 3, 3, "F");
+    d.rect(M, y + headerH - 3, tableW, 3, "F");
+    setText(d, C.white);
+    d.setFontSize(8); d.setFont("helvetica", "bold");
+    cols.forEach((c) => d.text(c.k, c.x, y + 5.3, { align: c.align }));
+    y += headerH;
+  };
+  const bottom = PAGE_H - 30;
+  if (y + headerH + rowH * 2 + 6 > bottom) { d.addPage(); y = M + 4; }
+  setText(d, C.blueDk);
+  d.setFontSize(8); d.setFont("helvetica", "bold");
+  d.text("EMPLOYEE SUMMARY", M, y);
+  y += 3;
+  drawHeader();
+  rows.forEach((r, i) => {
+    if (y + rowH > bottom) { d.addPage(); y = M + 4; drawHeader(); }
+    if (i % 2 === 1) { setFill(d, C.bandAlt); d.rect(M, y, tableW, rowH, "F"); }
+    setText(d, C.text);
+    d.setFontSize(8.5); d.setFont("helvetica", "normal");
+    d.text(d.splitTextToSize(r.name || "Unknown", 70)[0], cols[0].x, y + 4.5);
+    d.text(money(r.grossPay, cur), cols[1].x, y + 4.5, { align: "right" });
+    d.text(money(r.paye, cur), cols[2].x, y + 4.5, { align: "right" });
+    d.text(money(r.uifEmployee, cur), cols[3].x, y + 4.5, { align: "right" });
+    d.text(money(r.netPay, cur), cols[4].x, y + 4.5, { align: "right" });
+    y += rowH;
+  });
+  setStroke(d, C.line);
+  d.setLineWidth(0.3);
+  d.line(M, y, PAGE_W - M, y);
+  y += 8;
+
+  // Declaration + signature lines.
+  if (y + 30 > bottom) { d.addPage(); y = M + 4; }
+  setText(d, C.blueDk);
+  d.setFontSize(8); d.setFont("helvetica", "bold");
+  d.text("DECLARATION", M, y);
+  setText(d, C.text);
+  d.setFontSize(8.5); d.setFont("helvetica", "normal");
+  d.text(
+    d.splitTextToSize(
+      "I declare that the information in this return is true and correct. I understand that submitting false information may result in penalties and interest.",
+      tableW,
+    ),
+    M, y + 5,
+  );
+  setText(d, C.muted);
+  d.text("Signature: ______________________", M, y + 20);
+  d.text("Date: ________________", M + 75, y + 20);
+  d.text("Capacity: ________________", M + 125, y + 20);
+
+  // Footer on every page.
+  const pages = d.getNumberOfPages();
+  for (let p = 1; p <= pages; p++) {
+    d.setPage(p);
+    drawFooter(d, { notes: "Computer-generated EMP201 summary. Submit the declaration and payment to SARS via eFiling by the due date." });
+  }
+
+  return d.output("blob");
+};
+
+export const downloadEmp201Pdf = async (data: Emp201Data, fileName?: string): Promise<void> => {
+  const url = URL.createObjectURL(await buildEmp201Pdf(data));
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = fileName || `EMP201-${data.period.replace(/\s+/g, "-")}.pdf`;
   document.body.appendChild(a);
   a.click();
   document.body.removeChild(a);

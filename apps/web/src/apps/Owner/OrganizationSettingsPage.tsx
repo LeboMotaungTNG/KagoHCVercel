@@ -46,6 +46,8 @@ import {
   orgApi,
 } from "../../shared/utils/organizationSettings";
 import { normalizeEmployeeList } from "../../shared/utils/employee";
+import { useNavigate, useParams } from "react-router-dom";
+import Payroll from "../Manager/Payroll";
 
 // ─────────────────────────────────────────────
 // SHARED DESIGN TOKENS (matches Leave tab style)
@@ -1510,8 +1512,18 @@ const LeaveSettingsTab = () => {
 // ============================================
 // MAIN ORGANIZATION SETTINGS PAGE
 // ============================================
+type SettingsTab = "company" | "hours" | "payroll" | "leave" | "documents";
+const SETTINGS_TABS: SettingsTab[] = ["company", "hours", "payroll", "leave", "documents"];
+
 export const OrganizationSettingsPage = () => {
-  const [activeTab, setActiveTab] = useState<"company" | "hours" | "payroll" | "leave" | "documents">("company");
+  // Each tab has its own address, e.g. /owner/organization-settings/payroll.
+  const { tab } = useParams<{ tab?: string }>();
+  const navigate = useNavigate();
+  const requested = String(tab || "").toLowerCase();
+  const activeTab: SettingsTab = requested.startsWith("payrol")
+    ? "payroll"
+    : (SETTINGS_TABS.includes(requested as SettingsTab) ? (requested as SettingsTab) : "company");
+  const setActiveTab = (next: SettingsTab) => navigate(`/owner/organization-settings/${next}`);
 
   return (
     <PerformancePage maxWidth={1200}>
@@ -1535,7 +1547,8 @@ export const OrganizationSettingsPage = () => {
       </div>
       {activeTab === "company" && <CompanyDetailsTab />}
       {activeTab === "hours" && <WorkingHoursPanel />}
-      {activeTab === "payroll" && <PayrollSettingsTab />}
+      {/* The full Payroll page (runs, payslips, EMP201, settings) — formerly /owner/payroll. */}
+      {activeTab === "payroll" && <Payroll embedded />}
       {activeTab === "leave" && <LeaveSettingsTab />}
       {activeTab === "documents" && <DocumentsLibraryTab />}
     </PerformancePage>
