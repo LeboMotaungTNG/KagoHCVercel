@@ -22,7 +22,7 @@ import { PageHero } from "../employee/src/components/PerformanceUI";
 import MyClockCard from "../../shared/components/MyClockCard";
 import { CompanyNotices } from "../../shared/components/CompanyNotices";
 import { isManagerReviewStatus, leaveApiMessage } from "../../shared/utils/LeaveUtils";
-import { canOnboardEmployees } from "../../shared/utils/onboardingAccess";
+import { canOnboardEmployees, currentAppRole } from "../../shared/utils/onboardingAccess";
 
 const token = () => localStorage.getItem("token") || "";
 
@@ -476,6 +476,7 @@ const AIAssistantCard: React.FC = () => {
 
 /* ─── Main component ─────────────────────────────────────────────────────── */
 const ManagerDashboard: React.FC = () => {
+  const canSeePayroll = ["hr", "hr_manager"].includes(currentAppRole());
   const navigate = useNavigate();
   const [counts, setCounts]               = useState({ employees: 0, pendingLeave: 0, presentToday: 0, onPayroll: 0 });
   const [leaveRequests, setLeaveRequests] = useState<LeaveReq[]>([]);
@@ -626,7 +627,10 @@ const ManagerDashboard: React.FC = () => {
           <StatTile label="Total Employees" value={loading ? "…" : counts.employees}    sub="In your team"          icon={<Users size={20} />}    iconBg={C.blueBg}   iconColor={C.blue}   onClick={() => navigate("/manager/employees")}     />
           <StatTile label="Present Today"   value={loading ? "…" : counts.presentToday} sub={`${presentPct}% rate`} icon={<Clock size={20} />}    iconBg={C.greenBg}  iconColor={C.green}  delta={{ up: presentPct >= 75, text: `${presentPct}%` }} onClick={() => navigate("/manager/attendance")}    />
           <StatTile label="Pending Leave"   value={loading ? "…" : counts.pendingLeave} sub="Awaiting manager review"     icon={<Calendar size={20} />} iconBg={C.warnBg}   iconColor={C.amber}  onClick={() => navigate("/manager/leave-requests")} />
+          {/* Payroll is for HR (and the owner / payroll officers), not managers or admins. */}
+          {canSeePayroll && (
           <StatTile label="On Payroll"      value={loading ? "…" : counts.onPayroll}    sub="Active employees"      icon={<Target size={20} />}   iconBg={C.purpleBg} iconColor={C.purple} onClick={() => navigate("/manager/payroll")}       />
+          )}
         </div>
 
         <div className="mgr-row mgr-pair">
