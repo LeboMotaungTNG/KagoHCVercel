@@ -21,9 +21,27 @@ import type { AppShellNav } from "./types";
 export function navForRole(role: string): AppShellNav {
   if (role === "owner") return ownerNav;
   if (role === "auditor") return auditorNav;
-  if (role === "manager" || role === "admin" || role === "hr" || role === "hr_manager") return managerNav;
+  // Payroll is for the owner, HR and payroll officers only: managers and admins
+  // share HR's menu, so the Payroll link is removed for them.
+  if (role === "hr" || role === "hr_manager") return managerNav;
+  if (role === "manager" || role === "admin") return withoutPayroll(managerNav);
   if (role === "payroll_officer") return payrollOfficerNav;
   return employeeNav(role);
+}
+
+/** The same menu without any payroll links. */
+function withoutPayroll(nav: AppShellNav): AppShellNav {
+  const isPayroll = (to: string) => /\/payroll\b/.test(to);
+  return {
+    ...nav,
+    sections: nav.sections.map((section) => ({
+      ...section,
+      items: section.items
+        .filter((item) => item.kind !== "link" || !isPayroll(item.to))
+        .map((item) => (item.kind === "group" ? { ...item, children: item.children.filter((c) => !isPayroll(c.to)) } : item)),
+    })),
+    mobile: nav.mobile.filter((m) => !isPayroll(m.to)),
+  };
 }
 
 const employeeNav = (role: string): AppShellNav => ({

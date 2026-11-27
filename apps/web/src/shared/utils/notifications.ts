@@ -276,15 +276,6 @@ const managerSeeds = (): AppNotification[] => [
     read: false,
     href: "/manager/leave-requests",
   },
-  {
-    id: "manager-payroll-reminder",
-    category: "system",
-    title: "Payroll cycle reminder",
-    body: "Monthly payroll closes in 2 days. Review submissions now.",
-    createdAt: daysAgo(1),
-    read: false,
-    href: "/manager/payroll",
-  },
 ];
 
 const ownerSeeds = (): AppNotification[] => [
